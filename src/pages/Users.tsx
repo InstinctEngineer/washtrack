@@ -3,20 +3,27 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { UserPlus } from "lucide-react";
+import { UserPlus, RefreshCw } from "lucide-react";
 import { UserTable } from "@/components/UserTable";
 import { CreateUserModal } from "@/components/CreateUserModal";
 import { User } from "@/types/database";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const Users = () => {
+  const { user: currentUser } = useAuth();
+  const { toast } = useToast();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  const { data: users, isLoading, refetch } = useQuery({
+  const { data: users, isLoading, error, refetch } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
+      console.log("Fetching users...");
       const { data, error } = await supabase
         .from("users")
         .select(`
@@ -26,7 +33,12 @@ const Users = () => {
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      console.log("Users query result:", { data, error });
+
+      if (error) {
+        console.error("Error fetching users:", error);
+        throw error;
+      }
       
       // Supabase returns manager as array, we need to transform it
       const transformedData = data?.map(user => ({
@@ -37,12 +49,89 @@ const Users = () => {
           : null
       }));
       
+      console.log("Transformed users:", transformedData);
+      
       return transformedData as (User & { 
         location?: { name: string } | null;
         manager?: { name: string } | null;
       })[];
     },
   });
+
+  const handleSyncCurrentUser = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Error",
+        description: "No authenticated user found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSyncing(true);
+
+    try {
+      // Check if user already exists
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", currentUser.id)
+        .single();
+
+      if (existingUser) {
+        toast({
+          title: "User Already Exists",
+          description: "Your user record already exists in the system.",
+        });
+        refetch();
+        return;
+      }
+
+      // Get user metadata from auth
+      const { data: authUser } = await supabase.auth.getUser();
+      const userMetadata = authUser.user?.user_metadata || {};
+      const email = authUser.user?.email || "";
+      const name = userMetadata.name || email.split("@")[0];
+
+      // Create user record
+      const { error: insertError } = await supabase.from("users").insert({
+        id: currentUser.id,
+        email: email,
+        name: name,
+        employee_id: currentUser.id.substring(0, 8).toUpperCase(),
+        role: "admin",
+        is_active: true,
+        location_id: null,
+        manager_id: null,
+      });
+
+      if (insertError) throw insertError;
+
+      // Create user_roles entry
+      const { error: roleError } = await supabase.from("user_roles").insert({
+        user_id: currentUser.id,
+        role: "admin",
+      });
+
+      if (roleError) throw roleError;
+
+      toast({
+        title: "Success",
+        description: "Your user record has been created successfully.",
+      });
+
+      refetch();
+    } catch (error: any) {
+      console.error("Error syncing user:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sync user",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Get user roles from user_roles table
   const { data: userRoles } = useQuery({
@@ -88,6 +177,8 @@ const Users = () => {
 
   const userCount = filteredUsers?.length || 0;
 
+  const showSyncBanner = !isLoading && (!users || users.length === 0);
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -106,6 +197,43 @@ const Users = () => {
             Create New User
           </Button>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Error Loading Users</AlertTitle>
+            <AlertDescription>
+              {error instanceof Error ? error.message : "Failed to load users. Check console for details."}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {showSyncBanner && (
+          <Alert>
+            <AlertTitle>No User Records Found</AlertTitle>
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                The users table is empty. Initialize the system by syncing your current user account.
+              </span>
+              <Button
+                onClick={handleSyncCurrentUser}
+                disabled={isSyncing}
+                size="sm"
+              >
+                {isSyncing ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Sync Current User
+                  </>
+                )}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <UserTable
           users={filteredUsers || []}
