@@ -61,3 +61,22 @@ export interface WashEntryWithDetails extends WashEntry {
   employee?: User;
   actual_location?: Location;
 }
+
+export interface SystemSetting {
+  id: string;
+  setting_key: string;
+  setting_value: string;
+  updated_by: string | null;
+  updated_at: string;
+  description: string | null;
+}
+
+export interface SystemSettingsAudit {
+  id: string;
+  setting_key: string;
+  old_value: string | null;
+  new_value: string;
+  changed_by: string | null;
+  changed_at: string;
+  change_reason: string | null;
+}

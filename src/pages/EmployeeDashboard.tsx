@@ -9,19 +9,27 @@ import { toast } from '@/hooks/use-toast';
 import { format, startOfWeek, endOfWeek, addWeeks } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, TrendingUp } from 'lucide-react';
+import { CutoffBanner } from '@/components/CutoffBanner';
+import { getCurrentCutoff, canUserOverrideCutoff } from '@/lib/cutoff';
 
 export default function EmployeeDashboard() {
   const { userProfile } = useAuth();
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [entries, setEntries] = useState<WashEntryWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cutoffDate] = useState<Date | null>(null); // TODO: Implement cutoff date from system settings
+  const [cutoffDate, setCutoffDate] = useState<Date | null>(null);
 
   useEffect(() => {
     if (userProfile?.id) {
       fetchWeekEntries();
+      loadCutoffDate();
     }
   }, [userProfile?.id, currentWeek]);
+
+  const loadCutoffDate = async () => {
+    const cutoff = await getCurrentCutoff();
+    setCutoffDate(cutoff);
+  };
 
   const fetchWeekEntries = async () => {
     if (!userProfile?.id) return;
@@ -68,6 +76,16 @@ export default function EmployeeDashboard() {
       toast({
         title: 'Error',
         description: 'Contact admin to assign your location',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check cutoff date for employees
+    if (cutoffDate && userProfile.role === 'employee' && date < cutoffDate) {
+      toast({
+        title: 'Entry Restricted',
+        description: `Cannot enter washes before ${format(cutoffDate, 'MMM d, yyyy')}. Contact your manager.`,
         variant: 'destructive',
       });
       return;
@@ -192,6 +210,8 @@ export default function EmployeeDashboard() {
           <h1 className="text-3xl font-bold">Welcome back, {userProfile?.name}!</h1>
           <p className="text-muted-foreground mt-2">Track your vehicle washes</p>
         </div>
+
+        <CutoffBanner />
 
         {loading ? (
           <div className="text-center py-12">
