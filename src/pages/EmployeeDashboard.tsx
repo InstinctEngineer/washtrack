@@ -1,23 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { WeekView } from '@/components/WeekView';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
-import { WashEntryWithDetails } from '@/types/database';
+import { WashEntryWithDetails, VehicleWithDetails } from '@/types/database';
 import { toast } from '@/hooks/use-toast';
-import { format, startOfWeek, endOfWeek, addWeeks } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays, isToday, isSameDay } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, TrendingUp } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { CutoffBanner } from '@/components/CutoffBanner';
-import { getCurrentCutoff, canUserOverrideCutoff } from '@/lib/cutoff';
+import { getCurrentCutoff } from '@/lib/cutoff';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export default function EmployeeDashboard() {
   const { userProfile } = useAuth();
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [entries, setEntries] = useState<WashEntryWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [cutoffDate, setCutoffDate] = useState<Date | null>(null);
+  
+  // Vehicle search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [vehicles, setVehicles] = useState<VehicleWithDetails[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Week summary state
+  const [weekSummaryOpen, setWeekSummaryOpen] = useState(false);
 
   useEffect(() => {
     if (userProfile?.id) {
@@ -25,6 +39,91 @@ export default function EmployeeDashboard() {
       loadCutoffDate();
     }
   }, [userProfile?.id, currentWeek]);
+
+  // Auto-focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Debounced vehicle search
+  useEffect(() => {
+    if (searchTerm.length === 0) {
+      setVehicles([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const { data: startsWithData } = await supabase
+          .from('vehicles')
+          .select(`
+            *,
+            vehicle_type:vehicle_types(*),
+            home_location:locations!vehicles_home_location_id_fkey(*)
+          `)
+          .ilike('vehicle_number', `${searchTerm}%`)
+          .eq('is_active', true)
+          .limit(5);
+
+        const startsWithNumbers = startsWithData?.map(v => v.vehicle_number) || [];
+        
+        let containsQuery = supabase
+          .from('vehicles')
+          .select(`
+            *,
+            vehicle_type:vehicle_types(*),
+            home_location:locations!vehicles_home_location_id_fkey(*)
+          `)
+          .ilike('vehicle_number', `%${searchTerm}%`)
+          .eq('is_active', true);
+        
+        if (startsWithNumbers.length > 0) {
+          containsQuery = containsQuery.not('vehicle_number', 'in', `(${startsWithNumbers.join(',')})`);
+        }
+        
+        const { data: containsData } = await containsQuery.limit(5);
+
+        let allVehicles = [...(startsWithData || []), ...(containsData || [])];
+        
+        if (userProfile?.location_id) {
+          allVehicles = allVehicles.sort((a, b) => {
+            const aIsHome = a.home_location_id === userProfile.location_id;
+            const bIsHome = b.home_location_id === userProfile.location_id;
+            if (aIsHome && !bIsHome) return -1;
+            if (!aIsHome && bIsHome) return 1;
+            return 0;
+          });
+        }
+
+        setVehicles(allVehicles.slice(0, 5));
+        setShowDropdown(true);
+      } catch (error) {
+        console.error('Error searching vehicles:', error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, userProfile?.location_id]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        !inputRef.current?.contains(event.target as Node)
+      ) {
+        setShowDropdown(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadCutoffDate = async () => {
     const cutoff = await getCurrentCutoff();
@@ -69,6 +168,30 @@ export default function EmployeeDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectVehicle = (vehicle: VehicleWithDetails) => {
+    handleAddWash(selectedDate, vehicle.vehicle_number, vehicle.id);
+    setSearchTerm('');
+    setShowDropdown(false);
+    inputRef.current?.focus();
+  };
+
+  const handleSubmitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      handleAddWash(selectedDate, searchTerm.trim(), '');
+      setSearchTerm('');
+      setShowDropdown(false);
+    }
+  };
+
+  const handlePreviousDay = () => {
+    setSelectedDate(prev => addDays(prev, -1));
+  };
+
+  const handleNextDay = () => {
+    setSelectedDate(prev => addDays(prev, 1));
   };
 
   const handleAddWash = async (date: Date, vehicleNumber: string, vehicleId: string) => {
@@ -119,7 +242,7 @@ export default function EmployeeDashboard() {
         if (vehicleError || !vehicleData) {
           toast({
             title: 'Vehicle Not Found',
-            description: `Vehicle #${vehicleNumber} not found in system`,
+            description: `Vehicle not found. Check number and try again.`,
             variant: 'destructive',
           });
           return;
@@ -140,10 +263,9 @@ export default function EmployeeDashboard() {
 
       if (insertError) {
         if (insertError.code === '23505') {
-          // Unique constraint violation - duplicate wash
           toast({
-            title: 'Duplicate Wash Entry',
-            description: `Vehicle #${vehicleNumber} already washed on ${format(date, 'MMM d, yyyy')}`,
+            title: 'Duplicate Entry',
+            description: `${vehicleNumber} already washed today`,
             variant: 'destructive',
           });
         } else {
@@ -162,8 +284,9 @@ export default function EmployeeDashboard() {
         .eq('id', finalVehicleId);
 
       toast({
-        title: 'Success',
-        description: `Vehicle #${vehicleNumber} marked as washed`,
+        title: '✓ Vehicle Added',
+        description: `${vehicleNumber} added successfully`,
+        className: 'bg-green-50 text-green-900 border-green-200',
       });
 
       // Refresh entries
@@ -216,51 +339,215 @@ export default function EmployeeDashboard() {
     );
   }
 
+  // Get entries for selected date
+  const todayEntries = entries.filter(entry => entry.wash_date === format(selectedDate, 'yyyy-MM-dd'));
+  
+  // Get entries by day for week summary
+  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const entriesByDay = weekDays.map(day => ({
+    day,
+    count: entries.filter(entry => entry.wash_date === format(day, 'yyyy-MM-dd')).length
+  }));
+
   return (
     <Layout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Welcome back, {userProfile?.name}!</h1>
-          <p className="text-muted-foreground mt-2">Track your vehicle washes</p>
-        </div>
-
+      <div className="max-w-2xl mx-auto space-y-4 pb-20">
         <CutoffBanner />
 
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="text-muted-foreground">Loading...</div>
-          </div>
-        ) : (
-          <>
-            <WeekView
-              currentWeek={currentWeek}
-              entries={entries}
-              onAddWash={handleAddWash}
-              onDeleteWash={handleDeleteWash}
-              onPreviousWeek={() => setCurrentWeek(addWeeks(currentWeek, -1))}
-              onNextWeek={() => setCurrentWeek(addWeeks(currentWeek, 1))}
-              onCurrentWeek={() => setCurrentWeek(new Date())}
-              cutoffDate={cutoffDate}
-            />
+        {/* Date Navigation */}
+        <Card className="sticky top-4 z-10 shadow-lg">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handlePreviousDay}
+                className="h-12 w-12"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </Button>
+              
+              <div className="text-center flex-1">
+                <div className="text-lg md:text-xl font-bold">
+                  {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE')}
+                </div>
+                <div className="text-sm md:text-base text-muted-foreground">
+                  {format(selectedDate, 'MMMM d, yyyy')}
+                </div>
+              </div>
+              
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleNextDay}
+                className="h-12 w-12"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-            {/* Summary Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  This Week Summary
-                </CardTitle>
-                <CardDescription>Your performance this week</CardDescription>
+        {/* Vehicle Entry Section */}
+        <Card>
+          <CardContent className="p-4 md:p-6 space-y-4">
+            <form onSubmit={handleSubmitSearch} className="relative">
+              <Input
+                ref={inputRef}
+                type="text"
+                inputMode="numeric"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+                placeholder="Enter vehicle number..."
+                className="text-lg h-14 text-center font-medium tracking-wide"
+                autoComplete="off"
+                autoCapitalize="characters"
+              />
+              
+              {showDropdown && vehicles.length > 0 && (
+                <div
+                  ref={dropdownRef}
+                  className="absolute z-50 w-full mt-2 bg-card border rounded-lg shadow-xl overflow-hidden"
+                >
+                  {vehicles.map((vehicle) => (
+                    <button
+                      key={vehicle.id}
+                      type="button"
+                      onClick={() => handleSelectVehicle(vehicle)}
+                      className="w-full px-4 py-4 text-left hover:bg-accent transition-colors border-b last:border-b-0 min-h-[48px]"
+                    >
+                      <div className="font-semibold text-base">{vehicle.vehicle_number}</div>
+                      <div className="text-sm text-muted-foreground mt-0.5">
+                        {vehicle.vehicle_type?.type_name || 'Unknown'}
+                        {vehicle.home_location && ` • ${vehicle.home_location.name}`}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {showDropdown && searchTerm && vehicles.length === 0 && !isSearching && (
+                <div
+                  ref={dropdownRef}
+                  className="absolute z-50 w-full mt-2 bg-card border rounded-lg shadow-xl p-4 text-center text-muted-foreground"
+                >
+                  No vehicles found
+                </div>
+              )}
+            </form>
+
+            {searchTerm.trim() && (
+              <Button
+                type="button"
+                onClick={() => handleAddWash(selectedDate, searchTerm.trim(), '')}
+                className="w-full h-14 text-lg font-semibold"
+                size="lg"
+              >
+                Add Wash
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Today's Washes Section */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-bold">
+              Washed Today ({todayEntries.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading...
+              </div>
+            ) : todayEntries.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                No washes logged yet today
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {todayEntries.map((entry) => {
+                  const canDelete = isToday(new Date(entry.wash_date));
+                  return (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between p-4 bg-accent/50 border rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <div className="font-bold text-lg">
+                          {entry.vehicle?.vehicle_number}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {entry.vehicle?.vehicle_type?.type_name}
+                          {' • '}
+                          {format(new Date(entry.created_at), 'h:mm a')}
+                        </div>
+                      </div>
+                      
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteWash(entry.id)}
+                          className="h-11 w-11 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <X className="h-5 w-5" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Week Summary - Collapsible */}
+        <Collapsible open={weekSummaryOpen} onOpenChange={setWeekSummaryOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-bold">This Week</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold">{entries.length}</span>
+                    <span className="text-muted-foreground">vehicles</span>
+                    {weekSummaryOpen ? (
+                      <ChevronUp className="h-5 w-5 ml-2" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 ml-2" />
+                    )}
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{entries.length}</div>
-                <p className="text-muted-foreground">
-                  vehicles washed
-                </p>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent>
+              <CardContent className="pt-0 space-y-2">
+                {entriesByDay.map(({ day, count }) => (
+                  <div
+                    key={day.toISOString()}
+                    className={`flex items-center justify-between p-3 rounded-lg ${
+                      isSameDay(day, selectedDate)
+                        ? 'bg-primary/10 border border-primary/20'
+                        : 'bg-accent/30'
+                    }`}
+                  >
+                    <div className="font-medium">
+                      {format(day, 'EEEE, MMM d')}
+                      {isToday(day) && (
+                        <span className="ml-2 text-xs text-primary font-bold">TODAY</span>
+                      )}
+                    </div>
+                    <div className="text-lg font-bold">{count}</div>
+                  </div>
+                ))}
               </CardContent>
-            </Card>
-          </>
-        )}
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       </div>
     </Layout>
   );
