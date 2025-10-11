@@ -24,29 +24,43 @@ const Users = () => {
     queryKey: ["users"],
     queryFn: async () => {
       console.log("Fetching users...");
-      const { data, error } = await supabase
+      
+      // Fetch users first
+      const { data: usersData, error: usersError } = await supabase
         .from("users")
-        .select(`
-          *,
-          location:locations!users_location_id_fkey(name),
-          manager:users!users_manager_id_fkey(name)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
-      console.log("Users query result:", { data, error });
+      console.log("Users query result:", { data: usersData, error: usersError });
 
-      if (error) {
-        console.error("Error fetching users:", error);
-        throw error;
+      if (usersError) {
+        console.error("Error fetching users:", usersError);
+        throw usersError;
       }
-      
-      // Supabase returns manager as array, we need to transform it
-      const transformedData = data?.map(user => ({
+
+      if (!usersData || usersData.length === 0) {
+        return [];
+      }
+
+      // Fetch locations
+      const { data: locationsData } = await supabase
+        .from("locations")
+        .select("id, name");
+
+      // Fetch all users again for manager names (to avoid RLS recursion issues)
+      const { data: managersData } = await supabase
+        .from("users")
+        .select("id, name");
+
+      // Create lookup maps
+      const locationMap = new Map(locationsData?.map(l => [l.id, l.name]) || []);
+      const managerMap = new Map(managersData?.map(m => [m.id, m.name]) || []);
+
+      // Transform data with manual joins
+      const transformedData = usersData.map(user => ({
         ...user,
-        location: user.location && !Array.isArray(user.location) ? user.location : null,
-        manager: user.manager && Array.isArray(user.manager) && user.manager.length > 0 
-          ? user.manager[0] 
-          : null
+        location: user.location_id ? { name: locationMap.get(user.location_id) || "Unknown" } : null,
+        manager: user.manager_id ? { name: managerMap.get(user.manager_id) || "Unknown" } : null
       }));
       
       console.log("Transformed users:", transformedData);
