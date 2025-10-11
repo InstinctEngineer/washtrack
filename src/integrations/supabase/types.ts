@@ -200,6 +200,55 @@ export type Database = {
           },
         ]
       }
+      wash_entries: {
+        Row: {
+          actual_location_id: string
+          created_at: string
+          employee_id: string
+          id: string
+          vehicle_id: string
+          wash_date: string
+        }
+        Insert: {
+          actual_location_id: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          vehicle_id: string
+          wash_date: string
+        }
+        Update: {
+          actual_location_id?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          vehicle_id?: string
+          wash_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wash_entries_actual_location_id_fkey"
+            columns: ["actual_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_entries_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

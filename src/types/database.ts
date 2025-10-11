@@ -45,3 +45,18 @@ export interface VehicleWithDetails extends Vehicle {
   home_location?: Location;
   last_seen_location?: Location;
 }
+
+export interface WashEntry {
+  id: string;
+  employee_id: string;
+  vehicle_id: string;
+  wash_date: string;
+  actual_location_id: string;
+  created_at: string;
+}
+
+export interface WashEntryWithDetails extends WashEntry {
+  vehicle?: VehicleWithDetails;
+  employee?: User;
+  actual_location?: Location;
+}
