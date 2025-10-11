@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/database';
+import { hasRoleOrHigher } from '@/lib/roleUtils';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user, userProfile, loading } = useAuth();
+  const { user, userRole, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -22,12 +23,27 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     );
   }
 
-  if (!user || !userProfile) {
+  if (!user || !userRole) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
-    return <Navigate to="/unauthorized" replace />;
+  // Check if user's role meets the hierarchy requirement
+  if (allowedRoles && allowedRoles.length > 0) {
+    // Find the minimum required role (lowest in hierarchy that's allowed)
+    const minRequiredRole = allowedRoles.reduce((min, current) => {
+      const roleHierarchy: Record<UserRole, number> = {
+        employee: 1,
+        manager: 2,
+        finance: 3,
+        admin: 4,
+      };
+      return roleHierarchy[current] < roleHierarchy[min] ? current : min;
+    });
+
+    // Check if user has the minimum required role or higher
+    if (!hasRoleOrHigher(userRole, minRequiredRole)) {
+      return <Navigate to="/unauthorized" replace />;
+    }
   }
 
   return <>{children}</>;

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { z } from 'zod';
+import { getUserHighestRole, getDashboardPath } from '@/lib/roleUtils';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -41,24 +42,15 @@ export default function Login() {
 
       if (signInError) throw signInError;
 
-      // Fetch user profile to determine role
-      const { data: userProfile, error: profileError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
+      // Fetch user's highest role from user_roles table
+      const highestRole = await getUserHighestRole(data.user.id);
 
-      if (profileError) throw profileError;
+      if (!highestRole) {
+        throw new Error('No role assigned to user');
+      }
 
-      // Redirect based on role
-      const roleRoutes = {
-        employee: '/employee/dashboard',
-        manager: '/manager/dashboard',
-        finance: '/finance/dashboard',
-        admin: '/admin/dashboard'
-      };
-
-      navigate(roleRoutes[userProfile.role as keyof typeof roleRoutes] || '/');
+      // Redirect to dashboard based on highest role
+      navigate(getDashboardPath(highestRole));
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
     } finally {
