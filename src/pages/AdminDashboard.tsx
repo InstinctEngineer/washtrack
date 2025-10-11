@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Users, MapPin, Settings, Car, List } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentCutoff } from '@/lib/cutoff';
+import { format } from 'date-fns';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -13,14 +15,16 @@ export default function AdminDashboard() {
     vehicleTypes: 0,
     locations: 0,
   });
+  const [cutoffDate, setCutoffDate] = useState<Date | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [vehiclesRes, typesRes, locationsRes] = await Promise.all([
+        const [vehiclesRes, typesRes, locationsRes, cutoff] = await Promise.all([
           supabase.from('vehicles').select('id, is_active', { count: 'exact' }),
           supabase.from('vehicle_types').select('id', { count: 'exact' }),
           supabase.from('locations').select('id', { count: 'exact' }),
+          getCurrentCutoff(),
         ]);
 
         setStats({
@@ -29,6 +33,7 @@ export default function AdminDashboard() {
           vehicleTypes: typesRes.count || 0,
           locations: locationsRes.count || 0,
         });
+        setCutoffDate(cutoff);
       } catch (error) {
         console.error('Error fetching stats:', error);
       }
@@ -84,12 +89,14 @@ export default function AdminDashboard() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>System Status</CardDescription>
-              <CardTitle className="text-lg">Operational</CardTitle>
+              <CardDescription>Cutoff Date</CardDescription>
+              <CardTitle className="text-lg">
+                {cutoffDate ? format(cutoffDate, 'MMM d') : 'Loading...'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                All systems running
+                {cutoffDate ? format(cutoffDate, 'h:mm a') : 'Fetching...'}
               </p>
             </CardContent>
           </Card>
@@ -152,11 +159,11 @@ export default function AdminDashboard() {
             <CardHeader>
               <Settings className="h-8 w-8 text-primary mb-2" />
               <CardTitle>System Settings</CardTitle>
-              <CardDescription>Configure application</CardDescription>
+              <CardDescription>Configure cutoff and settings</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full" disabled>
-                Coming Soon
+              <Button asChild className="w-full">
+                <Link to="/admin/settings">Manage Settings</Link>
               </Button>
             </CardContent>
           </Card>

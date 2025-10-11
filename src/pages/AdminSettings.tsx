@@ -5,7 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Calendar, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -27,6 +30,8 @@ export default function AdminSettings() {
   const [auditTrail, setAuditTrail] = useState<AuditTrailItem[]>([]);
   const [showExtendDialog, setShowExtendDialog] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showManualDialog, setShowManualDialog] = useState(false);
+  const [manualDate, setManualDate] = useState<Date | undefined>(undefined);
   const [activeUsers, setActiveUsers] = useState(0);
   const [activeVehicles, setActiveVehicles] = useState(0);
 
@@ -145,6 +150,37 @@ export default function AdminSettings() {
     setShowResetDialog(false);
   };
 
+  const handleManualDateSet = async () => {
+    if (!user || !manualDate) return;
+
+    try {
+      // Set time to 23:59:59
+      const dateWithTime = new Date(manualDate);
+      dateWithTime.setHours(23, 59, 59, 999);
+
+      const result = await updateCutoffDate(dateWithTime, user.id, 'Manual date selection');
+      
+      if (result.success) {
+        toast({
+          title: 'Success',
+          description: `Cutoff date set to ${format(dateWithTime, 'PPP p')}`,
+        });
+        await fetchData();
+      } else {
+        throw new Error(result.error || 'Failed to set cutoff');
+      }
+    } catch (error) {
+      console.error('Error setting cutoff:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to set cutoff date',
+        variant: 'destructive',
+      });
+    }
+    setShowManualDialog(false);
+    setManualDate(undefined);
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -236,6 +272,28 @@ export default function AdminSettings() {
                   <Button variant="outline" onClick={() => setShowResetDialog(true)}>
                     Reset to Last Saturday
                   </Button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline">
+                        <Calendar className="mr-2 h-4 w-4" />
+                        Set Custom Date
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={manualDate}
+                        onSelect={(date) => {
+                          setManualDate(date);
+                          if (date) {
+                            setShowManualDialog(true);
+                          }
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             )}
@@ -328,6 +386,29 @@ export default function AdminSettings() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleResetToLastSaturday}>
               Reset Cutoff
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Manual Date Confirmation Dialog */}
+      <AlertDialog open={showManualDialog} onOpenChange={setShowManualDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Set Custom Cutoff Date?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {manualDate && (
+                <>
+                  This will set the cutoff date to {format(manualDate, 'EEEE, MMMM d, yyyy')} at 11:59 PM.
+                  Employees will be able to enter washes for 7 days leading up to this date.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setManualDate(undefined)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleManualDateSet}>
+              Set Cutoff
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

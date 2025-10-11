@@ -81,14 +81,27 @@ export default function EmployeeDashboard() {
       return;
     }
 
-    // Check cutoff date for employees
-    if (cutoffDate && userProfile.role === 'employee' && date < cutoffDate) {
-      toast({
-        title: 'Entry Restricted',
-        description: `Cannot enter washes before ${format(cutoffDate, 'MMM d, yyyy')}. Contact your manager.`,
-        variant: 'destructive',
-      });
-      return;
+    // Check cutoff date restriction for employees
+    // Employees can only enter washes within 7 days leading up to the cutoff date
+    if (cutoffDate && userProfile.role === 'employee') {
+      const washDate = new Date(date);
+      washDate.setHours(0, 0, 0, 0);
+      
+      const cutoffDateOnly = new Date(cutoffDate);
+      cutoffDateOnly.setHours(0, 0, 0, 0);
+      
+      // Calculate 7 days before cutoff
+      const sevenDaysBeforeCutoff = new Date(cutoffDateOnly);
+      sevenDaysBeforeCutoff.setDate(cutoffDateOnly.getDate() - 7);
+      
+      if (washDate < sevenDaysBeforeCutoff || washDate > cutoffDateOnly) {
+        toast({
+          title: 'Entry Blocked',
+          description: 'Can only enter washes within 7 days of cutoff date. Contact your manager.',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     try {

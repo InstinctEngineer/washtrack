@@ -82,7 +82,7 @@ export function getCutoffStatusColor(cutoffDate: Date): 'green' | 'yellow' | 're
   const now = new Date();
   const daysUntilCutoff = Math.ceil((cutoffDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   
-  if (daysUntilCutoff < 0) return 'red'; // Past cutoff
+  if (daysUntilCutoff <= 1) return 'red'; // 1 day or less
   if (daysUntilCutoff <= 2) return 'yellow'; // 2 days or less
   return 'green'; // More than 2 days
 }

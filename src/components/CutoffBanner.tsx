@@ -37,7 +37,7 @@ export function CutoffBanner() {
     ? `✓ Entry period open until ${format(cutoffDate, 'EEEE, MMMM d, yyyy')} at ${format(cutoffDate, 'h:mm a')}`
     : statusColor === 'yellow'
     ? `⚠ Entry deadline approaching: ${format(cutoffDate, 'EEEE, MMMM d, yyyy')} at ${format(cutoffDate, 'h:mm a')}`
-    : `✖ Entry period closed as of ${format(cutoffDate, 'EEEE, MMMM d, yyyy')} at ${format(cutoffDate, 'h:mm a')}. Contact your manager for corrections.`;
+    : `✖ Less than 1 day until cutoff: ${format(cutoffDate, 'EEEE, MMMM d, yyyy')} at ${format(cutoffDate, 'h:mm a')}. Contact your manager for corrections.`;
 
   return (
     <Alert variant={variant} className={className}>
