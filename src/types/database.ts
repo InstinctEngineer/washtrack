@@ -20,3 +20,28 @@ export interface Location {
   is_active: boolean;
   created_at: string;
 }
+
+export interface VehicleType {
+  id: string;
+  type_name: string;
+  rate_per_wash: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Vehicle {
+  id: string;
+  vehicle_number: string;
+  vehicle_type_id: string;
+  home_location_id: string | null;
+  last_seen_location_id: string | null;
+  last_seen_date: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface VehicleWithDetails extends Vehicle {
+  vehicle_type?: VehicleType;
+  home_location?: Location;
+  last_seen_location?: Location;
+}

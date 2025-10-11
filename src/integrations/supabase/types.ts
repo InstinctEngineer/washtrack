@@ -121,6 +121,85 @@ export type Database = {
           },
         ]
       }
+      vehicle_types: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          rate_per_wash: number
+          type_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          rate_per_wash: number
+          type_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          rate_per_wash?: number
+          type_name?: string
+        }
+        Relationships: []
+      }
+      vehicles: {
+        Row: {
+          created_at: string
+          home_location_id: string | null
+          id: string
+          is_active: boolean
+          last_seen_date: string | null
+          last_seen_location_id: string | null
+          vehicle_number: string
+          vehicle_type_id: string
+        }
+        Insert: {
+          created_at?: string
+          home_location_id?: string | null
+          id?: string
+          is_active?: boolean
+          last_seen_date?: string | null
+          last_seen_location_id?: string | null
+          vehicle_number: string
+          vehicle_type_id: string
+        }
+        Update: {
+          created_at?: string
+          home_location_id?: string | null
+          id?: string
+          is_active?: boolean
+          last_seen_date?: string | null
+          last_seen_location_id?: string | null
+          vehicle_number?: string
+          vehicle_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_home_location_id_fkey"
+            columns: ["home_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_last_seen_location_id_fkey"
+            columns: ["last_seen_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_vehicle_type_id_fkey"
+            columns: ["vehicle_type_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

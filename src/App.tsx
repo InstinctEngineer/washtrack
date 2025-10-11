@@ -13,6 +13,8 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import CreateUser from "./pages/CreateUser";
+import VehicleTypes from "./pages/VehicleTypes";
+import Vehicles from "./pages/Vehicles";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
@@ -77,6 +79,22 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <CreateUser />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/vehicle-types"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <VehicleTypes />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/vehicles"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <Vehicles />
                 </ProtectedRoute>
               }
             />
