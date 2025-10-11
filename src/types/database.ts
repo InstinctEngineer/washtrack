@@ -18,6 +18,7 @@ export interface Location {
   address: string | null;
   manager_user_id: string | null;
   is_active: boolean;
+  is_all_locations: boolean;
   created_at: string;
 }
 

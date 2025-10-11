@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_all_locations: boolean | null
           manager_user_id: string | null
           name: string
         }
@@ -28,6 +29,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_all_locations?: boolean | null
           manager_user_id?: string | null
           name: string
         }
@@ -36,6 +38,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_all_locations?: boolean | null
           manager_user_id?: string | null
           name?: string
         }
