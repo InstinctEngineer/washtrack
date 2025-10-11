@@ -15,6 +15,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import CreateUser from "./pages/CreateUser";
 import VehicleTypes from "./pages/VehicleTypes";
 import Vehicles from "./pages/Vehicles";
+import Locations from "./pages/Locations";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
@@ -95,6 +96,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <Vehicles />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/locations"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <Locations />
                 </ProtectedRoute>
               }
             />

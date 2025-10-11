@@ -142,8 +142,8 @@ export default function AdminDashboard() {
               <CardDescription>Manage wash locations</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full" disabled>
-                Coming Soon
+              <Button asChild className="w-full">
+                <Link to="/admin/locations">Manage Locations</Link>
               </Button>
             </CardContent>
           </Card>
