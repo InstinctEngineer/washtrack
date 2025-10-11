@@ -61,10 +61,15 @@ serve(async (req) => {
       throw new Error("Password must be at least 6 characters");
     }
 
-    // Update user password
+    // Update user password and set metadata to require password change
     const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
-      { password: newPassword }
+      { 
+        password: newPassword,
+        user_metadata: {
+          password_reset_required: true
+        }
+      }
     );
 
     if (error) {

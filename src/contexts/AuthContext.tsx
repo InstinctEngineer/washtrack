@@ -23,6 +23,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // We'll handle navigation separately to avoid hook context issues
+  const checkPasswordReset = (currentUser: SupabaseUser) => {
+    if (currentUser?.user_metadata?.password_reset_required === true) {
+      // Check if not already on change password page
+      if (window.location.pathname !== '/change-password') {
+        window.location.href = '/change-password';
+      }
+    }
+  };
+
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -37,6 +47,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Fetch highest role from user_roles table
       const highestRole = await getUserHighestRole(userId);
       setUserRole(highestRole);
+
+      // Check if password reset is required
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        checkPasswordReset(currentUser);
+      }
     } catch (error) {
       console.error('Error fetching user profile:', error);
       setUserProfile(null);

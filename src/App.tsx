@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Pages
 import Login from "./pages/Login";
+import { ChangePassword } from "./pages/ChangePassword";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
@@ -33,6 +34,7 @@ const App = () => (
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/change-password" element={<ChangePassword />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
 
             {/* Protected Routes - Redirect root to login */}
