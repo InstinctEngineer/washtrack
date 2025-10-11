@@ -235,14 +235,14 @@ export const EditLocationModal = ({
               <div className="space-y-2">
                 <Label htmlFor="manager">Assign Manager</Label>
                 <Select
-                  value={formData.manager_user_id}
-                  onValueChange={(value) => setFormData({ ...formData, manager_user_id: value })}
+                  value={formData.manager_user_id || 'none'}
+                  onValueChange={(value) => setFormData({ ...formData, manager_user_id: value === 'none' ? '' : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a manager (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {managers.map((manager) => (
                       <SelectItem key={manager.id} value={manager.id}>
                         {manager.name} ({manager.email})
