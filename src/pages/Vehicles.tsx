@@ -114,62 +114,105 @@ export default function Vehicles() {
     }
   };
 
-  const handleCSVImport = async (rows: any[]) => {
+  const handleCSVImport = async (rows: any[], typeResolutions: any[]) => {
     const errors: string[] = [];
     let imported = 0;
     let skipped = 0;
 
-    for (const row of rows) {
-      try {
-        // Find type by name
-        const type = vehicleTypes.find(
-          (t) => t.type_name.toLowerCase() === row.type_name.toLowerCase()
-        );
-        if (!type) {
-          errors.push(`Unknown vehicle type: ${row.type_name} for ${row.vehicle_number}`);
-          skipped++;
-          continue;
-        }
+    try {
+      // First, create any new vehicle types
+      const typeMapping: Record<string, string> = {};
+      
+      for (const resolution of typeResolutions) {
+        if (resolution.action === 'create') {
+          const { data, error } = await supabase
+            .from('vehicle_types')
+            .insert({
+              type_name: resolution.csvTypeName,
+              rate_per_wash: parseFloat(resolution.ratePerWash),
+              is_active: true,
+            })
+            .select()
+            .single();
 
-        // Find location by name if provided
-        let locationId = null;
-        if (row.home_location_name) {
-          const location = locations.find(
-            (l) => l.name.toLowerCase() === row.home_location_name.toLowerCase()
-          );
-          if (!location) {
-            errors.push(`Unknown location: ${row.home_location_name} for ${row.vehicle_number}`);
-          } else {
-            locationId = location.id;
+          if (error) {
+            errors.push(`Failed to create type "${resolution.csvTypeName}": ${error.message}`);
+          } else if (data) {
+            typeMapping[resolution.csvTypeName.toLowerCase()] = data.id;
           }
+        } else if (resolution.action === 'map') {
+          typeMapping[resolution.csvTypeName.toLowerCase()] = resolution.mapToTypeId;
         }
-
-        // Check for duplicates
-        const { data: existing } = await supabase
-          .from('vehicles')
-          .select('id')
-          .eq('vehicle_number', row.vehicle_number)
-          .single();
-
-        if (existing) {
-          skipped++;
-          continue;
-        }
-
-        // Insert vehicle
-        const { error } = await supabase.from('vehicles').insert({
-          vehicle_number: row.vehicle_number,
-          vehicle_type_id: type.id,
-          home_location_id: locationId,
-          is_active: true,
-        });
-
-        if (error) throw error;
-        imported++;
-      } catch (error: any) {
-        errors.push(`Error importing ${row.vehicle_number}: ${error.message}`);
-        skipped++;
       }
+
+      // Refresh vehicle types after creating new ones
+      const { data: refreshedTypes } = await supabase
+        .from('vehicle_types')
+        .select('*')
+        .order('type_name');
+      
+      const allTypes = refreshedTypes || vehicleTypes;
+
+      // Now import vehicles
+      for (const row of rows) {
+        try {
+          // Find type by name or use mapping
+          let typeId = typeMapping[row.type_name.toLowerCase()];
+          
+          if (!typeId) {
+            const type = allTypes.find(
+              (t) => t.type_name.toLowerCase() === row.type_name.toLowerCase()
+            );
+            if (!type) {
+              errors.push(`Unknown vehicle type: ${row.type_name} for ${row.vehicle_number}`);
+              skipped++;
+              continue;
+            }
+            typeId = type.id;
+          }
+
+          // Find location by name if provided
+          let locationId = null;
+          if (row.home_location_name) {
+            const location = locations.find(
+              (l) => l.name.toLowerCase() === row.home_location_name.toLowerCase()
+            );
+            if (!location) {
+              errors.push(`Unknown location: ${row.home_location_name} for ${row.vehicle_number}`);
+            } else {
+              locationId = location.id;
+            }
+          }
+
+          // Check for duplicates
+          const { data: existing } = await supabase
+            .from('vehicles')
+            .select('id')
+            .eq('vehicle_number', row.vehicle_number)
+            .single();
+
+          if (existing) {
+            skipped++;
+            continue;
+          }
+
+          // Insert vehicle
+          const { error } = await supabase.from('vehicles').insert({
+            vehicle_number: row.vehicle_number,
+            vehicle_type_id: typeId,
+            home_location_id: locationId,
+            is_active: true,
+          });
+
+          if (error) throw error;
+          imported++;
+        } catch (error: any) {
+          errors.push(`Error importing ${row.vehicle_number}: ${error.message}`);
+          skipped++;
+        }
+      }
+    } catch (error: any) {
+      errors.push(`Import failed: ${error.message}`);
     }
 
     await fetchData();
@@ -344,6 +387,7 @@ export default function Vehicles() {
         open={csvDialogOpen}
         onOpenChange={setCsvDialogOpen}
         onImport={handleCSVImport}
+        existingTypes={vehicleTypes}
       />
     </Layout>
   );

@@ -31,18 +31,30 @@ interface ImportResult {
   errors: string[];
 }
 
+interface TypeResolution {
+  csvTypeName: string;
+  action: 'create' | 'map';
+  ratePerWash?: string;
+  mapToTypeId?: string;
+}
+
 interface CSVUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (rows: CSVRow[]) => Promise<ImportResult>;
+  onImport: (rows: CSVRow[], typeResolutions: TypeResolution[]) => Promise<ImportResult>;
+  existingTypes: { id: string; type_name: string }[];
 }
 
-export function CSVUploadDialog({ open, onOpenChange, onImport }: CSVUploadDialogProps) {
+export function CSVUploadDialog({ open, onOpenChange, onImport, existingTypes }: CSVUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [missingTypes, setMissingTypes] = useState<string[]>([]);
+  const [typeResolutions, setTypeResolutions] = useState<Record<string, TypeResolution>>({});
+  const [showResolver, setShowResolver] = useState(false);
+  const [parsedRows, setParsedRows] = useState<CSVRow[]>([]);
 
   const parseCSV = (text: string): CSVRow[] => {
     const lines = text.trim().split('\n');
@@ -95,29 +107,75 @@ export function CSVUploadDialog({ open, onOpenChange, onImport }: CSVUploadDialo
 
     setFile(selectedFile);
     setResult(null);
+    setShowResolver(false);
 
     const text = await selectedFile.text();
     const rows = parseCSV(text);
+    setParsedRows(rows);
     const validationResult = validateCSV(rows);
     setValidation(validationResult);
+
+    // Check for missing types
+    const uniqueTypes = new Set(rows.map(r => r.type_name));
+    const missing = Array.from(uniqueTypes).filter(
+      typeName => !existingTypes.some(t => t.type_name.toLowerCase() === typeName.toLowerCase())
+    );
+    
+    setMissingTypes(missing);
+    
+    // Initialize resolutions
+    const initialResolutions: Record<string, TypeResolution> = {};
+    missing.forEach(typeName => {
+      initialResolutions[typeName] = {
+        csvTypeName: typeName,
+        action: 'create',
+        ratePerWash: '',
+      };
+    });
+    setTypeResolutions(initialResolutions);
+  };
+
+  const handleProceedToResolve = () => {
+    if (missingTypes.length > 0) {
+      setShowResolver(true);
+    } else {
+      handleImport();
+    }
   };
 
   const handleImport = async () => {
-    if (!file || !validation?.valid) return;
+    if (!validation?.valid) return;
+
+    // Validate all resolutions
+    const invalidResolutions = Object.values(typeResolutions).filter(res => {
+      if (res.action === 'create' && (!res.ratePerWash || parseFloat(res.ratePerWash) <= 0)) {
+        return true;
+      }
+      if (res.action === 'map' && !res.mapToTypeId) {
+        return true;
+      }
+      return false;
+    });
+
+    if (invalidResolutions.length > 0) {
+      setResult({
+        imported: 0,
+        skipped: 0,
+        errors: ['Please complete all type resolutions before importing.'],
+      });
+      return;
+    }
 
     setImporting(true);
     setProgress(0);
 
     try {
-      const text = await file.text();
-      const rows = parseCSV(text);
-      
       // Simulate progress
       const progressInterval = setInterval(() => {
         setProgress((p) => Math.min(p + 10, 90));
       }, 100);
 
-      const importResult = await onImport(rows);
+      const importResult = await onImport(parsedRows, Object.values(typeResolutions));
       
       clearInterval(progressInterval);
       setProgress(100);
@@ -139,7 +197,18 @@ export function CSVUploadDialog({ open, onOpenChange, onImport }: CSVUploadDialo
     setValidation(null);
     setResult(null);
     setProgress(0);
+    setMissingTypes([]);
+    setTypeResolutions({});
+    setShowResolver(false);
+    setParsedRows([]);
     onOpenChange(false);
+  };
+
+  const updateResolution = (typeName: string, updates: Partial<TypeResolution>) => {
+    setTypeResolutions(prev => ({
+      ...prev,
+      [typeName]: { ...prev[typeName], ...updates },
+    }));
   };
 
   return (
@@ -192,7 +261,7 @@ V-1003,Truck,`}
             </Alert>
           )}
 
-          {validation?.valid && validation.preview.length > 0 && !result && (
+          {validation?.valid && validation.preview.length > 0 && !result && !showResolver && (
             <div className="space-y-2">
               <h4 className="font-medium">Preview (first 5 rows):</h4>
               <div className="border rounded-md p-3 bg-muted/50 max-h-48 overflow-auto">
@@ -215,6 +284,89 @@ V-1003,Truck,`}
                   </tbody>
                 </table>
               </div>
+              {missingTypes.length > 0 && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <p className="font-medium mb-1">Missing vehicle types detected:</p>
+                    <p className="text-sm">{missingTypes.join(', ')}</p>
+                    <p className="text-sm mt-2">Click "Continue" to resolve these types before importing.</p>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+
+          {showResolver && !result && (
+            <div className="space-y-4">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <p className="font-medium">Resolve Missing Vehicle Types</p>
+                  <p className="text-sm mt-1">For each type, either create it with a rate or map it to an existing type.</p>
+                </AlertDescription>
+              </Alert>
+              
+              {missingTypes.map((typeName) => (
+                <div key={typeName} className="border rounded-lg p-4 space-y-3">
+                  <h4 className="font-medium text-sm">Type: "{typeName}"</h4>
+                  
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        checked={typeResolutions[typeName]?.action === 'create'}
+                        onChange={() => updateResolution(typeName, { action: 'create', mapToTypeId: undefined })}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm font-medium">Create new vehicle type</span>
+                    </label>
+                    
+                    {typeResolutions[typeName]?.action === 'create' && (
+                      <div className="ml-6 space-y-2">
+                        <label className="text-sm text-muted-foreground">Rate Per Wash ($)</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="25.00"
+                          value={typeResolutions[typeName]?.ratePerWash || ''}
+                          onChange={(e) => updateResolution(typeName, { ratePerWash: e.target.value })}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        checked={typeResolutions[typeName]?.action === 'map'}
+                        onChange={() => updateResolution(typeName, { action: 'map', ratePerWash: undefined })}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm font-medium">Map to existing type</span>
+                    </label>
+                    
+                    {typeResolutions[typeName]?.action === 'map' && (
+                      <div className="ml-6">
+                        <select
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={typeResolutions[typeName]?.mapToTypeId || ''}
+                          onChange={(e) => updateResolution(typeName, { mapToTypeId: e.target.value })}
+                        >
+                          <option value="">Select existing type...</option>
+                          {existingTypes.map((type) => (
+                            <option key={type.id} value={type.id}>
+                              {type.type_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -251,10 +403,18 @@ V-1003,Truck,`}
             <Button variant="outline" onClick={handleClose} disabled={importing}>
               {result ? 'Close' : 'Cancel'}
             </Button>
-            {!result && (
+            {!result && !showResolver && (
+              <Button
+                onClick={handleProceedToResolve}
+                disabled={!validation?.valid || importing}
+              >
+                {missingTypes.length > 0 ? 'Continue' : 'Import Vehicles'}
+              </Button>
+            )}
+            {!result && showResolver && (
               <Button
                 onClick={handleImport}
-                disabled={!validation?.valid || importing}
+                disabled={importing}
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Import Vehicles
