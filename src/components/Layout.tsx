@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,21 +14,26 @@ import {
   LayoutDashboard, 
   Users, 
   MapPin, 
-  FileText, 
   Settings, 
   LogOut, 
   Menu,
-  User as UserIcon
+  User as UserIcon,
+  DollarSign,
+  Briefcase,
+  UserCircle
 } from 'lucide-react';
 import { useState } from 'react';
+import { hasRoleOrHigher } from '@/lib/roleUtils';
+import { UserRole } from '@/types/database';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export const Layout = ({ children }: LayoutProps) => {
-  const { userProfile, signOut } = useAuth();
+  const { userProfile, userRole, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -37,39 +42,66 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   const getNavItems = () => {
-    if (!userProfile) return [];
+    if (!userProfile || !userRole) return [];
 
-    const baseItems = [
-      { label: 'Dashboard', icon: LayoutDashboard, path: `/${userProfile.role}/dashboard` }
-    ];
+    const navItems: Array<{ label: string; icon: any; path: string; section?: string }> = [];
 
-    if (userProfile.role === 'admin') {
-      return [
-        ...baseItems,
-        { label: 'Users', icon: Users, path: '/admin/users' },
-        { label: 'Locations', icon: MapPin, path: '/admin/locations' },
-        { label: 'Settings', icon: Settings, path: '/admin/settings' }
-      ];
+    // Dashboard section - show all dashboards user has access to
+    if (hasRoleOrHigher(userRole, 'employee' as UserRole)) {
+      navItems.push({ 
+        label: 'Employee Dashboard', 
+        icon: UserCircle, 
+        path: '/employee/dashboard',
+        section: 'Dashboards'
+      });
     }
 
-    if (userProfile.role === 'manager') {
-      return [
-        ...baseItems,
-        { label: 'Reports', icon: FileText, path: '/manager/reports' }
-      ];
+    if (hasRoleOrHigher(userRole, 'manager' as UserRole)) {
+      navItems.push({ 
+        label: 'Manager Dashboard', 
+        icon: Briefcase, 
+        path: '/manager/dashboard',
+        section: 'Dashboards'
+      });
     }
 
-    if (userProfile.role === 'finance') {
-      return [
-        ...baseItems,
-        { label: 'Billing', icon: FileText, path: '/finance/billing' }
-      ];
+    if (hasRoleOrHigher(userRole, 'finance' as UserRole)) {
+      navItems.push({ 
+        label: 'Finance Dashboard', 
+        icon: DollarSign, 
+        path: '/finance/dashboard',
+        section: 'Dashboards'
+      });
     }
 
-    return baseItems;
+    if (hasRoleOrHigher(userRole, 'admin' as UserRole)) {
+      navItems.push({ 
+        label: 'Admin Dashboard', 
+        icon: LayoutDashboard, 
+        path: '/admin/dashboard',
+        section: 'Dashboards'
+      });
+
+      // Admin-only features
+      navItems.push(
+        { label: 'Users', icon: Users, path: '/admin/users', section: 'Administration' },
+        { label: 'Locations', icon: MapPin, path: '/admin/locations', section: 'Administration' },
+        { label: 'Settings', icon: Settings, path: '/admin/settings', section: 'Administration' }
+      );
+    }
+
+    return navItems;
   };
 
   const navItems = getNavItems();
+  
+  // Group nav items by section
+  const groupedNavItems = navItems.reduce((acc, item) => {
+    const section = item.section || 'Other';
+    if (!acc[section]) acc[section] = [];
+    acc[section].push(item);
+    return acc;
+  }, {} as Record<string, typeof navItems>);
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
@@ -138,17 +170,33 @@ export const Layout = ({ children }: LayoutProps) => {
           border-r bg-card transition-transform lg:translate-x-0
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
-          <nav className="flex flex-col gap-1 p-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
+          <nav className="flex flex-col gap-4 p-4">
+            {Object.entries(groupedNavItems).map(([section, items]) => (
+              <div key={section} className="space-y-1">
+                <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {section}
+                </h3>
+                {items.map((item) => {
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`
+                        flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+                        ${isActive 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'hover:bg-accent hover:text-accent-foreground'
+                        }
+                      `}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
             ))}
           </nav>
         </aside>
