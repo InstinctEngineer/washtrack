@@ -330,7 +330,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_last_saturday: {
+      get_last_sunday: {
         Args: Record<PropertyKey, never>
         Returns: string
       }

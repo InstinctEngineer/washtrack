@@ -33,26 +33,26 @@ export async function isBeforeCutoff(date: Date): Promise<boolean> {
 }
 
 /**
- * Calculate the last Saturday at 23:59:59
+ * Calculate the last Sunday at 23:59:59
  */
-export function getLastSaturday(): Date {
+export function getLastSunday(): Date {
   const today = new Date();
   const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
   
   let daysToSubtract: number;
   if (dayOfWeek === 0) {
-    // If today is Sunday, go back 1 day to Saturday
-    daysToSubtract = 1;
+    // If today is Sunday, use today
+    daysToSubtract = 0;
   } else {
-    // Otherwise, go back to previous Saturday
-    daysToSubtract = dayOfWeek + 1;
+    // Otherwise, go back to previous Sunday
+    daysToSubtract = dayOfWeek;
   }
   
-  const lastSaturday = new Date(today);
-  lastSaturday.setDate(today.getDate() - daysToSubtract);
-  lastSaturday.setHours(23, 59, 59, 999);
+  const lastSunday = new Date(today);
+  lastSunday.setDate(today.getDate() - daysToSubtract);
+  lastSunday.setHours(23, 59, 59, 999);
   
-  return lastSaturday;
+  return lastSunday;
 }
 
 /**
@@ -63,16 +63,16 @@ export function canUserOverrideCutoff(userRole: UserRole): boolean {
 }
 
 /**
- * Get days until the next auto-cutoff (next Saturday)
+ * Get days until the next auto-cutoff (next Sunday)
  */
 export function getDaysUntilNextCutoff(): number {
   const today = new Date();
   const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
   
-  // Calculate days until next Saturday
-  const daysUntilSaturday = dayOfWeek === 6 ? 7 : (6 - dayOfWeek);
+  // Calculate days until next Sunday
+  const daysUntilSunday = dayOfWeek === 0 ? 7 : (7 - dayOfWeek);
   
-  return daysUntilSaturday;
+  return daysUntilSunday;
 }
 
 /**
