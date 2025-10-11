@@ -144,15 +144,32 @@ export function CSVUploadDialog({ open, onOpenChange, onImport }: CSVUploadDialo
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import Vehicles from CSV</DialogTitle>
           <DialogDescription>
-            Upload a CSV file with columns: vehicle_number, type_name, home_location_name (optional)
+            Upload a CSV file to import multiple vehicles at once
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="rounded-md bg-muted p-4 space-y-3">
+            <h4 className="font-medium text-sm">CSV Format Requirements:</h4>
+            <ul className="text-sm space-y-2 list-disc list-inside text-muted-foreground">
+              <li><strong>vehicle_number</strong> (required) - Alphanumeric with dashes/underscores only</li>
+              <li><strong>type_name</strong> (required) - Must match an existing vehicle type</li>
+              <li><strong>home_location_name</strong> (optional) - Must match an existing location</li>
+            </ul>
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-sm font-medium mb-2">Example CSV:</p>
+              <pre className="text-xs bg-background p-2 rounded border overflow-x-auto">
+{`vehicle_number,type_name,home_location_name
+V-1001,Sedan,Main Facility
+V-1002,SUV,North Location
+V-1003,Truck,`}
+              </pre>
+            </div>
+          </div>
           <div>
             <Input
               type="file"
