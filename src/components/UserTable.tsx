@@ -18,9 +18,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Search } from "lucide-react";
+import { Edit, Search, KeyRound } from "lucide-react";
 import { EditUserModal } from "@/components/EditUserModal";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserTableProps {
   users: (User & {
@@ -57,7 +68,11 @@ export const UserTable = ({
   searchQuery,
   setSearchQuery,
 }: UserTableProps) => {
+  const { toast } = useToast();
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -67,6 +82,65 @@ export const UserTable = ({
     } else {
       setSortColumn(column);
       setSortDirection("asc");
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordUser || !newPassword) {
+      toast({
+        title: "Validation Error",
+        description: "Password is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Validation Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsResetting(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("No active session");
+      }
+
+      const { data, error } = await supabase.functions.invoke(
+        "reset-user-password",
+        {
+          body: {
+            userId: resetPasswordUser.id,
+            newPassword: newPassword,
+          },
+        }
+      );
+
+      if (error) throw error;
+
+      toast({
+        title: "Password Reset",
+        description: `Password for ${resetPasswordUser.name} has been reset successfully`,
+      });
+
+      setResetPasswordUser(null);
+      setNewPassword("");
+    } catch (error: any) {
+      console.error("Error resetting password:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reset password",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -208,13 +282,22 @@ export const UserTable = ({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingUser(user)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingUser(user)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setResetPasswordUser(user)}
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -236,6 +319,58 @@ export const UserTable = ({
           }}
         />
       )}
+
+      <Dialog
+        open={!!resetPasswordUser}
+        onOpenChange={(open) => {
+          if (!open) {
+            setResetPasswordUser(null);
+            setNewPassword("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Set a new temporary password for {resetPasswordUser?.name}. The user
+              should change this password after logging in.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input
+                id="new-password"
+                type="text"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter temporary password"
+                minLength={6}
+              />
+              <p className="text-xs text-muted-foreground">
+                Minimum 6 characters
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResetPasswordUser(null);
+                setNewPassword("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleResetPassword} disabled={isResetting}>
+              {isResetting ? "Resetting..." : "Reset Password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
