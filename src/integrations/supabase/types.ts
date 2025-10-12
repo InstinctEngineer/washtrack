@@ -330,7 +330,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auto_update_cutoff_date: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_last_sunday: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_next_saturday: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
