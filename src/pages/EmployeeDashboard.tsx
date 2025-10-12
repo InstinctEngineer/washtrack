@@ -290,8 +290,6 @@ export default function EmployeeDashboard() {
         } else {
           finalVehicleId = vehicleData.id;
         }
-
-        finalVehicleId = vehicleData.id;
       }
 
       // Insert wash entry
