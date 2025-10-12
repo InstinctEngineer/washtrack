@@ -68,7 +68,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
           *,
           vehicle:vehicles(vehicle_number, vehicle_type:vehicle_types(type_name, rate_per_wash)),
           location:locations!wash_entries_actual_location_id_fkey(name),
-          employee:users(name)
+          employee:users!wash_entries_employee_id_fkey(name)
         `)
         .gte('wash_date', startOfMonth.toISOString().split('T')[0])
         .lte('wash_date', endOfMonth.toISOString().split('T')[0])
