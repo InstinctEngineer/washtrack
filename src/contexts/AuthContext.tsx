@@ -57,6 +57,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error('Error fetching user profile:', error);
       setUserProfile(null);
       setUserRole(null);
+    } finally {
+      // Set loading to false only after profile fetch completes
+      setLoading(false);
     }
   };
 
@@ -81,9 +84,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           setUserProfile(null);
           setUserRole(null);
+          setLoading(false); // Only set loading false when no session
         }
-        
-        setLoading(false);
       }
     );
 
@@ -94,9 +96,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (session?.user) {
         fetchUserProfile(session.user.id);
+      } else {
+        setLoading(false); // Only set loading false when no session
       }
-      
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
