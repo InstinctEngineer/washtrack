@@ -10,9 +10,10 @@ import { User } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { RolePermissionsInfo } from "@/components/RolePermissionsInfo";
 
 const Users = () => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, userRole } = useAuth();
   const { toast } = useToast();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -202,9 +203,12 @@ const Users = () => {
             <p className="text-muted-foreground">
               View and edit user accounts
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Showing {userCount} users
-            </p>
+            <div className="flex items-center gap-4 mt-2">
+              <p className="text-sm text-muted-foreground">
+                Showing {userCount} users
+              </p>
+              <RolePermissionsInfo currentUserRole={userRole} />
+            </div>
           </div>
           <Button onClick={() => setCreateModalOpen(true)}>
             <UserPlus className="mr-2 h-4 w-4" />
