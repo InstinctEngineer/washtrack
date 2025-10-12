@@ -205,20 +205,24 @@ export default function EmployeeDashboard() {
     }
 
     // Check cutoff date restriction for employees
-    // If no cutoff date exists, allow all entries
-    // If cutoff date exists, only block entries BEFORE the cutoff
+    // Week leading up to cutoff is allowed for entry
+    // After cutoff passes, those dates become locked
     if (cutoffDate && userProfile.role === 'employee') {
+      const now = new Date();
       const washDate = new Date(date);
       washDate.setHours(0, 0, 0, 0);
       
+      const cutoffDateTime = new Date(cutoffDate);
       const cutoffDateOnly = new Date(cutoffDate);
       cutoffDateOnly.setHours(0, 0, 0, 0);
       
-      // Block only if selected date is BEFORE cutoff
-      if (washDate < cutoffDateOnly) {
+      // Block only if:
+      // 1. Current time has passed the cutoff date/time, AND
+      // 2. The wash date being entered is on or before the cutoff date
+      if (now > cutoffDateTime && washDate <= cutoffDateOnly) {
         toast({
-          title: 'Entry Blocked',
-          description: 'Cannot enter washes for dates before the cutoff. Contact your manager.',
+          title: 'Entry Period Closed',
+          description: `Entry period ended on ${format(cutoffDate, 'EEEE, MMMM d')}. Contact your manager for corrections.`,
           variant: 'destructive',
         });
         return;
