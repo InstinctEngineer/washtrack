@@ -62,7 +62,8 @@ export default function EmployeeDashboard() {
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const { data: startsWithData } = await supabase
+        // Only show vehicles from employee's location
+        let startsWithQuery = supabase
           .from('vehicles')
           .select(`
             *,
@@ -72,6 +73,12 @@ export default function EmployeeDashboard() {
           .ilike('vehicle_number', `${searchTerm}%`)
           .eq('is_active', true)
           .limit(5);
+        
+        if (userProfile?.location_id) {
+          startsWithQuery = startsWithQuery.eq('home_location_id', userProfile.location_id);
+        }
+        
+        const { data: startsWithData } = await startsWithQuery;
 
         const startsWithNumbers = startsWithData?.map(v => v.vehicle_number) || [];
         
@@ -85,23 +92,18 @@ export default function EmployeeDashboard() {
           .ilike('vehicle_number', `%${searchTerm}%`)
           .eq('is_active', true);
         
+        if (userProfile?.location_id) {
+          containsQuery = containsQuery.eq('home_location_id', userProfile.location_id);
+        }
+        
         if (startsWithNumbers.length > 0) {
           containsQuery = containsQuery.not('vehicle_number', 'in', `(${startsWithNumbers.join(',')})`);
         }
         
         const { data: containsData } = await containsQuery.limit(5);
 
-        let allVehicles = [...(startsWithData || []), ...(containsData || [])];
-        
-        if (userProfile?.location_id) {
-          allVehicles = allVehicles.sort((a, b) => {
-            const aIsHome = a.home_location_id === userProfile.location_id;
-            const bIsHome = b.home_location_id === userProfile.location_id;
-            if (aIsHome && !bIsHome) return -1;
-            if (!aIsHome && bIsHome) return 1;
-            return 0;
-          });
-        }
+        // Combine results (already filtered by location)
+        const allVehicles = [...(startsWithData || []), ...(containsData || [])];
 
         setVehicles(allVehicles.slice(0, 5));
         setShowDropdown(true);

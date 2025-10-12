@@ -33,7 +33,8 @@ export function VehicleSearchInput({ onSelect, disabled, placeholder = "Search v
       setLoading(true);
       try {
         // Search for vehicles that start with or contain the search term
-        const { data: startsWithData } = await supabase
+        // Only show vehicles from employee's location
+        let startsWithQuery = supabase
           .from('vehicles')
           .select(`
             *,
@@ -43,6 +44,12 @@ export function VehicleSearchInput({ onSelect, disabled, placeholder = "Search v
           .ilike('vehicle_number', `${searchTerm}%`)
           .eq('is_active', true)
           .limit(10);
+        
+        if (userProfile?.location_id) {
+          startsWithQuery = startsWithQuery.eq('home_location_id', userProfile.location_id);
+        }
+        
+        const { data: startsWithData } = await startsWithQuery;
 
         const startsWithNumbers = startsWithData?.map(v => v.vehicle_number) || [];
         
@@ -56,24 +63,18 @@ export function VehicleSearchInput({ onSelect, disabled, placeholder = "Search v
           .ilike('vehicle_number', `%${searchTerm}%`)
           .eq('is_active', true);
         
+        if (userProfile?.location_id) {
+          containsQuery = containsQuery.eq('home_location_id', userProfile.location_id);
+        }
+        
         if (startsWithNumbers.length > 0) {
           containsQuery = containsQuery.not('vehicle_number', 'in', `(${startsWithNumbers.join(',')})`);
         }
         
         const { data: containsData } = await containsQuery.limit(10);
 
-        // Combine and prioritize by employee's home location
-        let allVehicles = [...(startsWithData || []), ...(containsData || [])];
-        
-        if (userProfile?.location_id) {
-          allVehicles = allVehicles.sort((a, b) => {
-            const aIsHome = a.home_location_id === userProfile.location_id;
-            const bIsHome = b.home_location_id === userProfile.location_id;
-            if (aIsHome && !bIsHome) return -1;
-            if (!aIsHome && bIsHome) return 1;
-            return 0;
-          });
-        }
+        // Combine results (already filtered by location)
+        const allVehicles = [...(startsWithData || []), ...(containsData || [])];
 
         setVehicles(allVehicles.slice(0, 20));
         setShowDropdown(true);
