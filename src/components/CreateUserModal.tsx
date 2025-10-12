@@ -174,45 +174,41 @@ export const CreateUserModal = ({
 
       const tempPassword = generatePassword();
 
-      // Create auth user first
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: tempPassword,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            name: formData.name,
-            employee_id: formData.employee_id,
+      // Get current session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("You must be logged in to create users");
+      }
+
+      // Call edge function to create user with admin privileges
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
           },
-        },
-      });
+          body: JSON.stringify({
+            employee_id: formData.employee_id,
+            name: formData.name,
+            email: formData.email,
+            location_id: formData.location_id || null,
+            role: formData.role,
+            manager_id: formData.role === "finance" || formData.role === "admin" || formData.role === "super_admin"
+              ? null
+              : formData.manager_id || null,
+            password: tempPassword
+          }),
+        }
+      );
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Failed to create auth user");
+      const result = await response.json();
 
-      // Insert into users table with the auth user's id
-      const { error: userError } = await supabase.from("users").insert({
-        id: authData.user.id,
-        employee_id: formData.employee_id,
-        name: formData.name,
-        email: formData.email,
-        location_id: formData.location_id || null,
-        role: formData.role,
-        manager_id:
-          formData.role === "finance" || formData.role === "admin"
-            ? null
-            : formData.manager_id || null,
-        is_active: true,
-      });
-
-      if (userError) throw userError;
-
-      // Insert into user_roles table
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({ user_id: authData.user.id, role: formData.role });
-
-      if (roleError) throw roleError;
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create user");
+      }
 
       setGeneratedPassword(tempPassword);
       setGeneratedEmail(formData.email);
