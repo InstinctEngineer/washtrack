@@ -36,6 +36,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
         manager: 2,
         finance: 3,
         admin: 4,
+        super_admin: 5,
       };
       return roleHierarchy[current] < roleHierarchy[min] ? current : min;
     });

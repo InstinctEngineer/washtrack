@@ -54,6 +54,7 @@ const roleColors: Record<UserRole, string> = {
   manager: "bg-blue-500",
   finance: "bg-green-500",
   admin: "bg-red-500",
+  super_admin: "bg-purple-500",
 };
 
 export const UserTable = ({

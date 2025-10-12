@@ -1,8 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import { UserRole } from '@/types/database';
 
-// Role hierarchy: Admin > Finance > Manager > Employee
+// Role hierarchy: Super Admin > Admin > Finance > Manager > Employee
 const roleHierarchy: Record<UserRole, number> = {
+  super_admin: 5,
   admin: 4,
   finance: 3,
   manager: 2,
@@ -69,6 +70,7 @@ export function getDashboardPath(role: UserRole): string {
     manager: '/manager/dashboard',
     finance: '/finance/dashboard',
     admin: '/admin/dashboard',
+    super_admin: '/admin/dashboard',
   };
 
   return roleRoutes[role] || '/employee/dashboard';

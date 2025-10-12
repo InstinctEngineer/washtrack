@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +43,7 @@ export const CreateUserModal = ({
   onSuccess,
 }: CreateUserModalProps) => {
   const { toast } = useToast();
+  const { userRole } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState("");
@@ -341,6 +343,9 @@ export const CreateUserModal = ({
                   <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="finance">Finance</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                  {userRole === 'super_admin' && (
+                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

@@ -48,7 +48,7 @@ export const EditUserModal = ({
   onSuccess,
 }: EditUserModalProps) => {
   const { toast } = useToast();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, userRole: currentUserRole } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showRoleConfirm, setShowRoleConfirm] = useState(false);
   const [showLocationConfirm, setShowLocationConfirm] = useState(false);
@@ -64,6 +64,8 @@ export const EditUserModal = ({
   });
 
   const isEditingSelf = currentUser?.id === user.id;
+  const isEditingSuperAdmin = userRole === 'super_admin';
+  const canEditSuperAdmin = currentUserRole === 'super_admin';
 
   // Fetch locations
   const { data: locations } = useQuery({
@@ -99,12 +101,22 @@ export const EditUserModal = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent non-super-admins from editing super-admin users
+    if (isEditingSuperAdmin && !canEditSuperAdmin) {
+      toast({
+        title: "Permission Denied",
+        description: "Only Super Admins can edit Super Admin accounts.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check for role change
     if (formData.role !== userRole) {
-      if (isEditingSelf && formData.role !== "admin") {
+      if (isEditingSelf && (formData.role !== "admin" && formData.role !== "super_admin")) {
         toast({
           title: "Cannot change own role",
-          description: "You cannot demote yourself from admin.",
+          description: "You cannot demote yourself from your current role.",
           variant: "destructive",
         });
         return;
@@ -313,7 +325,7 @@ export const EditUserModal = ({
                 onValueChange={(value) =>
                   setFormData({ ...formData, role: value as UserRole })
                 }
-                disabled={isEditingSelf}
+                disabled={isEditingSelf || (isEditingSuperAdmin && !canEditSuperAdmin)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select role..." />
@@ -323,11 +335,19 @@ export const EditUserModal = ({
                   <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="finance">Finance</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                  {currentUserRole === 'super_admin' && (
+                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               {isEditingSelf && (
                 <p className="text-xs text-muted-foreground">
                   You cannot change your own role
+                </p>
+              )}
+              {isEditingSuperAdmin && !canEditSuperAdmin && (
+                <p className="text-xs text-destructive">
+                  Only Super Admins can edit Super Admin accounts
                 </p>
               )}
             </div>
