@@ -13,6 +13,7 @@ import { AlertCircle, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp } fro
 import { CutoffBanner } from '@/components/CutoffBanner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { NewVehicleDialog } from '@/components/NewVehicleDialog';
 
 export default function EmployeeDashboard() {
   const { userProfile } = useAuth();
@@ -32,6 +33,11 @@ export default function EmployeeDashboard() {
   
   // Week summary state
   const [weekSummaryOpen, setWeekSummaryOpen] = useState(false);
+  
+  // New vehicle dialog state
+  const [showNewVehicleDialog, setShowNewVehicleDialog] = useState(false);
+  const [pendingVehicleNumber, setPendingVehicleNumber] = useState('');
+  const [pendingWashDate, setPendingWashDate] = useState<Date>(new Date());
 
   useEffect(() => {
     if (userProfile?.id) {
@@ -242,51 +248,11 @@ export default function EmployeeDashboard() {
           .single();
 
         if (vehicleError || !vehicleData) {
-          // Vehicle not found - create it
-          // Get first available vehicle type
-          const { data: vehicleTypes, error: typesError } = await supabase
-            .from('vehicle_types')
-            .select('id')
-            .eq('is_active', true)
-            .order('type_name')
-            .limit(1);
-
-          if (typesError || !vehicleTypes || vehicleTypes.length === 0) {
-            toast({
-              title: 'Error',
-              description: 'No vehicle types available. Contact admin.',
-              variant: 'destructive',
-            });
-            return;
-          }
-
-          // Create new vehicle
-          const { data: newVehicle, error: createError } = await supabase
-            .from('vehicles')
-            .insert({
-              vehicle_number: vehicleNumber,
-              vehicle_type_id: vehicleTypes[0].id,
-              home_location_id: userProfile.location_id,
-              is_active: true,
-            })
-            .select('id')
-            .single();
-
-          if (createError || !newVehicle) {
-            toast({
-              title: 'Error',
-              description: 'Failed to create vehicle. Try again.',
-              variant: 'destructive',
-            });
-            return;
-          }
-
-          finalVehicleId = newVehicle.id;
-          
-          toast({
-            title: 'New Vehicle Created',
-            description: `Vehicle ${vehicleNumber} has been added to the system.`,
-          });
+          // Vehicle not found - open dialog for manual type selection
+          setPendingVehicleNumber(vehicleNumber);
+          setPendingWashDate(date);
+          setShowNewVehicleDialog(true);
+          return;
         } else {
           finalVehicleId = vehicleData.id;
         }
@@ -337,6 +303,87 @@ export default function EmployeeDashboard() {
       toast({
         title: 'Error',
         description: error.message || 'Failed to add wash entry',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCreateVehicle = async (vehicleTypeId: string) => {
+    if (!userProfile?.location_id) return;
+
+    try {
+      // Create new vehicle with selected type
+      const { data: newVehicle, error: createError } = await supabase
+        .from('vehicles')
+        .insert({
+          vehicle_number: pendingVehicleNumber,
+          vehicle_type_id: vehicleTypeId,
+          home_location_id: userProfile.location_id,
+          is_active: true,
+        })
+        .select('id')
+        .single();
+
+      if (createError || !newVehicle) {
+        toast({
+          title: 'Error',
+          description: 'Failed to create vehicle. Try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'New Vehicle Created',
+        description: `Vehicle ${pendingVehicleNumber} has been added to the system.`,
+      });
+
+      // Now add the wash entry with the newly created vehicle
+      const { error: insertError } = await supabase
+        .from('wash_entries')
+        .insert({
+          employee_id: userProfile.id,
+          vehicle_id: newVehicle.id,
+          wash_date: format(pendingWashDate, 'yyyy-MM-dd'),
+          actual_location_id: userProfile.location_id,
+        });
+
+      if (insertError) {
+        if (insertError.code === '23505') {
+          toast({
+            title: 'Duplicate Entry',
+            description: `${pendingVehicleNumber} already washed today`,
+            variant: 'destructive',
+          });
+        } else {
+          throw insertError;
+        }
+        return;
+      }
+
+      // Update vehicle last seen
+      await supabase
+        .from('vehicles')
+        .update({
+          last_seen_location_id: userProfile.location_id,
+          last_seen_date: format(pendingWashDate, 'yyyy-MM-dd'),
+        })
+        .eq('id', newVehicle.id);
+
+      toast({
+        title: '✓ Vehicle Added',
+        description: `${pendingVehicleNumber} added successfully`,
+        className: 'bg-green-50 text-green-900 border-green-200',
+      });
+
+      // Clear pending state and refresh entries
+      setPendingVehicleNumber('');
+      fetchWeekEntries();
+    } catch (error: any) {
+      console.error('Error creating vehicle and wash entry:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to add vehicle',
         variant: 'destructive',
       });
     }
@@ -589,6 +636,14 @@ export default function EmployeeDashboard() {
             </CollapsibleContent>
           </Card>
         </Collapsible>
+        
+        {/* New Vehicle Dialog */}
+        <NewVehicleDialog
+          open={showNewVehicleDialog}
+          onOpenChange={setShowNewVehicleDialog}
+          vehicleNumber={pendingVehicleNumber}
+          onConfirm={handleCreateVehicle}
+        />
       </div>
     </Layout>
   );
