@@ -14,6 +14,7 @@ import { CutoffBanner } from '@/components/CutoffBanner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NewVehicleDialog } from '@/components/NewVehicleDialog';
+import { cn } from '@/lib/utils';
 
 export default function EmployeeDashboard() {
   const { userProfile } = useAuth();
@@ -446,7 +447,10 @@ export default function EmployeeDashboard() {
         <CutoffBanner />
 
         {/* Date Navigation */}
-        <Card className="sticky top-4 z-10 shadow-lg">
+        <Card className={cn(
+          "sticky top-4 z-10 shadow-lg",
+          isToday(selectedDate) && "bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/30"
+        )}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-4">
               <Button
