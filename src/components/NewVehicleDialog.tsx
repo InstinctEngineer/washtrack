@@ -69,7 +69,7 @@ export function NewVehicleDialog({ open, onOpenChange, vehicleNumber, onConfirm 
               <SelectContent>
                 {vehicleTypes.map((type) => (
                   <SelectItem key={type.id} value={type.id}>
-                    {type.type_name} - ${type.rate_per_wash.toFixed(2)}
+                    {type.type_name}
                   </SelectItem>
                 ))}
               </SelectContent>
