@@ -170,26 +170,27 @@ export const CreateUserModal = ({
         return;
       }
 
-      // Note: In a production environment, you would need a backend edge function
-      // to create the auth user with the service role key. For now, we'll just
-      // create the user record and show a note about setting up authentication.
-
       const tempPassword = generatePassword();
 
-      // This is a simplified version - in production, you'd call an edge function
-      // that uses the service role to create the auth user
-      toast({
-        title: "Note",
-        description:
-          "User creation requires backend setup. Creating user record only.",
+      // Create auth user first
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: tempPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            name: formData.name,
+            employee_id: formData.employee_id,
+          },
+        },
       });
 
-      // Create a placeholder user ID (in production, this would come from auth.users)
-      const tempUserId = crypto.randomUUID();
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Failed to create auth user");
 
-      // Insert into users table
+      // Insert into users table with the auth user's id
       const { error: userError } = await supabase.from("users").insert({
-        id: tempUserId,
+        id: authData.user.id,
         employee_id: formData.employee_id,
         name: formData.name,
         email: formData.email,
@@ -207,7 +208,7 @@ export const CreateUserModal = ({
       // Insert into user_roles table
       const { error: roleError } = await supabase
         .from("user_roles")
-        .insert({ user_id: tempUserId, role: formData.role });
+        .insert({ user_id: authData.user.id, role: formData.role });
 
       if (roleError) throw roleError;
 
