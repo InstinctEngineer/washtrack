@@ -463,6 +463,16 @@ export default function EmployeeDashboard() {
                 <div className="text-sm md:text-base text-muted-foreground">
                   {format(selectedDate, 'MMMM d, yyyy')}
                 </div>
+                {!isToday(selectedDate) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedDate(new Date())}
+                    className="mt-2 h-7 text-xs"
+                  >
+                    Back to Today
+                  </Button>
+                )}
               </div>
               
               <Button
@@ -615,12 +625,13 @@ export default function EmployeeDashboard() {
             <CollapsibleContent>
               <CardContent className="pt-0 space-y-2">
                 {entriesByDay.map(({ day, count }) => (
-                  <div
+                  <button
                     key={day.toISOString()}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
+                    onClick={() => setSelectedDate(day)}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
                       isSameDay(day, selectedDate)
                         ? 'bg-primary/10 border border-primary/20'
-                        : 'bg-accent/30'
+                        : 'bg-accent/30 hover:bg-accent/50'
                     }`}
                   >
                     <div className="font-medium">
@@ -630,7 +641,7 @@ export default function EmployeeDashboard() {
                       )}
                     </div>
                     <div className="text-lg font-bold">{count}</div>
-                  </div>
+                  </button>
                 ))}
               </CardContent>
             </CollapsibleContent>
