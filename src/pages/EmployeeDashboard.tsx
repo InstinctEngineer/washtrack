@@ -230,7 +230,7 @@ export default function EmployeeDashboard() {
     }
 
     try {
-      // If vehicleId is empty, we need to look up the vehicle by number
+      // If vehicleId is empty, we need to look up or create the vehicle
       let finalVehicleId = vehicleId;
       
       if (!finalVehicleId) {
@@ -242,12 +242,53 @@ export default function EmployeeDashboard() {
           .single();
 
         if (vehicleError || !vehicleData) {
+          // Vehicle not found - create it
+          // Get first available vehicle type
+          const { data: vehicleTypes, error: typesError } = await supabase
+            .from('vehicle_types')
+            .select('id')
+            .eq('is_active', true)
+            .order('type_name')
+            .limit(1);
+
+          if (typesError || !vehicleTypes || vehicleTypes.length === 0) {
+            toast({
+              title: 'Error',
+              description: 'No vehicle types available. Contact admin.',
+              variant: 'destructive',
+            });
+            return;
+          }
+
+          // Create new vehicle
+          const { data: newVehicle, error: createError } = await supabase
+            .from('vehicles')
+            .insert({
+              vehicle_number: vehicleNumber,
+              vehicle_type_id: vehicleTypes[0].id,
+              home_location_id: userProfile.location_id,
+              is_active: true,
+            })
+            .select('id')
+            .single();
+
+          if (createError || !newVehicle) {
+            toast({
+              title: 'Error',
+              description: 'Failed to create vehicle. Try again.',
+              variant: 'destructive',
+            });
+            return;
+          }
+
+          finalVehicleId = newVehicle.id;
+          
           toast({
-            title: 'Vehicle Not Found',
-            description: `Vehicle not found. Check number and try again.`,
-            variant: 'destructive',
+            title: 'New Vehicle Created',
+            description: `Vehicle ${vehicleNumber} has been added to the system.`,
           });
-          return;
+        } else {
+          finalVehicleId = vehicleData.id;
         }
 
         finalVehicleId = vehicleData.id;
