@@ -174,7 +174,7 @@ export default function EmployeeDashboard() {
             vehicle_type:vehicle_types(*),
             home_location:locations!vehicles_home_location_id_fkey(*)
           ),
-          employee:users(*),
+          employee:users!wash_entries_employee_id_fkey(*),
           actual_location:locations(*)
         `)
         .eq('employee_id', userProfile.id)
