@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,7 +75,32 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { employee_id, name, email, location_id, role, manager_id, password } = await req.json();
+    const requestBody = await req.json();
+
+    // Validate input using Zod
+    const createUserSchema = z.object({
+      employee_id: z.string()
+        .min(1, 'Employee ID required')
+        .max(50, 'Employee ID too long')
+        .regex(/^[a-zA-Z0-9_-]+$/, 'Invalid employee ID format'),
+      name: z.string()
+        .min(1, 'Name required')
+        .max(100, 'Name too long')
+        .trim(),
+      email: z.string()
+        .email('Invalid email format')
+        .max(255, 'Email too long'),
+      password: z.string()
+        .min(8, 'Password must be at least 8 characters')
+        .max(128, 'Password too long')
+        .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain uppercase, lowercase, and number'),
+      role: z.enum(['employee', 'manager', 'finance', 'admin', 'super_admin']),
+      location_id: z.string().uuid().optional().nullable(),
+      manager_id: z.string().uuid().optional().nullable(),
+    });
+
+    const validatedData = createUserSchema.parse(requestBody);
+    const { employee_id, name, email, location_id, role, manager_id, password } = validatedData;
 
     console.log('Creating user with email:', email);
 
@@ -159,8 +185,7 @@ serve(async (req) => {
         success: true,
         user: {
           id: authData.user.id,
-          email: authData.user.email,
-          password
+          email: authData.user.email
         }
       }), 
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

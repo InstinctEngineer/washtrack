@@ -40,14 +40,20 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    // Check if user is admin
-    const { data: userRole, error: roleError } = await supabaseAdmin
+    // Check if caller has admin or super_admin role
+    const { data: callerRoles, error: roleError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
-      .single();
+      .eq("user_id", user.id);
 
-    if (roleError || userRole?.role !== "admin") {
+    if (roleError || !callerRoles || callerRoles.length === 0) {
+      throw new Error("Admin access required");
+    }
+
+    const isCallerAdmin = callerRoles.some(r => r.role === 'admin');
+    const isCallerSuperAdmin = callerRoles.some(r => r.role === 'super_admin');
+
+    if (!isCallerAdmin && !isCallerSuperAdmin) {
       throw new Error("Admin access required");
     }
 
@@ -57,8 +63,31 @@ serve(async (req) => {
       throw new Error("User ID is required");
     }
 
-    if (!newPassword || newPassword.length < 6) {
-      throw new Error("Password must be at least 6 characters");
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error("Password must be at least 8 characters");
+    }
+
+    // Validate password complexity
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
+    if (!passwordRegex.test(newPassword)) {
+      throw new Error("Password must contain uppercase, lowercase, and number");
+    }
+
+    // Check if target user is a super_admin
+    const { data: targetRoles, error: targetRoleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+
+    if (targetRoleError) {
+      throw new Error("Failed to verify target user permissions");
+    }
+
+    const isTargetSuperAdmin = targetRoles?.some(r => r.role === 'super_admin');
+
+    // Block non-super-admins from resetting super-admin passwords
+    if (isTargetSuperAdmin && !isCallerSuperAdmin) {
+      throw new Error("Only Super Admins can reset Super Admin passwords");
     }
 
     // Update user password and set metadata to require password change
