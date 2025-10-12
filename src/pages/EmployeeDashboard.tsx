@@ -205,7 +205,8 @@ export default function EmployeeDashboard() {
     }
 
     // Check cutoff date restriction for employees
-    // Employees can only enter washes for the 7-day period ending on the cutoff date
+    // If no cutoff date exists, allow all entries
+    // If cutoff date exists, only block entries BEFORE the cutoff
     if (cutoffDate && userProfile.role === 'employee') {
       const washDate = new Date(date);
       washDate.setHours(0, 0, 0, 0);
@@ -213,14 +214,11 @@ export default function EmployeeDashboard() {
       const cutoffDateOnly = new Date(cutoffDate);
       cutoffDateOnly.setHours(0, 0, 0, 0);
       
-      // Calculate start of allowed period (6 days before cutoff, making 7 days total)
-      const allowedStartDate = new Date(cutoffDateOnly);
-      allowedStartDate.setDate(cutoffDateOnly.getDate() - 6);
-      
-      if (washDate < allowedStartDate || washDate > cutoffDateOnly) {
+      // Block only if selected date is BEFORE cutoff
+      if (washDate < cutoffDateOnly) {
         toast({
           title: 'Entry Blocked',
-          description: 'Can only enter washes for the current week period. Contact your manager.',
+          description: 'Cannot enter washes for dates before the cutoff. Contact your manager.',
           variant: 'destructive',
         });
         return;
