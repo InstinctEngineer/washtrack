@@ -15,6 +15,16 @@ import { getCurrentCutoff } from '@/lib/cutoff';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NewVehicleDialog } from '@/components/NewVehicleDialog';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function EmployeeDashboard() {
   const { userProfile } = useAuth();
@@ -39,6 +49,14 @@ export default function EmployeeDashboard() {
   const [showNewVehicleDialog, setShowNewVehicleDialog] = useState(false);
   const [pendingVehicleNumber, setPendingVehicleNumber] = useState('');
   const [pendingWashDate, setPendingWashDate] = useState<Date>(new Date());
+  
+  // Confirmation dialog state
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingWash, setPendingWash] = useState<{
+    date: Date;
+    vehicleNumber: string;
+    vehicleId: string;
+  } | null>(null);
 
   useEffect(() => {
     if (userProfile?.id) {
@@ -180,18 +198,51 @@ export default function EmployeeDashboard() {
   };
 
   const handleSelectVehicle = (vehicle: VehicleWithDetails) => {
-    handleAddWash(selectedDate, vehicle.vehicle_number, vehicle.id);
-    setSearchTerm('');
-    setShowDropdown(false);
-    inputRef.current?.focus();
+    // Check if adding for a non-today date
+    if (!isToday(selectedDate)) {
+      setPendingWash({
+        date: selectedDate,
+        vehicleNumber: vehicle.vehicle_number,
+        vehicleId: vehicle.id,
+      });
+      setShowConfirmDialog(true);
+      setSearchTerm('');
+      setShowDropdown(false);
+    } else {
+      handleAddWash(selectedDate, vehicle.vehicle_number, vehicle.id);
+      setSearchTerm('');
+      setShowDropdown(false);
+      inputRef.current?.focus();
+    }
   };
 
   const handleSubmitSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
-      handleAddWash(selectedDate, searchTerm.trim(), '');
-      setSearchTerm('');
-      setShowDropdown(false);
+      // Check if adding for a non-today date
+      if (!isToday(selectedDate)) {
+        setPendingWash({
+          date: selectedDate,
+          vehicleNumber: searchTerm.trim(),
+          vehicleId: '',
+        });
+        setShowConfirmDialog(true);
+        setSearchTerm('');
+        setShowDropdown(false);
+      } else {
+        handleAddWash(selectedDate, searchTerm.trim(), '');
+        setSearchTerm('');
+        setShowDropdown(false);
+      }
+    }
+  };
+
+  const handleConfirmWash = () => {
+    if (pendingWash) {
+      handleAddWash(pendingWash.date, pendingWash.vehicleNumber, pendingWash.vehicleId);
+      setPendingWash(null);
+      setShowConfirmDialog(false);
+      inputRef.current?.focus();
     }
   };
 
@@ -661,6 +712,28 @@ export default function EmployeeDashboard() {
           vehicleNumber={pendingVehicleNumber}
           onConfirm={handleCreateVehicle}
         />
+
+        {/* Confirmation Dialog for Non-Today Dates */}
+        <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Date</AlertDialogTitle>
+              <AlertDialogDescription>
+                You are adding a wash for <strong>{pendingWash && format(pendingWash.date, 'EEEE, MMMM d, yyyy')}</strong>, not today.
+                <br /><br />
+                Vehicle: <strong>{pendingWash?.vehicleNumber}</strong>
+                <br /><br />
+                Do you want to continue?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmWash}>
+                Confirm
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>
   );
