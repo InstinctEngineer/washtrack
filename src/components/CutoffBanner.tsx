@@ -18,8 +18,20 @@ export function CutoffBanner() {
     fetchCutoff();
   }, []);
 
-  if (loading || !cutoffDate) {
+  if (loading) {
     return null;
+  }
+
+  // If no cutoff date exists, show info message
+  if (!cutoffDate) {
+    return (
+      <Alert variant="default" className="bg-blue-50 text-blue-900 border-blue-200">
+        <CheckCircle className="h-4 w-4" />
+        <AlertDescription className="font-medium">
+          ℹ No entry cutoff set - all dates allowed
+        </AlertDescription>
+      </Alert>
+    );
   }
 
   const statusColor = getCutoffStatusColor(cutoffDate);
