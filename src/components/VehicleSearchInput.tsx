@@ -39,6 +39,7 @@ export function VehicleSearchInput({ onSelect, disabled, placeholder = "Search v
           .select(`
             *,
             vehicle_type:vehicle_types(*),
+            client:clients(*),
             home_location:locations!vehicles_home_location_id_fkey(*)
           `)
           .ilike('vehicle_number', `${searchTerm}%`)
@@ -58,6 +59,7 @@ export function VehicleSearchInput({ onSelect, disabled, placeholder = "Search v
           .select(`
             *,
             vehicle_type:vehicle_types(*),
+            client:clients(*),
             home_location:locations!vehicles_home_location_id_fkey(*)
           `)
           .ilike('vehicle_number', `%${searchTerm}%`)
@@ -147,7 +149,14 @@ export function VehicleSearchInput({ onSelect, disabled, placeholder = "Search v
                   onClick={() => handleSelect(vehicle)}
                   className="w-full px-4 py-3 text-left hover:bg-accent transition-colors border-b last:border-b-0"
                 >
-                  <div className="font-medium">Vehicle #{vehicle.vehicle_number}</div>
+                  <div className="font-medium">
+                    Vehicle #{vehicle.vehicle_number}
+                    {vehicle.client && (
+                      <span className="ml-2 text-sm font-normal text-primary">
+                        • {vehicle.client.client_name}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-sm text-muted-foreground">
                     Type: {vehicle.vehicle_type?.type_name || 'Unknown'}
                     {vehicle.home_location && ` • Home: ${vehicle.home_location.name}`}

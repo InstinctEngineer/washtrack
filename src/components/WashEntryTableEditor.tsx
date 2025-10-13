@@ -24,6 +24,9 @@ interface WashEntry {
       type_name: string;
       rate_per_wash: number;
     };
+    client?: {
+      client_name: string;
+    };
   };
   location?: {
     name: string;
@@ -66,7 +69,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
         .from('wash_entries')
         .select(`
           *,
-          vehicle:vehicles(vehicle_number, vehicle_type:vehicle_types(type_name, rate_per_wash)),
+          vehicle:vehicles(vehicle_number, vehicle_type:vehicle_types(type_name, rate_per_wash), client:clients(client_name)),
           location:locations!wash_entries_actual_location_id_fkey(name),
           employee:users!wash_entries_employee_id_fkey(name)
         `)
@@ -275,6 +278,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Vehicle</TableHead>
+                <TableHead>Client</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Rate</TableHead>
                 <TableHead>Location</TableHead>
@@ -285,7 +289,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
             <TableBody>
               {entries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     No wash entries found for this month
                   </TableCell>
                 </TableRow>
@@ -294,6 +298,11 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                   <TableRow key={entry.id}>
                     <TableCell>{format(new Date(entry.wash_date), 'MMM d, yyyy')}</TableCell>
                     <TableCell>{entry.vehicle?.vehicle_number || 'N/A'}</TableCell>
+                    <TableCell>
+                      {entry.vehicle?.client?.client_name || (
+                        <span className="text-muted-foreground italic">No Client</span>
+                      )}
+                    </TableCell>
                     <TableCell>{entry.vehicle?.vehicle_type?.type_name || 'N/A'}</TableCell>
                     <TableCell>
                       ${entry.vehicle?.vehicle_type?.rate_per_wash?.toFixed(2) || '0.00'}

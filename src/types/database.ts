@@ -30,10 +30,19 @@ export interface VehicleType {
   created_at: string;
 }
 
+export interface Client {
+  id: string;
+  client_code: string;
+  client_name: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Vehicle {
   id: string;
   vehicle_number: string;
   vehicle_type_id: string;
+  client_id: string | null;
   home_location_id: string | null;
   last_seen_location_id: string | null;
   last_seen_date: string | null;
@@ -43,6 +52,7 @@ export interface Vehicle {
 
 export interface VehicleWithDetails extends Vehicle {
   vehicle_type?: VehicleType;
+  client?: Client;
   home_location?: Location;
   last_seen_location?: Location;
 }

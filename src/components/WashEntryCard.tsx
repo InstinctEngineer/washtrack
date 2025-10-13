@@ -15,6 +15,11 @@ export function WashEntryCard({ entry, onDelete, canDelete }: WashEntryCardProps
       <div className="flex-1">
         <div className="font-medium">
           Vehicle #{entry.vehicle?.vehicle_number}
+          {entry.vehicle?.client && (
+            <span className="ml-2 text-sm font-normal text-primary">
+              • {entry.vehicle.client.client_name}
+            </span>
+          )}
         </div>
         <div className="text-sm text-muted-foreground">
           {entry.vehicle?.vehicle_type?.type_name}

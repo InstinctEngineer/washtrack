@@ -87,6 +87,7 @@ export default function EmployeeDashboard() {
           .select(`
             *,
             vehicle_type:vehicle_types(*),
+            client:clients(*),
             home_location:locations!vehicles_home_location_id_fkey(*)
           `)
           .ilike('vehicle_number', `${searchTerm}%`)
@@ -106,6 +107,7 @@ export default function EmployeeDashboard() {
           .select(`
             *,
             vehicle_type:vehicle_types(*),
+            client:clients(*),
             home_location:locations!vehicles_home_location_id_fkey(*)
           `)
           .ilike('vehicle_number', `%${searchTerm}%`)
@@ -172,6 +174,7 @@ export default function EmployeeDashboard() {
           vehicle:vehicles(
             *,
             vehicle_type:vehicle_types(*),
+            client:clients(*),
             home_location:locations!vehicles_home_location_id_fkey(*)
           ),
           employee:users!wash_entries_employee_id_fkey(*),
