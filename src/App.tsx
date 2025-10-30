@@ -19,6 +19,7 @@ import Users from "./pages/Users";
 import VehicleTypes from "./pages/VehicleTypes";
 import Vehicles from "./pages/Vehicles";
 import Locations from "./pages/Locations";
+import SuperAdminDatabase from "./pages/SuperAdminDatabase";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
@@ -124,6 +125,16 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminSettings />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Super Admin Routes */}
+            <Route
+              path="/admin/database"
+              element={
+                <ProtectedRoute allowedRoles={['super_admin']}>
+                  <SuperAdminDatabase />
                 </ProtectedRoute>
               }
             />

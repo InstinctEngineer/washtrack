@@ -320,31 +320,28 @@ export function VehicleGridSelector({
   return (
     <div className="space-y-6">
       {/* Daily Summary */}
-      <div className="sticky top-0 z-10 bg-gradient-to-br from-gray-50 to-white py-6 border-b shadow-sm">
-        <div className="text-center space-y-3">
-          <div className="text-2xl md:text-3xl font-bold text-foreground">
-            Today's Count: <span className="bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent">{washedCount}</span>
+      <div className="sticky top-0 z-10 bg-gradient-to-br from-slate-50/95 to-white/95 backdrop-blur-sm py-4 border-b shadow-sm">
+        <div className="text-center space-y-2">
+          <div className="text-xl md:text-2xl font-bold text-foreground">
+            Today: <span className="text-blue-600">{washedCount}</span> / {vehicles.length}
           </div>
-          <div className="text-sm text-muted-foreground">
-            {washedCount} of {vehicles.length} vehicles washed
-          </div>
-          <div className="w-full max-w-md mx-auto h-3 bg-gray-200 rounded-full overflow-hidden relative shadow-inner">
+          <div className="w-full max-w-lg mx-auto h-2 bg-slate-200 rounded-full overflow-hidden shadow-inner">
             <div
-              className="h-full transition-all duration-500 rounded-full bg-gradient-to-r from-purple-300 to-purple-400 shadow-lg"
+              className="h-full transition-all duration-500 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
               style={{ width: `${vehicles.length > 0 ? (washedCount / vehicles.length) * 100 : 0}%` }}
             />
-            {vehicles.length > 0 && washedCount > 0 && (
-              <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-gray-700">
-                {Math.round((washedCount / vehicles.length) * 100)}%
-              </div>
-            )}
           </div>
+          {vehicles.length > 0 && washedCount > 0 && (
+            <div className="text-xs font-medium text-slate-600">
+              {Math.round((washedCount / vehicles.length) * 100)}% Complete
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Vehicle Grid */}
-      <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 shadow-sm">
-        <div className="grid grid-cols-3 gap-3 max-w-4xl mx-auto">
+      {/* Vehicle Grid - Spreadsheet Style */}
+      <div className="bg-slate-50 rounded-lg p-2">
+        <div className="grid grid-cols-3 gap-1 max-w-2xl mx-auto">
           {vehicles.map(vehicle => {
             const state = tileStates.get(vehicle.id) || { isWashed: false, isLoading: false };
             
@@ -357,34 +354,34 @@ export function VehicleGridSelector({
                   WebkitTapHighlightColor: 'transparent',
                 }}
                 className={cn(
-                  "relative h-16 min-h-[48px] rounded-xl transition-all duration-200",
+                  "relative h-12 min-h-[48px] rounded transition-all duration-150",
                   "flex items-center justify-center touch-manipulation",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2",
-                  "font-semibold text-lg",
-                  // Default state - 3D raised effect
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
+                  "font-mono font-semibold text-base",
+                  // Default state - sleek raised cell
                   !state.isWashed && !state.isLoading && [
-                    "bg-gradient-to-br from-white to-gray-100",
-                    "border border-gray-200",
-                    "shadow-[6px_6px_12px_#d1d5db,-6px_-6px_12px_#ffffff]",
-                    "hover:shadow-[8px_8px_16px_#d1d5db,-8px_-8px_16px_#ffffff]",
-                    "hover:-translate-y-0.5",
-                    "active:translate-y-0.5",
-                    "active:shadow-[3px_3px_6px_#d1d5db,-3px_-3px_6px_#ffffff]",
-                    "text-gray-700",
+                    "bg-gradient-to-b from-white via-slate-50 to-slate-100",
+                    "border border-slate-300/50",
+                    "shadow-[2px_2px_5px_rgba(100,116,139,0.15),-1px_-1px_3px_rgba(255,255,255,0.7)]",
+                    "hover:shadow-[3px_3px_8px_rgba(100,116,139,0.2),-2px_-2px_4px_rgba(255,255,255,0.8)]",
+                    "hover:border-blue-400/50",
+                    "hover:-translate-y-px",
+                    "active:translate-y-0",
+                    "active:shadow-[inset_1px_1px_3px_rgba(100,116,139,0.2)]",
+                    "text-slate-700",
                   ],
-                  // Washed state - 3D pressed in effect
+                  // Washed state - vibrant pressed effect
                   state.isWashed && !state.isLoading && [
-                    "bg-gradient-to-br from-purple-300 to-purple-400",
-                    "border border-purple-400",
-                    "shadow-[inset_4px_4px_8px_rgba(147,51,234,0.3),inset_-4px_-4px_8px_rgba(243,232,255,0.5)]",
-                    "translate-y-0.5",
+                    "bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-500",
+                    "border border-teal-500/40",
+                    "shadow-[inset_2px_2px_6px_rgba(20,184,166,0.4),inset_-2px_-2px_6px_rgba(255,255,255,0.2),0_2px_4px_rgba(20,184,166,0.3)]",
                     "text-white",
                   ],
                   // Loading state
                   state.isLoading && [
-                    "bg-gradient-to-br from-purple-200 to-purple-300",
-                    "border border-purple-300",
-                    "cursor-wait opacity-70",
+                    "bg-gradient-to-br from-blue-100 to-indigo-100",
+                    "border border-blue-300",
+                    "cursor-wait opacity-80",
                   ]
                 )}
                 aria-label={`${vehicle.vehicle_number} - ${state.isWashed ? 'Washed' : 'Not washed'}`}
@@ -392,22 +389,21 @@ export function VehicleGridSelector({
               >
                 {/* Loading Spinner */}
                 {state.isLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/20 rounded-xl backdrop-blur-sm">
-                    <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
-                  </div>
+                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                 )}
 
-                {/* Washed Checkmark - Small and elegant */}
+                {/* Washed Checkmark */}
                 {state.isWashed && !state.isLoading && (
-                  <div className="absolute top-1.5 right-1.5 animate-in fade-in duration-300">
-                    <Check className="h-4 w-4 text-white drop-shadow-sm" strokeWidth={3} />
-                  </div>
+                  <>
+                    <span className="drop-shadow-sm">{vehicle.vehicle_number}</span>
+                    <Check className="absolute top-1 right-1 h-3.5 w-3.5 text-white drop-shadow-sm animate-in fade-in zoom-in duration-200" strokeWidth={3} />
+                  </>
                 )}
 
-                {/* Vehicle Number - Only ID */}
-                <span className="text-center">
-                  {vehicle.vehicle_number}
-                </span>
+                {/* Vehicle Number */}
+                {!state.isWashed && !state.isLoading && (
+                  <span>{vehicle.vehicle_number}</span>
+                )}
               </button>
             );
           })}
