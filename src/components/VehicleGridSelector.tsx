@@ -46,12 +46,63 @@ export function VehicleGridSelector({
     fetchVehicles();
   }, [locationIds]);
 
+  // Initialize tile states on mount or when data changes
   useEffect(() => {
-    console.log('VehicleGridSelector: washedVehicleIds changed:', washedVehicleIds);
+    console.log('VehicleGridSelector: Initializing tile states');
+    const initializeTileStates = async () => {
+      // Fetch wash entries for this date
+      const { data: washEntries } = await supabase
+        .from('wash_entries')
+        .select(`
+          id, 
+          vehicle_id, 
+          created_at, 
+          employee_id,
+          employee:users!wash_entries_employee_id_fkey(id, name)
+        `)
+        .is('deleted_at', null)
+        .in('actual_location_id', locationIds)
+        .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
+      
+      const entriesMap = new Map<string, { 
+        id: string; 
+        created_at: string; 
+        employee_id: string;
+        employee_name: string;
+      }>();
+      
+      (washEntries || []).forEach((entry: any) => {
+        entriesMap.set(entry.vehicle_id, { 
+          id: entry.id, 
+          created_at: entry.created_at,
+          employee_id: entry.employee_id,
+          employee_name: entry.employee?.name || 'Unknown'
+        });
+      });
+      
+      const newStates = new Map<string, VehicleTileState>();
+      
+      vehicles.forEach(vehicle => {
+        const entryData = entriesMap.get(vehicle.id);
+        const isWashed = !!entryData;
+        
+        newStates.set(vehicle.id, {
+          isWashed,
+          isLoading: false,
+          washEntryId: entryData?.id,
+          createdAt: entryData ? new Date(entryData.created_at) : undefined,
+          washedByEmployeeId: entryData?.employee_id,
+          washedByEmployeeName: entryData?.employee_name,
+        });
+      });
+
+      setTileStates(newStates);
+    };
+
     if (vehicles.length > 0) {
-      syncTileStatesWithProp();
+      initializeTileStates();
     }
-  }, [washedVehicleIds, vehicles, selectedDate]);
+  }, [vehicles, selectedDate, locationIds]);
 
   // Auto-click newly created vehicle
   useEffect(() => {
@@ -70,66 +121,10 @@ export function VehicleGridSelector({
       if (vehicle && tileState && !tileState.isLoading && !tileState.isWashed) {
         console.log('Auto-clicking vehicle:', vehicle.vehicle_number);
         setPendingAutoClickVehicleId(null);
-        // Use a small delay to ensure all state is settled
-        setTimeout(() => {
-          handleTileClick(vehicle);
-        }, 100);
+        handleTileClick(vehicle);
       }
     }
   }, [pendingAutoClickVehicleId, vehicles, loading, tileStates]);
-
-  const syncTileStatesWithProp = async () => {
-    console.log('VehicleGridSelector: Syncing tile states with prop');
-    
-    // Fetch ALL wash entries for this date at these locations (not filtered by employee)
-    const { data: washEntries } = await supabase
-      .from('wash_entries')
-      .select(`
-        id, 
-        vehicle_id, 
-        created_at, 
-        employee_id,
-        employee:users!wash_entries_employee_id_fkey(id, name)
-      `)
-      .is('deleted_at', null)
-      .in('actual_location_id', locationIds)
-      .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
-    
-    const entriesMap = new Map<string, { 
-      id: string; 
-      created_at: string; 
-      employee_id: string;
-      employee_name: string;
-    }>();
-    
-    (washEntries || []).forEach((entry: any) => {
-      entriesMap.set(entry.vehicle_id, { 
-        id: entry.id, 
-        created_at: entry.created_at,
-        employee_id: entry.employee_id,
-        employee_name: entry.employee?.name || 'Unknown'
-      });
-    });
-    
-    const newStates = new Map<string, VehicleTileState>();
-    
-    vehicles.forEach(vehicle => {
-      const isWashed = washedVehicleIds.has(vehicle.id);
-      const currentState = tileStates.get(vehicle.id);
-      const entryData = entriesMap.get(vehicle.id);
-      
-      newStates.set(vehicle.id, {
-        isWashed,
-        isLoading: currentState?.isLoading || false,
-        washEntryId: isWashed ? (entryData?.id || currentState?.washEntryId) : undefined,
-        createdAt: isWashed && entryData ? new Date(entryData.created_at) : currentState?.createdAt,
-        washedByEmployeeId: isWashed ? (entryData?.employee_id || currentState?.washedByEmployeeId) : undefined,
-        washedByEmployeeName: isWashed ? (entryData?.employee_name || currentState?.washedByEmployeeName) : undefined,
-      });
-    });
-
-    setTileStates(newStates);
-  };
 
   useEffect(() => {
     if (showUndo) {
@@ -221,12 +216,12 @@ export function VehicleGridSelector({
           return;
         }
         
-        // Check if it's same day
-        const isSameDay = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+        // Check if it's same day using date-fns isSameDay
+        const isToday = isSameDay(selectedDate, new Date());
         
-        if (isSameDay) {
+        if (isToday) {
           // Same day - soft delete immediately
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('wash_entries')
             .update({
               deleted_at: new Date().toISOString(),
@@ -234,9 +229,16 @@ export function VehicleGridSelector({
               deletion_reason: 'Removed by employee on same day',
             })
             .eq('id', currentState.washEntryId)
-            .eq('employee_id', employeeId);
+            .eq('employee_id', employeeId)
+            .select();
 
-          if (error) throw error;
+          if (error) {
+            throw new Error(`Database error: ${error.message}`);
+          }
+
+          if (!data || data.length === 0) {
+            throw new Error('Unable to remove entry. You may not have permission to modify this wash.');
+          }
 
           console.log(`VehicleGridSelector: Successfully soft deleted wash entry for ${vehicle.vehicle_number}`);
 
@@ -245,6 +247,8 @@ export function VehicleGridSelector({
             isLoading: false,
             washEntryId: undefined,
             createdAt: undefined,
+            washedByEmployeeId: undefined,
+            washedByEmployeeName: undefined,
           }));
 
           setUndoStack([{ vehicleId: vehicle.id, action: 'remove', washEntryId: currentState.washEntryId }]);
@@ -255,11 +259,7 @@ export function VehicleGridSelector({
             description: `${vehicle.vehicle_number} removed`,
           });
           
-          setTimeout(() => {
-            console.log('VehicleGridSelector: Calling onWashAdded after soft delete');
-            onWashAdded();
-          }, 100);
-          
+          onWashAdded();
           return;
         } else {
           // Past date - request manager approval
@@ -333,11 +333,29 @@ export function VehicleGridSelector({
       onWashAdded();
     } catch (error: any) {
       console.error('VehicleGridSelector: Error handling tile click:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Operation failed',
-        variant: 'destructive',
-      });
+      
+      // Show specific error based on failure type
+      if (error.message.includes('permission')) {
+        toast({
+          title: 'Permission Denied',
+          description: 'You can only remove washes from today. For past dates, request manager approval.',
+          variant: 'destructive',
+        });
+      } else if (error.message.includes('Database error')) {
+        toast({
+          title: 'Database Error',
+          description: error.message.replace('Database error: ', ''),
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: error.message || 'Operation failed',
+          variant: 'destructive',
+        });
+      }
+      
+      // Revert UI state
       setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
     }
   };
@@ -409,35 +427,49 @@ export function VehicleGridSelector({
         // Undo add = soft delete
         if (!lastAction.washEntryId) return;
         
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('wash_entries')
           .update({
             deleted_at: new Date().toISOString(),
             deleted_by: employeeId,
             deletion_reason: 'Undo by employee',
           })
-          .eq('id', lastAction.washEntryId);
+          .eq('id', lastAction.washEntryId)
+          .select();
 
         if (error) throw error;
+        
+        if (!data || data.length === 0) {
+          throw new Error('Unable to undo. Permission denied.');
+        }
 
         setTileStates(prev => new Map(prev).set(lastAction.vehicleId, {
           isWashed: false,
           isLoading: false,
+          washEntryId: undefined,
+          createdAt: undefined,
+          washedByEmployeeId: undefined,
+          washedByEmployeeName: undefined,
         }));
       } else {
         // Undo remove = restore (update deleted_at to null)
         if (!lastAction.washEntryId) return;
         
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('wash_entries')
           .update({
             deleted_at: null,
             deleted_by: null,
             deletion_reason: null,
           })
-          .eq('id', lastAction.washEntryId);
+          .eq('id', lastAction.washEntryId)
+          .select();
 
         if (error) throw error;
+        
+        if (!data || data.length === 0) {
+          throw new Error('Unable to undo. Permission denied.');
+        }
 
         setTileStates(prev => new Map(prev).set(lastAction.vehicleId, {
           isWashed: true,
