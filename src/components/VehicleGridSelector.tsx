@@ -270,16 +270,22 @@ export function VehicleGridSelector({
       } else {
         console.log(`VehicleGridSelector: Adding wash entry for ${vehicle.vehicle_number}`);
         
+        // Debug: Check auth status
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        console.log('Debug - Auth User ID:', authUser?.id);
+        console.log('Debug - Employee ID (from prop):', employeeId);
+        console.log('Debug - IDs match:', authUser?.id === employeeId);
+        
         // Determine which location to use - prefer the vehicle's home location if it's in the user's locations
         const actualLocationId = vehicle.home_location_id && locationIds.includes(vehicle.home_location_id)
           ? vehicle.home_location_id
           : locationIds[0]; // Fallback to first assigned location
         
-        // Add wash entry
+        // Add wash entry - use auth user ID directly to ensure RLS passes
         const { data, error } = await supabase
           .from('wash_entries')
           .insert({
-            employee_id: employeeId,
+            employee_id: authUser?.id || employeeId, // Use auth ID directly
             vehicle_id: vehicle.id,
             wash_date: format(selectedDate, 'yyyy-MM-dd'),
             actual_location_id: actualLocationId,
