@@ -78,6 +78,7 @@ export default function EmployeeDashboard() {
           employee:users!wash_entries_employee_id_fkey(*),
           actual_location:locations(*)
         `)
+        .is('deleted_at', null)
         .in('actual_location_id', userLocations)
         .gte('wash_date', format(weekStart, 'yyyy-MM-dd'))
         .lte('wash_date', format(weekEnd, 'yyyy-MM-dd'))

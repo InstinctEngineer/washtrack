@@ -1,6 +1,7 @@
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { WashEntryTableEditor } from '@/components/WashEntryTableEditor';
+import { ManagerApprovalQueue } from '@/components/ManagerApprovalQueue';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function ManagerDashboard() {
@@ -14,19 +15,11 @@ export default function ManagerDashboard() {
           <p className="text-muted-foreground mt-2">Oversee operations and manage wash entries</p>
         </div>
 
+        {user && <ManagerApprovalQueue managerId={user.id} />}
+
         {user && <WashEntryTableEditor userId={user.id} />}
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending Approvals</CardTitle>
-              <CardDescription>Supply requests awaiting review</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">No pending requests</p>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Team Performance</CardTitle>

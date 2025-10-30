@@ -73,6 +73,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
           location:locations!wash_entries_actual_location_id_fkey(name),
           employee:users!wash_entries_employee_id_fkey(name)
         `)
+        .is('deleted_at', null)
         .gte('wash_date', startOfMonth.toISOString().split('T')[0])
         .lte('wash_date', endOfMonth.toISOString().split('T')[0])
         .order('wash_date', { ascending: false });

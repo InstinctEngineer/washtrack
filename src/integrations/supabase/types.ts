@@ -483,6 +483,53 @@ export type Database = {
           },
         ]
       }
+      manager_approval_requests: {
+        Row: {
+          created_at: string
+          employee_id: string
+          id: string
+          manager_id: string
+          reason: string | null
+          request_type: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          wash_entry_id: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          id?: string
+          manager_id: string
+          reason?: string | null
+          request_type?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          wash_entry_id: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          id?: string
+          manager_id?: string
+          reason?: string | null
+          request_type?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          wash_entry_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_approval_requests_wash_entry_id_fkey"
+            columns: ["wash_entry_id"]
+            isOneToOne: false
+            referencedRelation: "wash_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_settings: {
         Row: {
           category: string | null

@@ -91,6 +91,7 @@ export function VehicleGridSelector({
         employee_id,
         employee:users!wash_entries_employee_id_fkey(id, name)
       `)
+      .is('deleted_at', null)
       .in('actual_location_id', locationIds)
       .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
     
@@ -197,7 +198,7 @@ export function VehicleGridSelector({
 
     try {
       if (currentState.isWashed) {
-        console.log(`VehicleGridSelector: Attempting to delete wash entry for ${vehicle.vehicle_number}`);
+        console.log(`VehicleGridSelector: Attempting to remove wash entry for ${vehicle.vehicle_number}`);
         
         // Check if this entry was created by the current user
         if (currentState.washedByEmployeeId && currentState.washedByEmployeeId !== employeeId) {
@@ -210,41 +211,62 @@ export function VehicleGridSelector({
           return;
         }
         
-        // Delete the wash entry (only the current user's entry)
-        const { error } = await supabase
-          .from('wash_entries')
-          .delete()
-          .eq('vehicle_id', vehicle.id)
-          .eq('employee_id', employeeId)
-          .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
-
-        if (error) throw error;
-
-        console.log(`VehicleGridSelector: Successfully deleted wash entry for ${vehicle.vehicle_number}`);
-
-        // Update local state immediately
-        setTileStates(prev => new Map(prev).set(vehicle.id, {
-          isWashed: false,
-          isLoading: false,
-          washEntryId: undefined,
-          createdAt: undefined,
-        }));
-
-        setUndoStack([{ vehicleId: vehicle.id, action: 'remove', washEntryId: currentState.washEntryId }]);
-        setShowUndo(true);
-
-        toast({
-          title: 'Removed',
-          description: `${vehicle.vehicle_number} removed`,
-        });
+        if (!currentState.washEntryId) {
+          toast({
+            title: 'Error',
+            description: 'Wash entry ID not found',
+            variant: 'destructive',
+          });
+          setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
+          return;
+        }
         
-        // Wait a bit before triggering parent refresh to ensure DB propagation
-        setTimeout(() => {
-          console.log('VehicleGridSelector: Calling onWashAdded after deletion');
-          onWashAdded();
-        }, 100);
+        // Check if it's same day
+        const isSameDay = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
         
-        return; // Don't call onWashAdded immediately
+        if (isSameDay) {
+          // Same day - soft delete immediately
+          const { error } = await supabase
+            .from('wash_entries')
+            .update({
+              deleted_at: new Date().toISOString(),
+              deleted_by: employeeId,
+              deletion_reason: 'Removed by employee on same day',
+            })
+            .eq('id', currentState.washEntryId)
+            .eq('employee_id', employeeId);
+
+          if (error) throw error;
+
+          console.log(`VehicleGridSelector: Successfully soft deleted wash entry for ${vehicle.vehicle_number}`);
+
+          setTileStates(prev => new Map(prev).set(vehicle.id, {
+            isWashed: false,
+            isLoading: false,
+            washEntryId: undefined,
+            createdAt: undefined,
+          }));
+
+          setUndoStack([{ vehicleId: vehicle.id, action: 'remove', washEntryId: currentState.washEntryId }]);
+          setShowUndo(true);
+
+          toast({
+            title: 'Removed',
+            description: `${vehicle.vehicle_number} removed`,
+          });
+          
+          setTimeout(() => {
+            console.log('VehicleGridSelector: Calling onWashAdded after soft delete');
+            onWashAdded();
+          }, 100);
+          
+          return;
+        } else {
+          // Past date - request manager approval
+          await requestManagerApproval(vehicle, currentState.washEntryId);
+          setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
+          return;
+        }
       } else {
         console.log(`VehicleGridSelector: Adding wash entry for ${vehicle.vehicle_number}`);
         
@@ -320,6 +342,56 @@ export function VehicleGridSelector({
     }
   };
 
+  const requestManagerApproval = async (vehicle: VehicleWithDetails, washEntryId: string) => {
+    try {
+      // Get user's manager_id
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('manager_id')
+        .eq('id', employeeId)
+        .single();
+
+      if (userError || !userData?.manager_id) {
+        toast({
+          title: 'Error',
+          description: 'You must have a manager assigned to request approval.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Prompt for reason (simple implementation)
+      const reason = window.prompt(`Why do you want to remove vehicle ${vehicle.vehicle_number}?`);
+      if (!reason) return; // User canceled
+
+      // Create approval request
+      const { error } = await supabase
+        .from('manager_approval_requests')
+        .insert({
+          employee_id: employeeId,
+          manager_id: userData.manager_id,
+          wash_entry_id: washEntryId,
+          request_type: 'remove_entry',
+          reason: reason,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Approval Requested',
+        description: `Request sent to your manager to remove vehicle ${vehicle.vehicle_number}`,
+        className: 'bg-blue-500 text-white',
+      });
+    } catch (error: any) {
+      console.error('Error requesting approval:', error);
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleUndo = async () => {
     const lastAction = undoStack[undoStack.length - 1];
     if (!lastAction) return;
@@ -334,12 +406,16 @@ export function VehicleGridSelector({
 
     try {
       if (lastAction.action === 'add') {
-        // Undo add = delete
+        // Undo add = soft delete
         if (!lastAction.washEntryId) return;
         
         const { error } = await supabase
           .from('wash_entries')
-          .delete()
+          .update({
+            deleted_at: new Date().toISOString(),
+            deleted_by: employeeId,
+            deletion_reason: 'Undo by employee',
+          })
           .eq('id', lastAction.washEntryId);
 
         if (error) throw error;
@@ -349,27 +425,25 @@ export function VehicleGridSelector({
           isLoading: false,
         }));
       } else {
-        // Undo remove = add
-        const { data, error } = await supabase
+        // Undo remove = restore (update deleted_at to null)
+        if (!lastAction.washEntryId) return;
+        
+        const { error } = await supabase
           .from('wash_entries')
-          .insert({
-            employee_id: employeeId,
-            vehicle_id: lastAction.vehicleId,
-            wash_date: format(selectedDate, 'yyyy-MM-dd'),
-            actual_location_id: vehicle.home_location_id && locationIds.includes(vehicle.home_location_id)
-              ? vehicle.home_location_id
-              : locationIds[0],
+          .update({
+            deleted_at: null,
+            deleted_by: null,
+            deletion_reason: null,
           })
-          .select('id, created_at')
-          .single();
+          .eq('id', lastAction.washEntryId);
 
         if (error) throw error;
 
         setTileStates(prev => new Map(prev).set(lastAction.vehicleId, {
           isWashed: true,
           isLoading: false,
-          washEntryId: data.id,
-          createdAt: new Date(data.created_at),
+          washEntryId: lastAction.washEntryId,
+          createdAt: currentState.createdAt,
         }));
       }
 
