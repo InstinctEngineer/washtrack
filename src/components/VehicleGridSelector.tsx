@@ -38,6 +38,7 @@ export function VehicleGridSelector({
   const [undoStack, setUndoStack] = useState<Array<{ vehicleId: string; action: 'add' | 'remove'; washEntryId?: string }>>([]);
   const [showUndo, setShowUndo] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [pendingAutoClickVehicleId, setPendingAutoClickVehicleId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchVehicles();
@@ -47,6 +48,31 @@ export function VehicleGridSelector({
     console.log('VehicleGridSelector: washedVehicleIds changed:', washedVehicleIds);
     syncTileStatesWithProp();
   }, [washedVehicleIds, vehicles]);
+
+  // Auto-click newly created vehicle
+  useEffect(() => {
+    if (pendingAutoClickVehicleId && vehicles.length > 0 && !loading) {
+      const vehicle = vehicles.find(v => v.id === pendingAutoClickVehicleId);
+      const tileState = tileStates.get(pendingAutoClickVehicleId);
+      
+      console.log('Auto-click effect triggered:', {
+        vehicleId: pendingAutoClickVehicleId,
+        vehicleFound: !!vehicle,
+        tileStateExists: !!tileState,
+        isLoading: tileState?.isLoading,
+        isWashed: tileState?.isWashed
+      });
+      
+      if (vehicle && tileState && !tileState.isLoading && !tileState.isWashed) {
+        console.log('Auto-clicking vehicle:', vehicle.vehicle_number);
+        setPendingAutoClickVehicleId(null);
+        // Use a small delay to ensure all state is settled
+        setTimeout(() => {
+          handleTileClick(vehicle);
+        }, 100);
+      }
+    }
+  }, [pendingAutoClickVehicleId, vehicles, loading, tileStates]);
 
   const syncTileStatesWithProp = () => {
     console.log('VehicleGridSelector: Syncing tile states with prop');
@@ -320,9 +346,12 @@ export function VehicleGridSelector({
   };
 
   const handleVehicleCreated = async (vehicleId: string) => {
-    console.log('New vehicle created:', vehicleId);
+    console.log('New vehicle created, ID:', vehicleId);
     
-    // Refresh the vehicle list and wait for it to complete
+    // Set up the pending auto-click before refreshing
+    setPendingAutoClickVehicleId(vehicleId);
+    
+    // Refresh the vehicle list
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -340,32 +369,13 @@ export function VehicleGridSelector({
       if (error) throw error;
       
       const updatedVehicles = (data || []) as VehicleWithDetails[];
+      console.log('Vehicles refreshed, count:', updatedVehicles.length);
+      console.log('New vehicle in list:', updatedVehicles.find(v => v.id === vehicleId)?.vehicle_number);
+      
       setVehicles(updatedVehicles);
-      
-      // Find the newly created vehicle in the fresh data
-      const newVehicle = updatedVehicles.find(v => v.id === vehicleId);
-      
-      if (newVehicle) {
-        // Initialize tile state for the new vehicle
-        setTileStates(prev => {
-          const newStates = new Map(prev);
-          newStates.set(newVehicle.id, {
-            isWashed: false,
-            isLoading: false,
-          });
-          return newStates;
-        });
-        
-        // Wait for state to settle, then auto-click the tile
-        setTimeout(() => {
-          console.log('Auto-clicking newly created vehicle:', newVehicle.vehicle_number);
-          handleTileClick(newVehicle);
-        }, 300);
-      } else {
-        console.error('Could not find newly created vehicle in refreshed list');
-      }
     } catch (error) {
       console.error('Error refreshing vehicles:', error);
+      setPendingAutoClickVehicleId(null);
       toast({
         title: 'Error',
         description: 'Failed to refresh vehicle list',
