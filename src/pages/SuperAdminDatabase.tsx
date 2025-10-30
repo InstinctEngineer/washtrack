@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { Database, Edit, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 const TABLES = [
   'users',
@@ -236,6 +236,7 @@ export default function SuperAdminDatabase() {
                             </TableBody>
                           </Table>
                         </div>
+                        <ScrollBar orientation="horizontal" />
                       </ScrollArea>
                     </div>
                   )}
