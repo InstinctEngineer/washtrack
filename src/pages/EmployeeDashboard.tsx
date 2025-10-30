@@ -23,6 +23,7 @@ export default function EmployeeDashboard() {
   const [loading, setLoading] = useState(true);
   const [cutoffDate, setCutoffDate] = useState<Date | null>(null);
   const [weekSummaryOpen, setWeekSummaryOpen] = useState(false);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   useEffect(() => {
     if (userProfile?.id) {
@@ -127,10 +128,14 @@ export default function EmployeeDashboard() {
   // Get entries by day for week summary
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const entriesByDay = weekDays.map(day => ({
-    day,
-    count: entries.filter(entry => entry.wash_date === format(day, 'yyyy-MM-dd')).length
-  }));
+  const entriesByDay = weekDays.map(day => {
+    const dayEntries = entries.filter(entry => entry.wash_date === format(day, 'yyyy-MM-dd'));
+    return {
+      day,
+      count: dayEntries.length,
+      entries: dayEntries
+    };
+  });
 
   return (
     <Layout>
@@ -220,26 +225,72 @@ export default function EmployeeDashboard() {
             
             <CollapsibleContent>
               <CardContent className="pt-0 space-y-2">
-                {entriesByDay.map(({ day, count }) => (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => setSelectedDate(day)}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-lg transition-colors",
-                      isToday(day) && selectedDate.getDate() === day.getDate()
-                        ? 'bg-primary/10 border border-primary/20'
-                        : 'bg-accent/30 hover:bg-accent/50'
-                    )}
-                  >
-                    <div className="font-medium">
-                      {format(day, 'EEEE, MMM d')}
-                      {isToday(day) && (
-                        <span className="ml-2 text-xs text-primary font-bold">TODAY</span>
+                {entriesByDay.map(({ day, count, entries: dayEntries }) => {
+                  const dayKey = day.toISOString();
+                  const isExpanded = expandedDay === dayKey;
+                  
+                  return (
+                    <div key={dayKey} className="space-y-2">
+                      <div
+                        className={cn(
+                          "w-full flex items-center justify-between p-3 rounded-lg transition-colors",
+                          isToday(day) && selectedDate.getDate() === day.getDate()
+                            ? 'bg-primary/10 border border-primary/20'
+                            : 'bg-accent/30'
+                        )}
+                      >
+                        <button
+                          onClick={() => setSelectedDate(day)}
+                          className="flex-1 flex items-center justify-between hover:opacity-80 transition-opacity"
+                        >
+                          <div className="font-medium text-left">
+                            {format(day, 'EEEE, MMM d')}
+                            {isToday(day) && (
+                              <span className="ml-2 text-xs text-primary font-bold">TODAY</span>
+                            )}
+                          </div>
+                          <div className="text-lg font-bold">{count}</div>
+                        </button>
+                        
+                        {count > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 ml-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedDay(isExpanded ? null : dayKey);
+                            }}
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {isExpanded && count > 0 && (
+                        <div className="pl-3 pr-3 pb-2 space-y-1">
+                          <div className="text-xs text-muted-foreground font-medium mb-2">
+                            Vehicles Washed:
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {dayEntries.map((entry) => (
+                              <div
+                                key={entry.id}
+                                className="text-sm bg-background/50 border rounded px-2 py-1 font-mono"
+                              >
+                                {entry.vehicle?.vehicle_number || 'Unknown'}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
-                    <div className="text-lg font-bold">{count}</div>
-                  </button>
-                ))}
+                  );
+                })}
               </CardContent>
             </CollapsibleContent>
           </Card>
