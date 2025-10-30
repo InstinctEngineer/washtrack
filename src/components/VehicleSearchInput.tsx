@@ -19,7 +19,7 @@ export function VehicleSearchInput({ onSelect, disabled, placeholder = "Search v
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { userProfile } = useAuth();
+  const { userProfile, userLocations } = useAuth();
 
   // Debounced search
   useEffect(() => {
@@ -46,8 +46,8 @@ export function VehicleSearchInput({ onSelect, disabled, placeholder = "Search v
           .eq('is_active', true)
           .limit(10);
         
-        if (userProfile?.location_id) {
-          startsWithQuery = startsWithQuery.eq('home_location_id', userProfile.location_id);
+        if (userLocations && userLocations.length > 0) {
+          startsWithQuery = startsWithQuery.in('home_location_id', userLocations);
         }
         
         const { data: startsWithData } = await startsWithQuery;
@@ -65,8 +65,8 @@ export function VehicleSearchInput({ onSelect, disabled, placeholder = "Search v
           .ilike('vehicle_number', `%${searchTerm}%`)
           .eq('is_active', true);
         
-        if (userProfile?.location_id) {
-          containsQuery = containsQuery.eq('home_location_id', userProfile.location_id);
+        if (userLocations && userLocations.length > 0) {
+          containsQuery = containsQuery.in('home_location_id', userLocations);
         }
         
         if (startsWithNumbers.length > 0) {
@@ -88,7 +88,7 @@ export function VehicleSearchInput({ onSelect, disabled, placeholder = "Search v
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchTerm, userProfile?.location_id]);
+  }, [searchTerm, userLocations]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

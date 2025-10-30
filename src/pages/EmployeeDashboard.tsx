@@ -16,7 +16,7 @@ import { VehicleGridSelector } from '@/components/VehicleGridSelector';
 import { cn } from '@/lib/utils';
 
 export default function EmployeeDashboard() {
-  const { userProfile } = useAuth();
+  const { userProfile, userLocations } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [entries, setEntries] = useState<WashEntryWithDetails[]>([]);
@@ -107,7 +107,7 @@ export default function EmployeeDashboard() {
   };
 
 
-  if (!userProfile?.location_id) {
+  if (!userLocations || userLocations.length === 0) {
     return (
       <Layout>
         <Alert variant="destructive">
@@ -189,7 +189,7 @@ export default function EmployeeDashboard() {
           <CardContent className="p-4 md:p-6">
             <VehicleGridSelector
               selectedDate={selectedDate}
-              locationId={userProfile.location_id}
+              locationIds={userLocations}
               employeeId={userProfile.id}
               onWashAdded={fetchWeekEntries}
               cutoffDate={cutoffDate}

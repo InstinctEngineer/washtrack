@@ -22,6 +22,14 @@ export interface Location {
   created_at: string;
 }
 
+export interface UserLocation {
+  id: string;
+  user_id: string;
+  location_id: string;
+  is_primary: boolean;
+  created_at: string;
+}
+
 export interface VehicleType {
   id: string;
   type_name: string;

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { User, UserRole } from '@/types/database';
+import { User, UserRole, UserLocation } from '@/types/database';
 import { getUserHighestRole } from '@/lib/roleUtils';
 
 interface AuthContextType {
@@ -9,6 +9,7 @@ interface AuthContextType {
   session: Session | null;
   userProfile: User | null;
   userRole: UserRole | null;
+  userLocations: string[];
   loading: boolean;
   signOut: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
@@ -21,6 +22,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [userLocations, setUserLocations] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   // We'll handle navigation separately to avoid hook context issues
@@ -48,6 +50,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const highestRole = await getUserHighestRole(userId);
       setUserRole(highestRole);
 
+      // Fetch user locations
+      const { data: locationData, error: locationError } = await supabase
+        .from('user_locations')
+        .select('location_id')
+        .eq('user_id', userId);
+
+      if (!locationError && locationData) {
+        setUserLocations(locationData.map(ul => ul.location_id));
+      }
+
       // Check if password reset is required
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (currentUser) {
@@ -57,6 +69,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error('Error fetching user profile:', error);
       setUserProfile(null);
       setUserRole(null);
+      setUserLocations([]);
     } finally {
       // Set loading to false only after profile fetch completes
       setLoading(false);
@@ -110,10 +123,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setSession(null);
     setUserProfile(null);
     setUserRole(null);
+    setUserLocations([]);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, userProfile, userRole, loading, signOut, refreshUserProfile }}>
+    <AuthContext.Provider value={{ user, session, userProfile, userRole, userLocations, loading, signOut, refreshUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

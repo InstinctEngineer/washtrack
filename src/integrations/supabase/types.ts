@@ -568,6 +568,45 @@ export type Database = {
           },
         ]
       }
+      user_locations: {
+        Row: {
+          created_at: string
+          id: string
+          is_primary: boolean
+          location_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          location_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          location_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_locations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_locations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -1230,18 +1269,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      auto_update_cutoff_date: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      get_last_sunday: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_next_saturday: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      auto_update_cutoff_date: { Args: never; Returns: undefined }
+      get_last_sunday: { Args: never; Returns: string }
+      get_next_saturday: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1256,10 +1286,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_super_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "employee" | "manager" | "finance" | "admin" | "super_admin"

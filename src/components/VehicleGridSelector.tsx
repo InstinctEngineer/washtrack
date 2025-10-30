@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 
 interface VehicleGridSelectorProps {
   selectedDate: Date;
-  locationId: string;
+  locationIds: string[];
   employeeId: string;
   onWashAdded: () => void;
   cutoffDate: Date | null;
@@ -25,7 +25,7 @@ interface VehicleTileState {
 
 export function VehicleGridSelector({
   selectedDate,
-  locationId,
+  locationIds,
   employeeId,
   onWashAdded,
   cutoffDate,
@@ -39,7 +39,7 @@ export function VehicleGridSelector({
 
   useEffect(() => {
     fetchVehicles();
-  }, [locationId]);
+  }, [locationIds]);
 
   useEffect(() => {
     console.log('VehicleGridSelector: washedVehicleIds changed:', washedVehicleIds);
@@ -83,7 +83,7 @@ export function VehicleGridSelector({
           client:clients(*),
           home_location:locations!vehicles_home_location_id_fkey(*)
         `)
-        .eq('home_location_id', locationId)
+        .in('home_location_id', locationIds)
         .eq('is_active', true)
         .order('vehicle_number');
 
@@ -173,6 +173,11 @@ export function VehicleGridSelector({
       } else {
         console.log(`VehicleGridSelector: Adding wash entry for ${vehicle.vehicle_number}`);
         
+        // Determine which location to use - prefer the vehicle's home location if it's in the user's locations
+        const actualLocationId = vehicle.home_location_id && locationIds.includes(vehicle.home_location_id)
+          ? vehicle.home_location_id
+          : locationIds[0]; // Fallback to first assigned location
+        
         // Add wash entry
         const { data, error } = await supabase
           .from('wash_entries')
@@ -180,7 +185,7 @@ export function VehicleGridSelector({
             employee_id: employeeId,
             vehicle_id: vehicle.id,
             wash_date: format(selectedDate, 'yyyy-MM-dd'),
-            actual_location_id: locationId,
+            actual_location_id: actualLocationId,
           })
           .select('id, created_at')
           .single();
@@ -205,7 +210,7 @@ export function VehicleGridSelector({
         await supabase
           .from('vehicles')
           .update({
-            last_seen_location_id: locationId,
+            last_seen_location_id: actualLocationId,
             last_seen_date: format(selectedDate, 'yyyy-MM-dd'),
           })
           .eq('id', vehicle.id);
@@ -276,7 +281,9 @@ export function VehicleGridSelector({
             employee_id: employeeId,
             vehicle_id: lastAction.vehicleId,
             wash_date: format(selectedDate, 'yyyy-MM-dd'),
-            actual_location_id: locationId,
+            actual_location_id: vehicle.home_location_id && locationIds.includes(vehicle.home_location_id)
+              ? vehicle.home_location_id
+              : locationIds[0],
           })
           .select('id, created_at')
           .single();
