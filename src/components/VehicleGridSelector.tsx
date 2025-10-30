@@ -321,29 +321,34 @@ export function VehicleGridSelector({
     <div className="space-y-4">
       {/* Daily Summary */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 border-b">
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-3">
           <div className="text-2xl md:text-3xl font-bold text-foreground">
             Today's Count: <span className="text-primary">{washedCount}</span>
           </div>
           <div className="text-sm text-muted-foreground">
             {washedCount} of {vehicles.length} vehicles washed
           </div>
-          <div className="w-full max-w-md mx-auto h-2 bg-muted rounded-full overflow-hidden">
+          <div className="w-full max-w-md mx-auto h-3 bg-muted rounded-full overflow-hidden relative">
             <div
               className={cn(
-                "h-full transition-all duration-300",
+                "h-full transition-all duration-300 rounded-full",
                 washedCount === 0 && "bg-muted",
                 washedCount > 0 && washedCount < vehicles.length && "bg-warning",
                 washedCount === vehicles.length && "bg-success"
               )}
               style={{ width: `${vehicles.length > 0 ? (washedCount / vehicles.length) * 100 : 0}%` }}
             />
+            {vehicles.length > 0 && washedCount > 0 && (
+              <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-foreground">
+                {Math.round((washedCount / vehicles.length) * 100)}%
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Vehicle Grid */}
-      <div className="grid grid-cols-2 min-[400px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-w-7xl mx-auto">
         {vehicles.map(vehicle => {
           const state = tileStates.get(vehicle.id) || { isWashed: false, isLoading: false };
           
@@ -354,15 +359,15 @@ export function VehicleGridSelector({
               disabled={state.isLoading}
               className={cn(
                 "relative aspect-square min-h-[100px] rounded-lg transition-all duration-200",
-                "flex flex-col items-center justify-center p-3 touch-manipulation",
-                "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-2",
+                "flex flex-col items-center justify-center p-4 touch-manipulation",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                 "shadow-sm hover:shadow-md active:scale-95",
                 // Default state
-                !state.isWashed && !state.isLoading && "bg-card border-2 border-border hover:border-primary/50",
+                !state.isWashed && !state.isLoading && "bg-white border border-gray-300 hover:bg-gray-50",
                 // Washed state
-                state.isWashed && !state.isLoading && "bg-success text-success-foreground border-2 border-success",
+                state.isWashed && !state.isLoading && "bg-success text-white border border-success",
                 // Loading state
-                state.isLoading && "bg-primary/10 border-2 border-primary cursor-wait"
+                state.isLoading && "bg-primary/10 border border-primary cursor-wait"
               )}
               aria-label={`${vehicle.vehicle_number} - ${state.isWashed ? 'Washed' : 'Not washed'}`}
               aria-pressed={state.isWashed}
@@ -377,32 +382,22 @@ export function VehicleGridSelector({
               {/* Washed Checkmark */}
               {state.isWashed && !state.isLoading && (
                 <div className="absolute top-2 right-2">
-                  <Check className="h-6 w-6 md:h-8 md:w-8" strokeWidth={3} />
+                  <Check className="h-5 w-5" strokeWidth={3} />
                 </div>
               )}
 
               {/* Vehicle Number */}
-              <div className="text-2xl md:text-3xl font-bold mb-1 text-center leading-tight">
+              <div className="text-2xl font-bold mb-1 text-center">
                 {vehicle.vehicle_number}
               </div>
 
               {/* Vehicle Type */}
               <div className={cn(
-                "text-xs md:text-sm text-center line-clamp-2",
-                state.isWashed ? "text-success-foreground/90" : "text-muted-foreground"
+                "text-xs text-center",
+                state.isWashed ? "text-white/90" : "text-gray-500"
               )}>
                 {vehicle.vehicle_type?.type_name || 'Unknown'}
               </div>
-
-              {/* Client Name (if available) */}
-              {vehicle.client && (
-                <div className={cn(
-                  "text-xs text-center line-clamp-1 mt-1",
-                  state.isWashed ? "text-success-foreground/80" : "text-muted-foreground/80"
-                )}>
-                  {vehicle.client.client_name}
-                </div>
-              )}
             </button>
           );
         })}
