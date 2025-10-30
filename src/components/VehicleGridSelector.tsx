@@ -46,8 +46,10 @@ export function VehicleGridSelector({
 
   useEffect(() => {
     console.log('VehicleGridSelector: washedVehicleIds changed:', washedVehicleIds);
-    syncTileStatesWithProp();
-  }, [washedVehicleIds, vehicles]);
+    if (vehicles.length > 0) {
+      syncTileStatesWithProp();
+    }
+  }, [washedVehicleIds, vehicles, selectedDate]);
 
   // Auto-click newly created vehicle
   useEffect(() => {
@@ -74,19 +76,33 @@ export function VehicleGridSelector({
     }
   }, [pendingAutoClickVehicleId, vehicles, loading, tileStates]);
 
-  const syncTileStatesWithProp = () => {
+  const syncTileStatesWithProp = async () => {
     console.log('VehicleGridSelector: Syncing tile states with prop');
+    
+    // Fetch actual wash entries to get the entry IDs
+    const { data: washEntries } = await supabase
+      .from('wash_entries')
+      .select('id, vehicle_id, created_at')
+      .eq('employee_id', employeeId)
+      .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
+    
+    const entriesMap = new Map<string, { id: string; created_at: string }>();
+    (washEntries || []).forEach(entry => {
+      entriesMap.set(entry.vehicle_id, { id: entry.id, created_at: entry.created_at });
+    });
+    
     const newStates = new Map<string, VehicleTileState>();
     
     vehicles.forEach(vehicle => {
       const isWashed = washedVehicleIds.has(vehicle.id);
       const currentState = tileStates.get(vehicle.id);
+      const entryData = entriesMap.get(vehicle.id);
       
       newStates.set(vehicle.id, {
         isWashed,
         isLoading: currentState?.isLoading || false,
-        washEntryId: currentState?.washEntryId,
-        createdAt: currentState?.createdAt,
+        washEntryId: isWashed ? (entryData?.id || currentState?.washEntryId) : undefined,
+        createdAt: isWashed && entryData ? new Date(entryData.created_at) : currentState?.createdAt,
       });
     });
 
