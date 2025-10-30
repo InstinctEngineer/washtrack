@@ -384,7 +384,6 @@ export type Database = {
           has_pressure_washer: boolean | null
           id: string
           is_active: boolean
-          is_all_locations: boolean | null
           latitude: number | null
           longitude: number | null
           manager_user_id: string | null
@@ -421,7 +420,6 @@ export type Database = {
           has_pressure_washer?: boolean | null
           id?: string
           is_active?: boolean
-          is_all_locations?: boolean | null
           latitude?: number | null
           longitude?: number | null
           manager_user_id?: string | null
@@ -458,7 +456,6 @@ export type Database = {
           has_pressure_washer?: boolean | null
           id?: string
           is_active?: boolean
-          is_all_locations?: boolean | null
           latitude?: number | null
           longitude?: number | null
           manager_user_id?: string | null
