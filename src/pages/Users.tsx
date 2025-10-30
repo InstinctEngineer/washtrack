@@ -53,22 +53,35 @@ const Users = () => {
         .from("users")
         .select("id, name");
 
+      // Fetch user locations
+      const { data: userLocationsData } = await supabase
+        .from("user_locations")
+        .select("user_id, location_id, is_primary");
+
       // Create lookup maps
       const locationMap = new Map(locationsData?.map(l => [l.id, l.name]) || []);
       const managerMap = new Map(managersData?.map(m => [m.id, m.name]) || []);
 
       // Transform data with manual joins
-      const transformedData = usersData.map(user => ({
-        ...user,
-        location: user.location_id ? { name: locationMap.get(user.location_id) || "Unknown" } : null,
-        manager: user.manager_id ? { name: managerMap.get(user.manager_id) || "Unknown" } : null
-      }));
+      const transformedData = usersData.map(user => {
+        const userLocs = userLocationsData?.filter(ul => ul.user_id === user.id) || [];
+        return {
+          ...user,
+          location: user.location_id ? { name: locationMap.get(user.location_id) || "Unknown" } : null,
+          manager: user.manager_id ? { name: managerMap.get(user.manager_id) || "Unknown" } : null,
+          locations: userLocs.map(ul => ({
+            name: locationMap.get(ul.location_id) || "Unknown",
+            is_primary: ul.is_primary,
+          })),
+        };
+      });
       
       console.log("Transformed users:", transformedData);
       
       return transformedData as (User & { 
         location?: { name: string } | null;
         manager?: { name: string } | null;
+        locations?: Array<{ name: string; is_primary: boolean }>;
       })[];
     },
   });

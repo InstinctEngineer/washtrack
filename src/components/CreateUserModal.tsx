@@ -53,7 +53,7 @@ export const CreateUserModal = ({
     employee_id: "",
     name: "",
     email: "",
-    location_id: "",
+    locations: [] as { location_id: string; is_primary: boolean }[],
     role: "employee" as UserRole,
     manager_id: "",
   });
@@ -108,11 +108,21 @@ export const CreateUserModal = ({
         !formData.employee_id ||
         !formData.name ||
         !formData.email ||
-        !formData.location_id
+        formData.locations.length === 0
       ) {
         toast({
           title: "Validation Error",
-          description: "All required fields must be filled.",
+          description: "All required fields must be filled, including at least one location.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Ensure at least one location is marked as primary
+      if (!formData.locations.some(loc => loc.is_primary)) {
+        toast({
+          title: "Validation Error",
+          description: "Please mark one location as primary.",
           variant: "destructive",
         });
         return;
@@ -182,6 +192,7 @@ export const CreateUserModal = ({
       }
 
       // Call edge function to create user with admin privileges
+      const primaryLocation = formData.locations.find(loc => loc.is_primary);
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
         {
@@ -194,7 +205,7 @@ export const CreateUserModal = ({
             employee_id: formData.employee_id,
             name: formData.name,
             email: formData.email,
-            location_id: formData.location_id || null,
+            location_id: primaryLocation?.location_id || null,
             role: formData.role,
             manager_id: formData.role === "finance" || formData.role === "admin" || formData.role === "super_admin"
               ? null
@@ -210,6 +221,19 @@ export const CreateUserModal = ({
         throw new Error(result.error || "Failed to create user");
       }
 
+      // Insert location assignments
+      const { error: locationError } = await supabase
+        .from("user_locations")
+        .insert(
+          formData.locations.map(loc => ({
+            user_id: result.userId,
+            location_id: loc.location_id,
+            is_primary: loc.is_primary,
+          }))
+        );
+
+      if (locationError) throw locationError;
+
       setGeneratedPassword(tempPassword);
       setGeneratedEmail(formData.email);
       setShowPasswordDialog(true);
@@ -219,7 +243,7 @@ export const CreateUserModal = ({
         employee_id: "",
         name: "",
         email: "",
-        location_id: "",
+        locations: [],
         role: "employee",
         manager_id: "",
       });
@@ -297,29 +321,75 @@ export const CreateUserModal = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location">Location *</Label>
+              <Label>Locations * (select at least one as primary)</Label>
               {!locations || locations.length === 0 ? (
                 <p className="text-sm text-destructive">
                   Please create locations first
                 </p>
               ) : (
-                <Select
-                  value={formData.location_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, location_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="border rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
+                  {locations.map((location) => {
+                    const isSelected = formData.locations.some(
+                      (l) => l.location_id === location.id
+                    );
+                    const isPrimary = formData.locations.find(
+                      (l) => l.location_id === location.id
+                    )?.is_primary;
+
+                    return (
+                      <div key={location.id} className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id={`location-${location.id}`}
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                locations: [
+                                  ...formData.locations,
+                                  { location_id: location.id, is_primary: false },
+                                ],
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                locations: formData.locations.filter(
+                                  (l) => l.location_id !== location.id
+                                ),
+                              });
+                            }
+                          }}
+                          className="h-4 w-4"
+                        />
+                        <Label
+                          htmlFor={`location-${location.id}`}
+                          className="flex-1 cursor-pointer"
+                        >
+                          {location.name}
+                        </Label>
+                        {isSelected && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={isPrimary ? "default" : "outline"}
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                locations: formData.locations.map((l) => ({
+                                  ...l,
+                                  is_primary: l.location_id === location.id,
+                                })),
+                              });
+                            }}
+                          >
+                            {isPrimary ? "Primary" : "Set as Primary"}
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
 

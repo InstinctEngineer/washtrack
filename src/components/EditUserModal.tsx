@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Location, UserRole } from "@/types/database";
+import { User, Location, UserRole, UserLocation } from "@/types/database";
 import {
   Dialog,
   DialogContent,
@@ -57,7 +57,7 @@ export const EditUserModal = ({
   const [formData, setFormData] = useState({
     name: user.name,
     email: user.email,
-    location_id: user.location_id || "",
+    locations: [] as { location_id: string; is_primary: boolean }[],
     role: userRole as UserRole,
     manager_id: user.manager_id || "",
     is_active: user.is_active,
@@ -81,6 +81,33 @@ export const EditUserModal = ({
       return data as Location[];
     },
   });
+
+  // Fetch user's current locations
+  const { data: userLocations } = useQuery({
+    queryKey: ["user-locations", user.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_locations")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+      return data as UserLocation[];
+    },
+  });
+
+  // Update form data when user locations are loaded
+  useEffect(() => {
+    if (userLocations && userLocations.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        locations: userLocations.map(ul => ({
+          location_id: ul.location_id,
+          is_primary: ul.is_primary,
+        })),
+      }));
+    }
+  }, [userLocations]);
 
   // Fetch potential managers
   const { data: managers } = useQuery({
@@ -127,7 +154,11 @@ export const EditUserModal = ({
     }
 
     // Check for location change on own account
-    if (isEditingSelf && formData.location_id !== user.location_id) {
+    const originalLocationIds = userLocations?.map(ul => ul.location_id).sort() || [];
+    const newLocationIds = formData.locations.map(l => l.location_id).sort();
+    const locationsChanged = JSON.stringify(originalLocationIds) !== JSON.stringify(newLocationIds);
+    
+    if (isEditingSelf && locationsChanged) {
       setPendingChanges(formData);
       setShowLocationConfirm(true);
       return;
@@ -141,10 +172,20 @@ export const EditUserModal = ({
 
     try {
       // Validate
-      if (!data.name || !data.email || !data.location_id) {
+      if (!data.name || !data.email || data.locations.length === 0) {
         toast({
           title: "Validation Error",
-          description: "Name, email, and location are required.",
+          description: "Name, email, and at least one location are required.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Ensure at least one location is marked as primary
+      if (!data.locations.some(loc => loc.is_primary)) {
+        toast({
+          title: "Validation Error",
+          description: "Please mark one location as primary.",
           variant: "destructive",
         });
         return;
@@ -162,15 +203,16 @@ export const EditUserModal = ({
         return;
       }
 
-      // Update users table
+      // Update users table (keep primary location for backward compatibility)
+      const primaryLocation = data.locations.find(loc => loc.is_primary);
       const { error: userError } = await supabase
         .from("users")
         .update({
           name: data.name,
           email: data.email,
-          location_id: data.location_id || null,
+          location_id: primaryLocation?.location_id || null,
           manager_id:
-            data.role === "finance" || data.role === "admin"
+            data.role === "finance" || data.role === "admin" || data.role === "super_admin"
               ? null
               : data.manager_id || null,
           is_active: data.is_active,
@@ -179,6 +221,27 @@ export const EditUserModal = ({
         .eq("id", user.id);
 
       if (userError) throw userError;
+
+      // Delete existing location assignments
+      const { error: deleteLocationError } = await supabase
+        .from("user_locations")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (deleteLocationError) throw deleteLocationError;
+
+      // Insert new location assignments
+      const { error: insertLocationError } = await supabase
+        .from("user_locations")
+        .insert(
+          data.locations.map(loc => ({
+            user_id: user.id,
+            location_id: loc.location_id,
+            is_primary: loc.is_primary,
+          }))
+        );
+
+      if (insertLocationError) throw insertLocationError;
 
       // Update user_roles table if role changed
       if (data.role !== userRole) {
@@ -202,14 +265,6 @@ export const EditUserModal = ({
         title: "Success",
         description: "User updated successfully",
       });
-
-      if (data.location_id !== user.location_id) {
-        const location = locations?.find((l) => l.id === data.location_id);
-        toast({
-          title: "Location Changed",
-          description: `User's wash entries will now be associated with ${location?.name}`,
-        });
-      }
 
       onSuccess();
     } catch (error: any) {
@@ -235,8 +290,12 @@ export const EditUserModal = ({
     performUpdate(pendingChanges);
   };
 
-  const oldLocation = locations?.find((l) => l.id === user.location_id);
-  const newLocation = locations?.find((l) => l.id === pendingChanges?.location_id);
+  const oldLocations = userLocations?.map(ul => 
+    locations?.find(l => l.id === ul.location_id)?.name
+  ).filter(Boolean).join(", ") || "None";
+  const newLocations = pendingChanges?.locations.map((loc: any) => 
+    locations?.find(l => l.id === loc.location_id)?.name
+  ).filter(Boolean).join(", ") || "None";
 
   return (
     <>
@@ -292,29 +351,75 @@ export const EditUserModal = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location">Location *</Label>
+              <Label>Locations * (select at least one as primary)</Label>
               {!locations || locations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No locations available. Create locations first.
                 </p>
               ) : (
-                <Select
-                  value={formData.location_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, location_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="border rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
+                  {locations.map((location) => {
+                    const isSelected = formData.locations.some(
+                      (l) => l.location_id === location.id
+                    );
+                    const isPrimary = formData.locations.find(
+                      (l) => l.location_id === location.id
+                    )?.is_primary;
+
+                    return (
+                      <div key={location.id} className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id={`location-${location.id}`}
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                locations: [
+                                  ...formData.locations,
+                                  { location_id: location.id, is_primary: false },
+                                ],
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                locations: formData.locations.filter(
+                                  (l) => l.location_id !== location.id
+                                ),
+                              });
+                            }
+                          }}
+                          className="h-4 w-4"
+                        />
+                        <Label
+                          htmlFor={`location-${location.id}`}
+                          className="flex-1 cursor-pointer"
+                        >
+                          {location.name}
+                        </Label>
+                        {isSelected && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={isPrimary ? "default" : "outline"}
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                locations: formData.locations.map((l) => ({
+                                  ...l,
+                                  is_primary: l.location_id === location.id,
+                                })),
+                              });
+                            }}
+                          >
+                            {isPrimary ? "Primary" : "Set as Primary"}
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
@@ -441,9 +546,9 @@ export const EditUserModal = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Location Change</AlertDialogTitle>
             <AlertDialogDescription>
-              You are changing your own location from{" "}
-              <strong>{oldLocation?.name}</strong> to{" "}
-              <strong>{newLocation?.name}</strong>. Are you sure?
+              You are changing your own locations from{" "}
+              <strong>{oldLocations}</strong> to{" "}
+              <strong>{newLocations}</strong>. Are you sure?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

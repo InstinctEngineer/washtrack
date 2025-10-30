@@ -37,6 +37,7 @@ interface UserTableProps {
   users: (User & {
     location?: { name: string } | null;
     manager?: { name: string } | null;
+    locations?: Array<{ name: string; is_primary: boolean }>;
   })[];
   roleMap: Map<string, string>;
   isLoading: boolean;
@@ -263,7 +264,20 @@ export const UserTable = ({
                     <TableCell>{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      {user.location?.name || (
+                      {user.locations && user.locations.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {user.locations.map((loc, idx) => (
+                            <Badge
+                              key={idx}
+                              variant={loc.is_primary ? "default" : "secondary"}
+                              className="text-xs"
+                            >
+                              {loc.name}
+                              {loc.is_primary && " (Primary)"}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
                         <span className="text-muted-foreground">Not Assigned</span>
                       )}
                     </TableCell>
