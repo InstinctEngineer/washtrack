@@ -78,7 +78,7 @@ export default function EmployeeDashboard() {
           employee:users!wash_entries_employee_id_fkey(*),
           actual_location:locations(*)
         `)
-        .eq('employee_id', userProfile.id)
+        .in('actual_location_id', userLocations)
         .gte('wash_date', format(weekStart, 'yyyy-MM-dd'))
         .lte('wash_date', format(weekEnd, 'yyyy-MM-dd'))
         .order('created_at', { ascending: false });
@@ -276,13 +276,18 @@ export default function EmployeeDashboard() {
                           <div className="text-xs text-muted-foreground font-medium mb-2">
                             Vehicles Washed:
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          <div className="space-y-2">
                             {dayEntries.map((entry) => (
                               <div
                                 key={entry.id}
-                                className="text-sm bg-background/50 border rounded px-2 py-1 font-mono"
+                                className="text-sm bg-background/50 border rounded px-3 py-2 flex justify-between items-center"
                               >
-                                {entry.vehicle?.vehicle_number || 'Unknown'}
+                                <span className="font-mono font-semibold">
+                                  {entry.vehicle?.vehicle_number || 'Unknown'}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  by {entry.employee?.name || 'Unknown'}
+                                </span>
                               </div>
                             ))}
                           </div>

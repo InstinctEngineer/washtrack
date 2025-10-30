@@ -25,6 +25,12 @@ export function WashEntryCard({ entry, onDelete, canDelete }: WashEntryCardProps
           {entry.vehicle?.vehicle_type?.type_name}
           {' • '}
           {format(new Date(entry.created_at), 'h:mm a')}
+          {entry.employee && (
+            <>
+              {' • '}
+              <span className="font-medium">by {entry.employee.name}</span>
+            </>
+          )}
         </div>
       </div>
       

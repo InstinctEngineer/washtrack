@@ -22,6 +22,8 @@ interface VehicleTileState {
   isLoading: boolean;
   washEntryId?: string;
   createdAt?: Date;
+  washedByEmployeeId?: string;
+  washedByEmployeeName?: string;
 }
 
 export function VehicleGridSelector({
@@ -79,16 +81,33 @@ export function VehicleGridSelector({
   const syncTileStatesWithProp = async () => {
     console.log('VehicleGridSelector: Syncing tile states with prop');
     
-    // Fetch actual wash entries to get the entry IDs
+    // Fetch ALL wash entries for this date at these locations (not filtered by employee)
     const { data: washEntries } = await supabase
       .from('wash_entries')
-      .select('id, vehicle_id, created_at')
-      .eq('employee_id', employeeId)
+      .select(`
+        id, 
+        vehicle_id, 
+        created_at, 
+        employee_id,
+        employee:users!wash_entries_employee_id_fkey(id, name)
+      `)
+      .in('actual_location_id', locationIds)
       .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
     
-    const entriesMap = new Map<string, { id: string; created_at: string }>();
-    (washEntries || []).forEach(entry => {
-      entriesMap.set(entry.vehicle_id, { id: entry.id, created_at: entry.created_at });
+    const entriesMap = new Map<string, { 
+      id: string; 
+      created_at: string; 
+      employee_id: string;
+      employee_name: string;
+    }>();
+    
+    (washEntries || []).forEach((entry: any) => {
+      entriesMap.set(entry.vehicle_id, { 
+        id: entry.id, 
+        created_at: entry.created_at,
+        employee_id: entry.employee_id,
+        employee_name: entry.employee?.name || 'Unknown'
+      });
     });
     
     const newStates = new Map<string, VehicleTileState>();
@@ -103,6 +122,8 @@ export function VehicleGridSelector({
         isLoading: currentState?.isLoading || false,
         washEntryId: isWashed ? (entryData?.id || currentState?.washEntryId) : undefined,
         createdAt: isWashed && entryData ? new Date(entryData.created_at) : currentState?.createdAt,
+        washedByEmployeeId: isWashed ? (entryData?.employee_id || currentState?.washedByEmployeeId) : undefined,
+        washedByEmployeeName: isWashed ? (entryData?.employee_name || currentState?.washedByEmployeeName) : undefined,
       });
     });
 
@@ -176,10 +197,20 @@ export function VehicleGridSelector({
 
     try {
       if (currentState.isWashed) {
-        console.log(`VehicleGridSelector: Deleting wash entry for ${vehicle.vehicle_number}`);
+        console.log(`VehicleGridSelector: Attempting to delete wash entry for ${vehicle.vehicle_number}`);
         
-        // Delete ALL wash entries for this vehicle on this date
-        // (in case there are duplicates)
+        // Check if this entry was created by the current user
+        if (currentState.washedByEmployeeId && currentState.washedByEmployeeId !== employeeId) {
+          toast({
+            title: 'Cannot Remove',
+            description: `This vehicle was washed by ${currentState.washedByEmployeeName}. Only they can remove this entry.`,
+            variant: 'destructive',
+          });
+          setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
+          return;
+        }
+        
+        // Delete the wash entry (only the current user's entry)
         const { error } = await supabase
           .from('wash_entries')
           .delete()
