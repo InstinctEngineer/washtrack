@@ -318,28 +318,23 @@ export function VehicleGridSelector({
   const washedCount = Array.from(tileStates.values()).filter(state => state.isWashed).length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Daily Summary */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 border-b">
+      <div className="sticky top-0 z-10 bg-gradient-to-br from-gray-50 to-white py-6 border-b shadow-sm">
         <div className="text-center space-y-3">
           <div className="text-2xl md:text-3xl font-bold text-foreground">
-            Today's Count: <span className="text-primary">{washedCount}</span>
+            Today's Count: <span className="bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent">{washedCount}</span>
           </div>
           <div className="text-sm text-muted-foreground">
             {washedCount} of {vehicles.length} vehicles washed
           </div>
-          <div className="w-full max-w-md mx-auto h-3 bg-muted rounded-full overflow-hidden relative">
+          <div className="w-full max-w-md mx-auto h-3 bg-gray-200 rounded-full overflow-hidden relative shadow-inner">
             <div
-              className={cn(
-                "h-full transition-all duration-300 rounded-full",
-                washedCount === 0 && "bg-muted",
-                washedCount > 0 && washedCount < vehicles.length && "bg-warning",
-                washedCount === vehicles.length && "bg-success"
-              )}
+              className="h-full transition-all duration-500 rounded-full bg-gradient-to-r from-purple-300 to-purple-400 shadow-lg"
               style={{ width: `${vehicles.length > 0 ? (washedCount / vehicles.length) * 100 : 0}%` }}
             />
             {vehicles.length > 0 && washedCount > 0 && (
-              <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-foreground">
+              <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-gray-700">
                 {Math.round((washedCount / vehicles.length) * 100)}%
               </div>
             )}
@@ -348,59 +343,75 @@ export function VehicleGridSelector({
       </div>
 
       {/* Vehicle Grid */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-w-7xl mx-auto">
-        {vehicles.map(vehicle => {
-          const state = tileStates.get(vehicle.id) || { isWashed: false, isLoading: false };
-          
-          return (
-            <button
-              key={vehicle.id}
-              onClick={() => handleTileClick(vehicle)}
-              disabled={state.isLoading}
-              className={cn(
-                "relative aspect-square min-h-[100px] rounded-lg transition-all duration-200",
-                "flex flex-col items-center justify-center p-4 touch-manipulation",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                "shadow-sm hover:shadow-md active:scale-95",
-                // Default state
-                !state.isWashed && !state.isLoading && "bg-white border border-gray-300 hover:bg-gray-50",
-                // Washed state
-                state.isWashed && !state.isLoading && "bg-success text-white border border-success",
-                // Loading state
-                state.isLoading && "bg-primary/10 border border-primary cursor-wait"
-              )}
-              aria-label={`${vehicle.vehicle_number} - ${state.isWashed ? 'Washed' : 'Not washed'}`}
-              aria-pressed={state.isWashed}
-            >
-              {/* Loading Spinner */}
-              {state.isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              )}
+      <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 shadow-sm">
+        <div className="grid grid-cols-3 gap-3 max-w-4xl mx-auto">
+          {vehicles.map(vehicle => {
+            const state = tileStates.get(vehicle.id) || { isWashed: false, isLoading: false };
+            
+            return (
+              <button
+                key={vehicle.id}
+                onClick={() => handleTileClick(vehicle)}
+                disabled={state.isLoading}
+                style={{
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+                className={cn(
+                  "relative h-16 min-h-[48px] rounded-xl transition-all duration-200",
+                  "flex items-center justify-center touch-manipulation",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2",
+                  "font-semibold text-lg",
+                  // Default state - 3D raised effect
+                  !state.isWashed && !state.isLoading && [
+                    "bg-gradient-to-br from-white to-gray-100",
+                    "border border-gray-200",
+                    "shadow-[6px_6px_12px_#d1d5db,-6px_-6px_12px_#ffffff]",
+                    "hover:shadow-[8px_8px_16px_#d1d5db,-8px_-8px_16px_#ffffff]",
+                    "hover:-translate-y-0.5",
+                    "active:translate-y-0.5",
+                    "active:shadow-[3px_3px_6px_#d1d5db,-3px_-3px_6px_#ffffff]",
+                    "text-gray-700",
+                  ],
+                  // Washed state - 3D pressed in effect
+                  state.isWashed && !state.isLoading && [
+                    "bg-gradient-to-br from-purple-300 to-purple-400",
+                    "border border-purple-400",
+                    "shadow-[inset_4px_4px_8px_rgba(147,51,234,0.3),inset_-4px_-4px_8px_rgba(243,232,255,0.5)]",
+                    "translate-y-0.5",
+                    "text-white",
+                  ],
+                  // Loading state
+                  state.isLoading && [
+                    "bg-gradient-to-br from-purple-200 to-purple-300",
+                    "border border-purple-300",
+                    "cursor-wait opacity-70",
+                  ]
+                )}
+                aria-label={`${vehicle.vehicle_number} - ${state.isWashed ? 'Washed' : 'Not washed'}`}
+                aria-pressed={state.isWashed}
+              >
+                {/* Loading Spinner */}
+                {state.isLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/20 rounded-xl backdrop-blur-sm">
+                    <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+                  </div>
+                )}
 
-              {/* Washed Checkmark */}
-              {state.isWashed && !state.isLoading && (
-                <div className="absolute top-2 right-2">
-                  <Check className="h-5 w-5" strokeWidth={3} />
-                </div>
-              )}
+                {/* Washed Checkmark - Small and elegant */}
+                {state.isWashed && !state.isLoading && (
+                  <div className="absolute top-1.5 right-1.5 animate-in fade-in duration-300">
+                    <Check className="h-4 w-4 text-white drop-shadow-sm" strokeWidth={3} />
+                  </div>
+                )}
 
-              {/* Vehicle Number */}
-              <div className="text-2xl font-bold mb-1 text-center">
-                {vehicle.vehicle_number}
-              </div>
-
-              {/* Vehicle Type */}
-              <div className={cn(
-                "text-xs text-center",
-                state.isWashed ? "text-white/90" : "text-gray-500"
-              )}>
-                {vehicle.vehicle_type?.type_name || 'Unknown'}
-              </div>
-            </button>
-          );
-        })}
+                {/* Vehicle Number - Only ID */}
+                <span className="text-center">
+                  {vehicle.vehicle_number}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Undo Button */}
