@@ -189,51 +189,55 @@ export default function SuperAdminDatabase() {
                       No records found
                     </div>
                   ) : (
-                    <ScrollArea className="h-[600px] w-full rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            {columns.map(col => (
-                              <TableHead key={col} className="whitespace-nowrap">
-                                {col}
-                              </TableHead>
-                            ))}
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {tableData.map((row, idx) => (
-                            <TableRow key={row.id || idx}>
-                              {columns.map(col => (
-                                <TableCell key={col} className="max-w-xs truncate">
-                                  {typeof row[col] === 'object' 
-                                    ? JSON.stringify(row[col]) 
-                                    : String(row[col] ?? '')}
-                                </TableCell>
+                    <div className="rounded-md border">
+                      <ScrollArea className="h-[600px] w-full">
+                        <div className="min-w-max">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                {columns.map(col => (
+                                  <TableHead key={col} className="whitespace-nowrap">
+                                    {col}
+                                  </TableHead>
+                                ))}
+                                <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {tableData.map((row, idx) => (
+                                <TableRow key={row.id || idx}>
+                                  {columns.map(col => (
+                                    <TableCell key={col} className="whitespace-nowrap">
+                                      {typeof row[col] === 'object' 
+                                        ? JSON.stringify(row[col]) 
+                                        : String(row[col] ?? '')}
+                                    </TableCell>
+                                  ))}
+                                  <TableCell className="text-right whitespace-nowrap">
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleEdit(row)}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleDelete(row)}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
                               ))}
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleEdit(row)}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDelete(row)}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </ScrollArea>
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </ScrollArea>
+                    </div>
                   )}
                 </TabsContent>
               ))}
