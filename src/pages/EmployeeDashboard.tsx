@@ -1,30 +1,19 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
-import { WashEntryWithDetails, VehicleWithDetails } from '@/types/database';
+import { WashEntryWithDetails } from '@/types/database';
 import { toast } from '@/hooks/use-toast';
-import { format, startOfWeek, endOfWeek, addDays, isToday, isSameDay } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays, isToday } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { CutoffBanner } from '@/components/CutoffBanner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { NewVehicleDialog } from '@/components/NewVehicleDialog';
+import { VehicleGridSelector } from '@/components/VehicleGridSelector';
 import { cn } from '@/lib/utils';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 
 export default function EmployeeDashboard() {
   const { userProfile } = useAuth();
@@ -33,30 +22,7 @@ export default function EmployeeDashboard() {
   const [entries, setEntries] = useState<WashEntryWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [cutoffDate, setCutoffDate] = useState<Date | null>(null);
-  
-  // Vehicle search state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [vehicles, setVehicles] = useState<VehicleWithDetails[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  
-  // Week summary state
   const [weekSummaryOpen, setWeekSummaryOpen] = useState(false);
-  
-  // New vehicle dialog state
-  const [showNewVehicleDialog, setShowNewVehicleDialog] = useState(false);
-  const [pendingVehicleNumber, setPendingVehicleNumber] = useState('');
-  const [pendingWashDate, setPendingWashDate] = useState<Date>(new Date());
-  
-  // Confirmation dialog state
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingWash, setPendingWash] = useState<{
-    date: Date;
-    vehicleNumber: string;
-    vehicleId: string;
-  } | null>(null);
 
   useEffect(() => {
     if (userProfile?.id) {
@@ -65,94 +31,25 @@ export default function EmployeeDashboard() {
     }
   }, [userProfile?.id, currentWeek]);
 
-  // Auto-focus input on mount
+  // Check for date change at midnight
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  // Debounced vehicle search
-  useEffect(() => {
-    if (searchTerm.length === 0) {
-      setVehicles([]);
-      setShowDropdown(false);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        // Only show vehicles from employee's location
-        let startsWithQuery = supabase
-          .from('vehicles')
-          .select(`
-            *,
-            vehicle_type:vehicle_types(*),
-            client:clients(*),
-            home_location:locations!vehicles_home_location_id_fkey(*)
-          `)
-          .ilike('vehicle_number', `${searchTerm}%`)
-          .eq('is_active', true)
-          .limit(5);
-        
-        if (userProfile?.location_id) {
-          startsWithQuery = startsWithQuery.eq('home_location_id', userProfile.location_id);
-        }
-        
-        const { data: startsWithData } = await startsWithQuery;
-
-        const startsWithNumbers = startsWithData?.map(v => v.vehicle_number) || [];
-        
-        let containsQuery = supabase
-          .from('vehicles')
-          .select(`
-            *,
-            vehicle_type:vehicle_types(*),
-            client:clients(*),
-            home_location:locations!vehicles_home_location_id_fkey(*)
-          `)
-          .ilike('vehicle_number', `%${searchTerm}%`)
-          .eq('is_active', true);
-        
-        if (userProfile?.location_id) {
-          containsQuery = containsQuery.eq('home_location_id', userProfile.location_id);
-        }
-        
-        if (startsWithNumbers.length > 0) {
-          containsQuery = containsQuery.not('vehicle_number', 'in', `(${startsWithNumbers.join(',')})`);
-        }
-        
-        const { data: containsData } = await containsQuery.limit(5);
-
-        // Combine results (already filtered by location)
-        const allVehicles = [...(startsWithData || []), ...(containsData || [])];
-
-        setVehicles(allVehicles.slice(0, 5));
-        setShowDropdown(true);
-      } catch (error) {
-        console.error('Error searching vehicles:', error);
-      } finally {
-        setIsSearching(false);
+    const checkDateChange = () => {
+      const now = new Date();
+      const selected = new Date(selectedDate);
+      
+      if (now.getDate() !== selected.getDate() && isToday(now)) {
+        setSelectedDate(new Date());
+        fetchWeekEntries();
+        toast({
+          title: 'New Day Started',
+          description: `Now tracking ${format(new Date(), 'EEEE, MMMM d')}`,
+        });
       }
-    }, 200);
+    };
 
-    return () => clearTimeout(timer);
-  }, [searchTerm, userProfile?.location_id]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        !inputRef.current?.contains(event.target as Node)
-      ) {
-        setShowDropdown(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    const interval = setInterval(checkDateChange, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [selectedDate]);
 
   const loadCutoffDate = async () => {
     const cutoff = await getCurrentCutoff();
@@ -200,54 +97,6 @@ export default function EmployeeDashboard() {
     }
   };
 
-  const handleSelectVehicle = (vehicle: VehicleWithDetails) => {
-    // Check if adding for a non-today date
-    if (!isToday(selectedDate)) {
-      setPendingWash({
-        date: selectedDate,
-        vehicleNumber: vehicle.vehicle_number,
-        vehicleId: vehicle.id,
-      });
-      setShowConfirmDialog(true);
-      setSearchTerm('');
-      setShowDropdown(false);
-    } else {
-      handleAddWash(selectedDate, vehicle.vehicle_number, vehicle.id);
-      setSearchTerm('');
-      setShowDropdown(false);
-      inputRef.current?.focus();
-    }
-  };
-
-  const handleSubmitSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      // Check if adding for a non-today date
-      if (!isToday(selectedDate)) {
-        setPendingWash({
-          date: selectedDate,
-          vehicleNumber: searchTerm.trim(),
-          vehicleId: '',
-        });
-        setShowConfirmDialog(true);
-        setSearchTerm('');
-        setShowDropdown(false);
-      } else {
-        handleAddWash(selectedDate, searchTerm.trim(), '');
-        setSearchTerm('');
-        setShowDropdown(false);
-      }
-    }
-  };
-
-  const handleConfirmWash = () => {
-    if (pendingWash) {
-      handleAddWash(pendingWash.date, pendingWash.vehicleNumber, pendingWash.vehicleId);
-      setPendingWash(null);
-      setShowConfirmDialog(false);
-      inputRef.current?.focus();
-    }
-  };
 
   const handlePreviousDay = () => {
     setSelectedDate(prev => addDays(prev, -1));
@@ -257,219 +106,6 @@ export default function EmployeeDashboard() {
     setSelectedDate(prev => addDays(prev, 1));
   };
 
-  const handleAddWash = async (date: Date, vehicleNumber: string, vehicleId: string) => {
-    if (!userProfile?.id || !userProfile?.location_id) {
-      toast({
-        title: 'Error',
-        description: 'Contact admin to assign your location',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Check cutoff date restriction for employees
-    // Week leading up to cutoff is allowed for entry
-    // After cutoff passes, those dates become locked
-    if (cutoffDate && userProfile.role === 'employee') {
-      const now = new Date();
-      const washDate = new Date(date);
-      washDate.setHours(0, 0, 0, 0);
-      
-      const cutoffDateTime = new Date(cutoffDate);
-      const cutoffDateOnly = new Date(cutoffDate);
-      cutoffDateOnly.setHours(0, 0, 0, 0);
-      
-      // Block only if:
-      // 1. Current time has passed the cutoff date/time, AND
-      // 2. The wash date being entered is on or before the cutoff date
-      if (now > cutoffDateTime && washDate <= cutoffDateOnly) {
-        toast({
-          title: 'Entry Period Closed',
-          description: `Entry period ended on ${format(cutoffDate, 'EEEE, MMMM d')}. Contact your manager for corrections.`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-
-    try {
-      // If vehicleId is empty, we need to look up or create the vehicle
-      let finalVehicleId = vehicleId;
-      
-      if (!finalVehicleId) {
-        const { data: vehicleData, error: vehicleError } = await supabase
-          .from('vehicles')
-          .select('id')
-          .eq('vehicle_number', vehicleNumber)
-          .eq('is_active', true)
-          .single();
-
-        if (vehicleError || !vehicleData) {
-          // Vehicle not found - open dialog for manual type selection
-          setPendingVehicleNumber(vehicleNumber);
-          setPendingWashDate(date);
-          setShowNewVehicleDialog(true);
-          return;
-        } else {
-          finalVehicleId = vehicleData.id;
-        }
-      }
-
-      // Insert wash entry
-      const { error: insertError } = await supabase
-        .from('wash_entries')
-        .insert({
-          employee_id: userProfile.id,
-          vehicle_id: finalVehicleId,
-          wash_date: format(date, 'yyyy-MM-dd'),
-          actual_location_id: userProfile.location_id,
-        });
-
-      if (insertError) {
-        if (insertError.code === '23505') {
-          toast({
-            title: 'Duplicate Entry',
-            description: `${vehicleNumber} already washed today`,
-            variant: 'destructive',
-          });
-        } else {
-          throw insertError;
-        }
-        return;
-      }
-
-      // Update vehicle last seen
-      await supabase
-        .from('vehicles')
-        .update({
-          last_seen_location_id: userProfile.location_id,
-          last_seen_date: format(date, 'yyyy-MM-dd'),
-        })
-        .eq('id', finalVehicleId);
-
-      toast({
-        title: '✓ Vehicle Added',
-        description: `${vehicleNumber} added successfully`,
-        className: 'bg-green-50 text-green-900 border-green-200',
-      });
-
-      // Refresh entries
-      fetchWeekEntries();
-    } catch (error: any) {
-      console.error('Error adding wash entry:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to add wash entry',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleCreateVehicle = async (vehicleTypeId: string) => {
-    if (!userProfile?.location_id) return;
-
-    try {
-      // Create new vehicle with selected type
-      const { data: newVehicle, error: createError } = await supabase
-        .from('vehicles')
-        .insert({
-          vehicle_number: pendingVehicleNumber,
-          vehicle_type_id: vehicleTypeId,
-          home_location_id: userProfile.location_id,
-          is_active: true,
-        })
-        .select('id')
-        .single();
-
-      if (createError || !newVehicle) {
-        toast({
-          title: 'Error',
-          description: 'Failed to create vehicle. Try again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      toast({
-        title: 'New Vehicle Created',
-        description: `Vehicle ${pendingVehicleNumber} has been added to the system.`,
-      });
-
-      // Now add the wash entry with the newly created vehicle
-      const { error: insertError } = await supabase
-        .from('wash_entries')
-        .insert({
-          employee_id: userProfile.id,
-          vehicle_id: newVehicle.id,
-          wash_date: format(pendingWashDate, 'yyyy-MM-dd'),
-          actual_location_id: userProfile.location_id,
-        });
-
-      if (insertError) {
-        if (insertError.code === '23505') {
-          toast({
-            title: 'Duplicate Entry',
-            description: `${pendingVehicleNumber} already washed today`,
-            variant: 'destructive',
-          });
-        } else {
-          throw insertError;
-        }
-        return;
-      }
-
-      // Update vehicle last seen
-      await supabase
-        .from('vehicles')
-        .update({
-          last_seen_location_id: userProfile.location_id,
-          last_seen_date: format(pendingWashDate, 'yyyy-MM-dd'),
-        })
-        .eq('id', newVehicle.id);
-
-      toast({
-        title: '✓ Vehicle Added',
-        description: `${pendingVehicleNumber} added successfully`,
-        className: 'bg-green-50 text-green-900 border-green-200',
-      });
-
-      // Clear pending state and refresh entries
-      setPendingVehicleNumber('');
-      fetchWeekEntries();
-    } catch (error: any) {
-      console.error('Error creating vehicle and wash entry:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to add vehicle',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDeleteWash = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('wash_entries')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: 'Wash entry deleted',
-      });
-
-      fetchWeekEntries();
-    } catch (error: any) {
-      console.error('Error deleting wash entry:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete wash entry',
-        variant: 'destructive',
-      });
-    }
-  };
 
   if (!userProfile?.location_id) {
     return (
@@ -486,6 +122,7 @@ export default function EmployeeDashboard() {
 
   // Get entries for selected date
   const todayEntries = entries.filter(entry => entry.wash_date === format(selectedDate, 'yyyy-MM-dd'));
+  const washedVehicleIds = new Set(todayEntries.map(entry => entry.vehicle_id));
   
   // Get entries by day for week summary
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -547,118 +184,17 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
 
-        {/* Vehicle Entry Section */}
+        {/* Vehicle Grid Selection */}
         <Card>
-          <CardContent className="p-4 md:p-6 space-y-4">
-            <form onSubmit={handleSubmitSearch} className="relative">
-              <Input
-                ref={inputRef}
-                type="text"
-                inputMode="numeric"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
-                placeholder="Enter vehicle number..."
-                className="text-lg h-14 text-center font-medium tracking-wide"
-                autoComplete="off"
-                autoCapitalize="characters"
-              />
-              
-              {showDropdown && vehicles.length > 0 && (
-                <div
-                  ref={dropdownRef}
-                  className="absolute z-50 w-full mt-2 bg-card border rounded-lg shadow-xl overflow-hidden"
-                >
-                  {vehicles.map((vehicle) => (
-                    <button
-                      key={vehicle.id}
-                      type="button"
-                      onClick={() => handleSelectVehicle(vehicle)}
-                      className="w-full px-4 py-4 text-left hover:bg-accent transition-colors border-b last:border-b-0 min-h-[48px]"
-                    >
-                      <div className="font-semibold text-base">{vehicle.vehicle_number}</div>
-                      <div className="text-sm text-muted-foreground mt-0.5">
-                        {vehicle.vehicle_type?.type_name || 'Unknown'}
-                        {vehicle.home_location && ` • ${vehicle.home_location.name}`}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-              
-              {showDropdown && searchTerm && vehicles.length === 0 && !isSearching && (
-                <div
-                  ref={dropdownRef}
-                  className="absolute z-50 w-full mt-2 bg-card border rounded-lg shadow-xl p-4 text-center text-muted-foreground"
-                >
-                  No vehicles found
-                </div>
-              )}
-            </form>
-
-            {searchTerm.trim() && (
-              <Button
-                type="button"
-                onClick={() => handleAddWash(selectedDate, searchTerm.trim(), '')}
-                className="w-full h-14 text-lg font-semibold"
-                size="lg"
-              >
-                Add Wash
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Today's Washes Section */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-bold">
-              Washed Today ({todayEntries.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            {loading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Loading...
-              </div>
-            ) : todayEntries.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                No washes logged yet today
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {todayEntries.map((entry) => {
-                  const canDelete = isToday(new Date(entry.wash_date));
-                  return (
-                    <div
-                      key={entry.id}
-                      className="flex items-center justify-between p-4 bg-accent/50 border rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <div className="font-bold text-lg">
-                          {entry.vehicle?.vehicle_number}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {entry.vehicle?.vehicle_type?.type_name}
-                          {' • '}
-                          {format(new Date(entry.created_at), 'h:mm a')}
-                        </div>
-                      </div>
-                      
-                      {canDelete && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteWash(entry.id)}
-                          className="h-11 w-11 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <X className="h-5 w-5" />
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          <CardContent className="p-4 md:p-6">
+            <VehicleGridSelector
+              selectedDate={selectedDate}
+              locationId={userProfile.location_id}
+              employeeId={userProfile.id}
+              onWashAdded={fetchWeekEntries}
+              cutoffDate={cutoffDate}
+              washedVehicleIds={washedVehicleIds}
+            />
           </CardContent>
         </Card>
 
@@ -688,11 +224,12 @@ export default function EmployeeDashboard() {
                   <button
                     key={day.toISOString()}
                     onClick={() => setSelectedDate(day)}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
-                      isSameDay(day, selectedDate)
+                    className={cn(
+                      "w-full flex items-center justify-between p-3 rounded-lg transition-colors",
+                      isToday(day) && selectedDate.getDate() === day.getDate()
                         ? 'bg-primary/10 border border-primary/20'
                         : 'bg-accent/30 hover:bg-accent/50'
-                    }`}
+                    )}
                   >
                     <div className="font-medium">
                       {format(day, 'EEEE, MMM d')}
@@ -707,36 +244,6 @@ export default function EmployeeDashboard() {
             </CollapsibleContent>
           </Card>
         </Collapsible>
-        
-        {/* New Vehicle Dialog */}
-        <NewVehicleDialog
-          open={showNewVehicleDialog}
-          onOpenChange={setShowNewVehicleDialog}
-          vehicleNumber={pendingVehicleNumber}
-          onConfirm={handleCreateVehicle}
-        />
-
-        {/* Confirmation Dialog for Non-Today Dates */}
-        <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirm Date</AlertDialogTitle>
-              <AlertDialogDescription>
-                You are adding a wash for <strong>{pendingWash && format(pendingWash.date, 'EEEE, MMMM d, yyyy')}</strong>, not today.
-                <br /><br />
-                Vehicle: <strong>{pendingWash?.vehicleNumber}</strong>
-                <br /><br />
-                Do you want to continue?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmWash}>
-                Confirm
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </Layout>
   );
