@@ -323,7 +323,7 @@ export function VehicleGridSelector({
         
         <div className="flex gap-2">
           <Button
-            variant="outline"
+            variant="success"
             size="sm"
             onClick={() => setShowAddDialog(true)}
           >
@@ -334,10 +334,8 @@ export function VehicleGridSelector({
           <Button
             onClick={handleSubmit}
             disabled={!hasChanges || submitting}
-            className={cn(
-              'min-w-[100px]',
-              hasChanges && 'bg-primary hover:bg-primary/90'
-            )}
+            variant={hasChanges ? "success" : "outline"}
+            size="sm"
           >
             {submitting ? (
               <>
@@ -356,7 +354,7 @@ export function VehicleGridSelector({
         <div className="text-center py-12 text-muted-foreground">
           <p>No vehicles found for your location.</p>
           <Button
-            variant="outline"
+            variant="success"
             size="sm"
             onClick={() => setShowAddDialog(true)}
             className="mt-4"
@@ -383,8 +381,8 @@ export function VehicleGridSelector({
                   'flex flex-col items-center justify-center gap-2',
                   'min-h-[100px]',
                   isSelected
-                    ? 'bg-primary text-primary-foreground border-primary shadow-lg'
-                    : 'bg-card border-border hover:border-primary/50',
+                    ? 'bg-teal-500 text-white border-teal-500 shadow-lg'
+                    : 'bg-card border-border hover:border-teal-400',
                   isOwnedByOther && 'opacity-50 cursor-not-allowed'
                 )}
               >
