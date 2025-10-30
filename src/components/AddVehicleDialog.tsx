@@ -229,7 +229,6 @@ export function AddVehicleDialog({
                 <SelectValue placeholder="Select client (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
                 {clients.map((client) => (
                   <SelectItem key={client.id} value={client.id}>
                     {client.client_name}
