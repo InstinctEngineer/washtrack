@@ -346,10 +346,23 @@ export function VehicleGridSelector({
       const newVehicle = updatedVehicles.find(v => v.id === vehicleId);
       
       if (newVehicle) {
-        // Wait a tiny bit for state to settle
+        // Initialize tile state for the new vehicle
+        setTileStates(prev => {
+          const newStates = new Map(prev);
+          newStates.set(newVehicle.id, {
+            isWashed: false,
+            isLoading: false,
+          });
+          return newStates;
+        });
+        
+        // Wait for state to settle, then auto-click the tile
         setTimeout(() => {
+          console.log('Auto-clicking newly created vehicle:', newVehicle.vehicle_number);
           handleTileClick(newVehicle);
-        }, 200);
+        }, 300);
+      } else {
+        console.error('Could not find newly created vehicle in refreshed list');
       }
     } catch (error) {
       console.error('Error refreshing vehicles:', error);
