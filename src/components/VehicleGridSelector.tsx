@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { VehicleWithDetails } from '@/types/database';
 import { format, isSameDay } from 'date-fns';
-import { Check, Lock, Loader2, Plus } from 'lucide-react';
+import { Check, Loader2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -14,16 +14,6 @@ interface VehicleGridSelectorProps {
   employeeId: string;
   onWashAdded: () => void;
   cutoffDate: Date | null;
-  washedVehicleIds: Set<string>;
-}
-
-interface VehicleTileState {
-  isWashed: boolean;
-  isLoading: boolean;
-  washEntryId?: string;
-  createdAt?: Date;
-  washedByEmployeeId?: string;
-  washedByEmployeeName?: string;
 }
 
 export function VehicleGridSelector({
@@ -32,108 +22,33 @@ export function VehicleGridSelector({
   employeeId,
   onWashAdded,
   cutoffDate,
-  washedVehicleIds,
 }: VehicleGridSelectorProps) {
   const [vehicles, setVehicles] = useState<VehicleWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tileStates, setTileStates] = useState<Map<string, VehicleTileState>>(new Map());
-  const [undoStack, setUndoStack] = useState<Array<{ vehicleId: string; action: 'add' | 'remove'; washEntryId?: string }>>([]);
-  const [showUndo, setShowUndo] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  
+  // Local state for selections (vehicle IDs that user has selected)
+  const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(new Set());
+  
+  // Track which vehicles already have wash entries in DB (vehicle_id -> wash_entry_id)
+  const [existingWashEntries, setExistingWashEntries] = useState<Map<string, { id: string; employee_id: string; employee_name: string }>>(new Map());
+  
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [pendingAutoClickVehicleId, setPendingAutoClickVehicleId] = useState<string | null>(null);
 
+  // Fetch vehicles for the location
   useEffect(() => {
     fetchVehicles();
   }, [locationIds]);
 
-  // Initialize tile states on mount or when data changes
+  // Fetch existing wash entries for the selected date
   useEffect(() => {
-    console.log('VehicleGridSelector: Initializing tile states');
-    const initializeTileStates = async () => {
-      // Fetch wash entries for this date
-      const { data: washEntries } = await supabase
-        .from('wash_entries')
-        .select(`
-          id, 
-          vehicle_id, 
-          created_at, 
-          employee_id,
-          employee:users!wash_entries_employee_id_fkey(id, name)
-        `)
-        .is('deleted_at', null)
-        .in('actual_location_id', locationIds)
-        .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
-      
-      const entriesMap = new Map<string, { 
-        id: string; 
-        created_at: string; 
-        employee_id: string;
-        employee_name: string;
-      }>();
-      
-      (washEntries || []).forEach((entry: any) => {
-        entriesMap.set(entry.vehicle_id, { 
-          id: entry.id, 
-          created_at: entry.created_at,
-          employee_id: entry.employee_id,
-          employee_name: entry.employee?.name || 'Unknown'
-        });
-      });
-      
-      const newStates = new Map<string, VehicleTileState>();
-      
-      vehicles.forEach(vehicle => {
-        const entryData = entriesMap.get(vehicle.id);
-        const isWashed = !!entryData;
-        
-        newStates.set(vehicle.id, {
-          isWashed,
-          isLoading: false,
-          washEntryId: entryData?.id,
-          createdAt: entryData ? new Date(entryData.created_at) : undefined,
-          washedByEmployeeId: entryData?.employee_id,
-          washedByEmployeeName: entryData?.employee_name,
-        });
-      });
-
-      setTileStates(newStates);
-    };
-
-    if (vehicles.length > 0) {
-      initializeTileStates();
-    }
-  }, [vehicles, selectedDate, locationIds]);
-
-  // Auto-click newly created vehicle
-  useEffect(() => {
-    if (pendingAutoClickVehicleId && vehicles.length > 0 && !loading) {
-      const vehicle = vehicles.find(v => v.id === pendingAutoClickVehicleId);
-      const tileState = tileStates.get(pendingAutoClickVehicleId);
-      
-      console.log('Auto-click effect triggered:', {
-        vehicleId: pendingAutoClickVehicleId,
-        vehicleFound: !!vehicle,
-        tileStateExists: !!tileState,
-        isLoading: tileState?.isLoading,
-        isWashed: tileState?.isWashed
-      });
-      
-      if (vehicle && tileState && !tileState.isLoading && !tileState.isWashed) {
-        console.log('Auto-clicking vehicle:', vehicle.vehicle_number);
-        setPendingAutoClickVehicleId(null);
-        handleTileClick(vehicle);
-      }
-    }
-  }, [pendingAutoClickVehicleId, vehicles, loading, tileStates]);
-
-  useEffect(() => {
-    if (showUndo) {
-      const timer = setTimeout(() => setShowUndo(false), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [showUndo]);
+    fetchExistingWashEntries();
+  }, [selectedDate, locationIds]);
 
   const fetchVehicles = async () => {
+    if (!locationIds || locationIds.length === 0) return;
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -144,13 +59,13 @@ export function VehicleGridSelector({
           client:clients(*),
           home_location:locations!vehicles_home_location_id_fkey(*)
         `)
-        .in('home_location_id', locationIds)
         .eq('is_active', true)
+        .in('home_location_id', locationIds)
         .order('vehicle_number');
 
       if (error) throw error;
       setVehicles((data || []) as VehicleWithDetails[]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching vehicles:', error);
       toast({
         title: 'Error',
@@ -162,551 +77,339 @@ export function VehicleGridSelector({
     }
   };
 
-
-  const handleTileClick = async (vehicle: VehicleWithDetails) => {
-    const currentState = tileStates.get(vehicle.id);
-    if (!currentState || currentState.isLoading) return;
-
-    console.log(`VehicleGridSelector: Tile clicked for vehicle ${vehicle.vehicle_number}, current state:`, currentState);
-
-    // Check cutoff date restriction
-    if (cutoffDate) {
-      const now = new Date();
-      const washDate = new Date(selectedDate);
-      washDate.setHours(0, 0, 0, 0);
-      const cutoffDateTime = new Date(cutoffDate);
-      const cutoffDateOnly = new Date(cutoffDate);
-      cutoffDateOnly.setHours(0, 0, 0, 0);
-
-      if (now > cutoffDateTime && washDate <= cutoffDateOnly) {
-        toast({
-          title: 'Entry Period Closed',
-          description: `Entry period ended on ${format(cutoffDate, 'EEEE, MMMM d')}`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-
-    // Set loading state
-    setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: true }));
+  const fetchExistingWashEntries = async () => {
+    if (!locationIds || locationIds.length === 0) return;
 
     try {
-      if (currentState.isWashed) {
-        console.log(`VehicleGridSelector: Attempting to remove wash entry for ${vehicle.vehicle_number}`);
-        
-        // Check if this entry was created by the current user
-        if (currentState.washedByEmployeeId && currentState.washedByEmployeeId !== employeeId) {
-          toast({
-            title: 'Cannot Remove',
-            description: `This vehicle was washed by ${currentState.washedByEmployeeName}. Only they can remove this entry.`,
-            variant: 'destructive',
-          });
-          setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
-          return;
+      const { data: washEntries } = await supabase
+        .from('wash_entries')
+        .select(`
+          id, 
+          vehicle_id, 
+          employee_id,
+          employee:users!wash_entries_employee_id_fkey(id, name)
+        `)
+        .is('deleted_at', null)
+        .in('actual_location_id', locationIds)
+        .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
+      
+      const entriesMap = new Map<string, { id: string; employee_id: string; employee_name: string }>();
+      
+      (washEntries || []).forEach((entry: any) => {
+        entriesMap.set(entry.vehicle_id, { 
+          id: entry.id, 
+          employee_id: entry.employee_id,
+          employee_name: entry.employee?.name || 'Unknown'
+        });
+      });
+      
+      setExistingWashEntries(entriesMap);
+      
+      // Initialize selected vehicles with existing entries
+      const existingIds = new Set(entriesMap.keys());
+      setSelectedVehicles(existingIds);
+    } catch (error: any) {
+      console.error('Error fetching wash entries:', error);
+    }
+  };
+
+  const handleVehicleToggle = (vehicleId: string) => {
+    // Check if this vehicle has an existing entry by another employee
+    const existingEntry = existingWashEntries.get(vehicleId);
+    if (existingEntry && existingEntry.employee_id !== employeeId) {
+      toast({
+        title: 'Cannot Modify',
+        description: `This vehicle was washed by ${existingEntry.employee_name}. Only they can modify it.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // If it's already in DB and it's a past date, don't allow toggle
+    if (existingEntry && !isSameDay(selectedDate, new Date())) {
+      toast({
+        title: 'Cannot Modify Past Entry',
+        description: 'You cannot modify wash entries from past dates. Contact your manager if changes are needed.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSelectedVehicles(prev => {
+      const next = new Set(prev);
+      if (next.has(vehicleId)) {
+        next.delete(vehicleId);
+      } else {
+        next.add(vehicleId);
+      }
+      return next;
+    });
+  };
+
+  const handleSubmit = async () => {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    
+    if (!authUser) {
+      toast({
+        title: 'Authentication Required',
+        description: 'You must be logged in to submit wash entries',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check cutoff date
+    if (cutoffDate && selectedDate < cutoffDate) {
+      toast({
+        title: 'Date Locked',
+        description: `Cannot submit entries before ${format(cutoffDate, 'MMM d, yyyy')}. Contact your manager.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Find vehicles to add (selected but not in DB)
+    const vehiclesToAdd = Array.from(selectedVehicles).filter(
+      vehicleId => !existingWashEntries.has(vehicleId)
+    );
+
+    // Find vehicles to remove (in DB but not selected, and owned by current employee)
+    const vehiclesToRemove = Array.from(existingWashEntries.entries())
+      .filter(([vehicleId, entry]) => 
+        !selectedVehicles.has(vehicleId) && 
+        entry.employee_id === employeeId
+      )
+      .map(([vehicleId]) => vehicleId);
+
+    if (vehiclesToAdd.length === 0 && vehiclesToRemove.length === 0) {
+      toast({
+        title: 'No Changes',
+        description: 'No changes to submit',
+      });
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      // Add new wash entries
+      if (vehiclesToAdd.length > 0) {
+        const entriesToInsert = vehiclesToAdd.map(vehicleId => {
+          const vehicle = vehicles.find(v => v.id === vehicleId);
+          const actualLocationId = vehicle?.home_location_id && locationIds.includes(vehicle.home_location_id)
+            ? vehicle.home_location_id
+            : locationIds[0];
+
+          return {
+            employee_id: authUser.id,
+            vehicle_id: vehicleId,
+            wash_date: format(selectedDate, 'yyyy-MM-dd'),
+            actual_location_id: actualLocationId,
+          };
+        });
+
+        const { error: insertError } = await supabase
+          .from('wash_entries')
+          .insert(entriesToInsert);
+
+        if (insertError) throw insertError;
+
+        // Update vehicle last_seen for added vehicles
+        for (const vehicleId of vehiclesToAdd) {
+          const vehicle = vehicles.find(v => v.id === vehicleId);
+          const actualLocationId = vehicle?.home_location_id && locationIds.includes(vehicle.home_location_id)
+            ? vehicle.home_location_id
+            : locationIds[0];
+
+          await supabase
+            .from('vehicles')
+            .update({
+              last_seen_location_id: actualLocationId,
+              last_seen_date: format(selectedDate, 'yyyy-MM-dd'),
+            })
+            .eq('id', vehicleId);
         }
-        
-        if (!currentState.washEntryId) {
-          toast({
-            title: 'Error',
-            description: 'Wash entry ID not found',
-            variant: 'destructive',
-          });
-          setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
-          return;
-        }
-        
-        // Check if it's same day using date-fns isSameDay
-        const isToday = isSameDay(selectedDate, new Date());
-        
-        if (isToday) {
-          // Same day - soft delete immediately
-          const { data, error } = await supabase
+      }
+
+      // Remove wash entries (soft delete)
+      if (vehiclesToRemove.length > 0) {
+        const washEntryIds = vehiclesToRemove
+          .map(vehicleId => existingWashEntries.get(vehicleId)?.id)
+          .filter(Boolean) as string[];
+
+        if (washEntryIds.length > 0) {
+          const { error: deleteError } = await supabase
             .from('wash_entries')
             .update({
               deleted_at: new Date().toISOString(),
-              deleted_by: employeeId,
+              deleted_by: authUser.id,
               deletion_reason: 'Removed by employee on same day',
             })
-            .eq('id', currentState.washEntryId)
-            .eq('employee_id', employeeId)
-            .select();
+            .in('id', washEntryIds);
 
-          if (error) {
-            throw new Error(`Database error: ${error.message}`);
-          }
-
-          if (!data || data.length === 0) {
-            throw new Error('Unable to remove entry. You may not have permission to modify this wash.');
-          }
-
-          console.log(`VehicleGridSelector: Successfully soft deleted wash entry for ${vehicle.vehicle_number}`);
-
-          setTileStates(prev => new Map(prev).set(vehicle.id, {
-            isWashed: false,
-            isLoading: false,
-            washEntryId: undefined,
-            createdAt: undefined,
-            washedByEmployeeId: undefined,
-            washedByEmployeeName: undefined,
-          }));
-
-          setUndoStack([{ vehicleId: vehicle.id, action: 'remove', washEntryId: currentState.washEntryId }]);
-          setShowUndo(true);
-
-          toast({
-            title: 'Removed',
-            description: `${vehicle.vehicle_number} removed`,
-          });
-          
-          onWashAdded();
-          return;
-        } else {
-          // Past date - request manager approval
-          await requestManagerApproval(vehicle, currentState.washEntryId);
-          setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
-          return;
+          if (deleteError) throw deleteError;
         }
-      } else {
-        console.log(`VehicleGridSelector: Adding wash entry for ${vehicle.vehicle_number}`);
-        
-        // Get auth user
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        
-        // Determine which location to use
-        const actualLocationId = vehicle.home_location_id && locationIds.includes(vehicle.home_location_id)
-          ? vehicle.home_location_id
-          : locationIds[0];
-        
-        // First, check if a deleted entry exists for this vehicle today
-        const { data: deletedEntry } = await supabase
-          .from('wash_entries')
-          .select('id, deleted_by, deleted_at')
-          .eq('vehicle_id', vehicle.id)
-          .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'))
-          .in('actual_location_id', locationIds)
-          .not('deleted_at', 'is', null)
-          .maybeSingle();
-
-        let washEntryId: string;
-        let createdAt: string;
-        let wasRestored = false;
-
-        if (deletedEntry) {
-          // Restore the deleted entry
-          console.log(`VehicleGridSelector: Restoring deleted entry for ${vehicle.vehicle_number}`);
-          const { data: restored, error: restoreError } = await supabase
-            .from('wash_entries')
-            .update({
-              deleted_at: null,
-              deleted_by: null,
-              deletion_reason: null,
-            })
-            .eq('id', deletedEntry.id)
-            .select('id, created_at')
-            .single();
-
-          if (restoreError) throw restoreError;
-          
-          washEntryId = restored.id;
-          createdAt = restored.created_at;
-          wasRestored = true;
-        } else {
-          // Create new entry
-          console.log(`VehicleGridSelector: Creating new wash entry for ${vehicle.vehicle_number}`);
-          const { data: newEntry, error: insertError } = await supabase
-            .from('wash_entries')
-            .insert({
-              employee_id: authUser?.id || employeeId,
-              vehicle_id: vehicle.id,
-              wash_date: format(selectedDate, 'yyyy-MM-dd'),
-              actual_location_id: actualLocationId,
-            })
-            .select('id, created_at')
-            .single();
-
-          if (insertError) {
-            if (insertError.code === '23505') {
-              toast({
-                title: 'Already Washed',
-                description: `${vehicle.vehicle_number} already washed today`,
-                variant: 'destructive',
-              });
-            } else {
-              throw insertError;
-            }
-            setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
-            return;
-          }
-
-          washEntryId = newEntry.id;
-          createdAt = newEntry.created_at;
-        }
-
-        console.log(`VehicleGridSelector: Successfully ${wasRestored ? 'restored' : 'added'} wash entry`);
-
-        // Update vehicle last seen
-        await supabase
-          .from('vehicles')
-          .update({
-            last_seen_location_id: actualLocationId,
-            last_seen_date: format(selectedDate, 'yyyy-MM-dd'),
-          })
-          .eq('id', vehicle.id);
-
-        setTileStates(prev => new Map(prev).set(vehicle.id, {
-          isWashed: true,
-          isLoading: false,
-          washEntryId: washEntryId,
-          createdAt: new Date(createdAt),
-        }));
-
-        setUndoStack([{ vehicleId: vehicle.id, action: 'add', washEntryId: washEntryId }]);
-        setShowUndo(true);
-
-        toast({
-          title: wasRestored ? '✓ Restored' : '✓ Added',
-          description: `${vehicle.vehicle_number} ${wasRestored ? 'restored' : 'added'}`,
-          className: 'bg-success text-success-foreground',
-        });
       }
 
-      console.log('VehicleGridSelector: Calling onWashAdded');
+      toast({
+        title: 'Success',
+        description: `${vehiclesToAdd.length} added, ${vehiclesToRemove.length} removed`,
+        className: 'bg-success text-success-foreground',
+      });
+
+      // Refresh data
+      await fetchExistingWashEntries();
       onWashAdded();
     } catch (error: any) {
-      console.error('VehicleGridSelector: Error handling tile click:', error);
-      
-      // Show specific error based on failure type
-      if (error.message.includes('permission')) {
-        toast({
-          title: 'Permission Denied',
-          description: 'You can only remove washes from today. For past dates, request manager approval.',
-          variant: 'destructive',
-        });
-      } else if (error.message.includes('Database error')) {
-        toast({
-          title: 'Database Error',
-          description: error.message.replace('Database error: ', ''),
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Error',
-          description: error.message || 'Operation failed',
-          variant: 'destructive',
-        });
-      }
-      
-      // Revert UI state
-      setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
-    }
-  };
-
-  const requestManagerApproval = async (vehicle: VehicleWithDetails, washEntryId: string) => {
-    try {
-      // Get user's manager_id
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('manager_id')
-        .eq('id', employeeId)
-        .single();
-
-      if (userError || !userData?.manager_id) {
-        toast({
-          title: 'Error',
-          description: 'You must have a manager assigned to request approval.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Prompt for reason (simple implementation)
-      const reason = window.prompt(`Why do you want to remove vehicle ${vehicle.vehicle_number}?`);
-      if (!reason) return; // User canceled
-
-      // Create approval request
-      const { error } = await supabase
-        .from('manager_approval_requests')
-        .insert({
-          employee_id: employeeId,
-          manager_id: userData.manager_id,
-          wash_entry_id: washEntryId,
-          request_type: 'remove_entry',
-          reason: reason,
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: 'Approval Requested',
-        description: `Request sent to your manager to remove vehicle ${vehicle.vehicle_number}`,
-        className: 'bg-blue-500 text-white',
-      });
-    } catch (error: any) {
-      console.error('Error requesting approval:', error);
+      console.error('Error submitting wash entries:', error);
       toast({
         title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleUndo = async () => {
-    const lastAction = undoStack[undoStack.length - 1];
-    if (!lastAction) return;
-
-    const vehicle = vehicles.find(v => v.id === lastAction.vehicleId);
-    if (!vehicle) return;
-
-    const currentState = tileStates.get(lastAction.vehicleId);
-    if (!currentState) return;
-
-    setTileStates(prev => new Map(prev).set(lastAction.vehicleId, { ...currentState, isLoading: true }));
-
-    try {
-      if (lastAction.action === 'add') {
-        // Undo add = soft delete
-        if (!lastAction.washEntryId) return;
-        
-        const { data, error } = await supabase
-          .from('wash_entries')
-          .update({
-            deleted_at: new Date().toISOString(),
-            deleted_by: employeeId,
-            deletion_reason: 'Undo by employee',
-          })
-          .eq('id', lastAction.washEntryId)
-          .select();
-
-        if (error) throw error;
-        
-        if (!data || data.length === 0) {
-          throw new Error('Unable to undo. Permission denied.');
-        }
-
-        setTileStates(prev => new Map(prev).set(lastAction.vehicleId, {
-          isWashed: false,
-          isLoading: false,
-          washEntryId: undefined,
-          createdAt: undefined,
-          washedByEmployeeId: undefined,
-          washedByEmployeeName: undefined,
-        }));
-      } else {
-        // Undo remove = restore (update deleted_at to null)
-        if (!lastAction.washEntryId) return;
-        
-        const { data, error } = await supabase
-          .from('wash_entries')
-          .update({
-            deleted_at: null,
-            deleted_by: null,
-            deletion_reason: null,
-          })
-          .eq('id', lastAction.washEntryId)
-          .select();
-
-        if (error) throw error;
-        
-        if (!data || data.length === 0) {
-          throw new Error('Unable to undo. Permission denied.');
-        }
-
-        setTileStates(prev => new Map(prev).set(lastAction.vehicleId, {
-          isWashed: true,
-          isLoading: false,
-          washEntryId: lastAction.washEntryId,
-          createdAt: currentState.createdAt,
-        }));
-      }
-
-      setShowUndo(false);
-      setUndoStack([]);
-      onWashAdded();
-
-      toast({
-        title: 'Undone',
-        description: 'Action reversed',
-      });
-    } catch (error: any) {
-      console.error('Error undoing action:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to undo',
-        variant: 'destructive',
-      });
-      setTileStates(prev => new Map(prev).set(lastAction.vehicleId, { ...currentState, isLoading: false }));
-    }
-  };
-
-  const handleVehicleCreated = async (vehicleId: string) => {
-    console.log('New vehicle created, ID:', vehicleId);
-    
-    // Set up the pending auto-click before refreshing
-    setPendingAutoClickVehicleId(vehicleId);
-    
-    // Refresh the vehicle list
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('vehicles')
-        .select(`
-          *,
-          vehicle_type:vehicle_types(*),
-          client:clients(*),
-          home_location:locations!vehicles_home_location_id_fkey(*)
-        `)
-        .in('home_location_id', locationIds)
-        .eq('is_active', true)
-        .order('vehicle_number');
-
-      if (error) throw error;
-      
-      const updatedVehicles = (data || []) as VehicleWithDetails[];
-      console.log('Vehicles refreshed, count:', updatedVehicles.length);
-      console.log('New vehicle in list:', updatedVehicles.find(v => v.id === vehicleId)?.vehicle_number);
-      
-      setVehicles(updatedVehicles);
-    } catch (error) {
-      console.error('Error refreshing vehicles:', error);
-      setPendingAutoClickVehicleId(null);
-      toast({
-        title: 'Error',
-        description: 'Failed to refresh vehicle list',
+        description: error.message || 'Failed to submit changes',
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
+  const handleVehicleCreated = (newVehicleId: string) => {
+    setShowAddDialog(false);
+    setPendingAutoClickVehicleId(newVehicleId);
+    fetchVehicles();
+  };
+
+  // Auto-select newly created vehicle
+  useEffect(() => {
+    if (pendingAutoClickVehicleId && vehicles.some(v => v.id === pendingAutoClickVehicleId)) {
+      setSelectedVehicles(prev => new Set(prev).add(pendingAutoClickVehicleId));
+      setPendingAutoClickVehicleId(null);
+      
+      toast({
+        title: 'Vehicle Added',
+        description: 'New vehicle has been selected. Click Submit to save.',
+      });
+    }
+  }, [pendingAutoClickVehicleId, vehicles]);
+
+  const selectedCount = selectedVehicles.size;
+  const existingCount = existingWashEntries.size;
+  const newSelectionsCount = Array.from(selectedVehicles).filter(id => !existingWashEntries.has(id)).length;
+  const hasChanges = newSelectionsCount > 0 || selectedCount !== existingCount;
+
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <div key={i} className="aspect-square rounded-lg bg-muted animate-pulse" />
-        ))}
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  const washedCount = Array.from(tileStates.values()).filter(state => state.isWashed).length;
-
   return (
-    <div className="space-y-6">
-      {/* Daily Summary */}
-      <div className="sticky top-0 z-10 bg-gradient-to-br from-slate-50/95 to-white/95 backdrop-blur-sm py-4 border-b shadow-sm">
-        <div className="text-center space-y-2">
-          <div className="text-xl md:text-2xl font-bold text-foreground">
-            Today: <span className="text-blue-600">{washedCount}</span> / {vehicles.length}
+    <div className="space-y-4">
+      {/* Summary Bar */}
+      <div className="flex items-center justify-between p-4 bg-accent/30 rounded-lg">
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold">{selectedCount}</div>
+            <div className="text-xs text-muted-foreground">Selected</div>
           </div>
-          <div className="w-full max-w-lg mx-auto h-2 bg-slate-200 rounded-full overflow-hidden shadow-inner">
-            <div
-              className="h-full transition-all duration-500 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
-              style={{ width: `${vehicles.length > 0 ? (washedCount / vehicles.length) * 100 : 0}%` }}
-            />
-          </div>
-          {vehicles.length > 0 && washedCount > 0 && (
-            <div className="text-xs font-medium text-slate-600">
-              {Math.round((washedCount / vehicles.length) * 100)}% Complete
+          {newSelectionsCount > 0 && (
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{newSelectionsCount}</div>
+              <div className="text-xs text-muted-foreground">New</div>
             </div>
           )}
         </div>
+        
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAddDialog(true)}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Vehicle
+          </Button>
+          
+          <Button
+            onClick={handleSubmit}
+            disabled={!hasChanges || submitting}
+            className={cn(
+              'min-w-[100px]',
+              hasChanges && 'bg-primary hover:bg-primary/90'
+            )}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Submit'
+            )}
+          </Button>
+        </div>
       </div>
 
-      {/* Vehicle Grid - Spreadsheet Style */}
-      <div className="bg-slate-50 rounded-lg p-2">
-        <div className="grid grid-cols-3 gap-1 max-w-2xl mx-auto">
-          {/* Vehicle tiles */}
-          {vehicles.map(vehicle => {
-            const state = tileStates.get(vehicle.id) || { isWashed: false, isLoading: false };
-            
+      {/* Vehicle Grid */}
+      {vehicles.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <p>No vehicles found for your location.</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAddDialog(true)}
+            className="mt-4"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add First Vehicle
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {vehicles.map((vehicle) => {
+            const isSelected = selectedVehicles.has(vehicle.id);
+            const existingEntry = existingWashEntries.get(vehicle.id);
+            const isOwnedByOther = existingEntry && existingEntry.employee_id !== employeeId;
+
             return (
               <button
                 key={vehicle.id}
-                onClick={() => handleTileClick(vehicle)}
-                disabled={state.isLoading}
-                style={{
-                  WebkitTapHighlightColor: 'transparent',
-                }}
+                onClick={() => handleVehicleToggle(vehicle.id)}
+                disabled={isOwnedByOther}
                 className={cn(
-                  "relative h-12 min-h-[48px] rounded transition-all duration-150",
-                  "flex items-center justify-center touch-manipulation",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
-                  "font-mono font-semibold text-base",
-                  // Default state - sleek raised cell
-                  !state.isWashed && !state.isLoading && [
-                    "bg-gradient-to-b from-white via-slate-50 to-slate-100",
-                    "border border-slate-300/50",
-                    "shadow-[2px_2px_5px_rgba(100,116,139,0.15),-1px_-1px_3px_rgba(255,255,255,0.7)]",
-                    "hover:shadow-[3px_3px_8px_rgba(100,116,139,0.2),-2px_-2px_4px_rgba(255,255,255,0.8)]",
-                    "hover:border-blue-400/50",
-                    "hover:-translate-y-px",
-                    "active:translate-y-0",
-                    "active:shadow-[inset_1px_1px_3px_rgba(100,116,139,0.2)]",
-                    "text-slate-700",
-                  ],
-                  // Washed state - vibrant pressed effect
-                  state.isWashed && !state.isLoading && [
-                    "bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-500",
-                    "border border-teal-500/40",
-                    "shadow-[inset_2px_2px_6px_rgba(20,184,166,0.4),inset_-2px_-2px_6px_rgba(255,255,255,0.2),0_2px_4px_rgba(20,184,166,0.3)]",
-                    "text-white",
-                  ],
-                  // Loading state
-                  state.isLoading && [
-                    "bg-gradient-to-br from-blue-100 to-indigo-100",
-                    "border border-blue-300",
-                    "cursor-wait opacity-80",
-                  ]
+                  'relative p-4 rounded-lg border-2 transition-all duration-200',
+                  'hover:shadow-md active:scale-95',
+                  'flex flex-col items-center justify-center gap-2',
+                  'min-h-[100px]',
+                  isSelected
+                    ? 'bg-primary text-primary-foreground border-primary shadow-lg'
+                    : 'bg-card border-border hover:border-primary/50',
+                  isOwnedByOther && 'opacity-50 cursor-not-allowed'
                 )}
-                aria-label={`${vehicle.vehicle_number} - ${state.isWashed ? 'Washed' : 'Not washed'}`}
-                aria-pressed={state.isWashed}
               >
-                {/* Loading Spinner */}
-                {state.isLoading && (
-                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                {isSelected && (
+                  <Check className="absolute top-2 right-2 h-5 w-5" />
                 )}
-
-                {/* Washed Checkmark */}
-                {state.isWashed && !state.isLoading && (
-                  <>
-                    <span className="drop-shadow-sm">{vehicle.vehicle_number}</span>
-                    <Check className="absolute top-1 right-1 h-3.5 w-3.5 text-white drop-shadow-sm animate-in fade-in zoom-in duration-200" strokeWidth={3} />
-                  </>
-                )}
-
-                {/* Vehicle Number */}
-                {!state.isWashed && !state.isLoading && (
-                  <span>{vehicle.vehicle_number}</span>
-                )}
+                
+                <div className="text-center">
+                  <div className="font-mono font-bold text-lg">
+                    {vehicle.vehicle_number}
+                  </div>
+                  <div className="text-xs opacity-80">
+                    {vehicle.vehicle_type?.type_name || 'Unknown Type'}
+                  </div>
+                  {isOwnedByOther && (
+                    <div className="text-xs mt-1 opacity-70">
+                      By {existingEntry.employee_name}
+                    </div>
+                  )}
+                </div>
               </button>
             );
           })}
-
-          {/* Add New Vehicle Button */}
-          <button
-            onClick={() => setShowAddDialog(true)}
-            className={cn(
-              "relative h-12 min-h-[48px] rounded transition-all duration-150",
-              "flex items-center justify-center gap-2 touch-manipulation",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
-              "font-mono font-semibold text-sm",
-              "bg-gradient-to-b from-blue-50 via-blue-100 to-blue-200",
-              "border-2 border-dashed border-blue-400/70",
-              "hover:border-blue-500 hover:bg-gradient-to-b hover:from-blue-100 hover:via-blue-200 hover:to-blue-300",
-              "hover:-translate-y-px",
-              "active:translate-y-0",
-              "text-blue-700 hover:text-blue-800"
-            )}
-            aria-label="Add new vehicle"
-          >
-            <Plus className="h-5 w-5" />
-            <span className="hidden sm:inline">Add Vehicle</span>
-          </button>
         </div>
-      </div>
+      )}
 
       {/* Add Vehicle Dialog */}
       <AddVehicleDialog
@@ -715,20 +418,6 @@ export function VehicleGridSelector({
         locationIds={locationIds}
         onVehicleCreated={handleVehicleCreated}
       />
-
-      {/* Undo Button */}
-      {showUndo && (
-        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-4">
-          <Button
-            onClick={handleUndo}
-            variant="default"
-            size="lg"
-            className="shadow-lg"
-          >
-            Undo Last Action
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

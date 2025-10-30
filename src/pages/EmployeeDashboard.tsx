@@ -122,10 +122,6 @@ export default function EmployeeDashboard() {
     );
   }
 
-  // Get entries for selected date
-  const todayEntries = entries.filter(entry => entry.wash_date === format(selectedDate, 'yyyy-MM-dd'));
-  const washedVehicleIds = new Set(todayEntries.map(entry => entry.vehicle_id));
-  
   // Get entries by day for week summary
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -199,7 +195,6 @@ export default function EmployeeDashboard() {
               employeeId={userProfile.id}
               onWashAdded={fetchWeekEntries}
               cutoffDate={cutoffDate}
-              washedVehicleIds={washedVehicleIds}
             />
           </CardContent>
         </Card>
