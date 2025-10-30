@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { VehicleWithDetails } from '@/types/database';
 import { format, isSameDay } from 'date-fns';
-import { Check, Lock, Loader2 } from 'lucide-react';
+import { Check, Lock, Loader2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { AddVehicleDialog } from '@/components/AddVehicleDialog';
 
 interface VehicleGridSelectorProps {
   selectedDate: Date;
@@ -36,6 +37,7 @@ export function VehicleGridSelector({
   const [tileStates, setTileStates] = useState<Map<string, VehicleTileState>>(new Map());
   const [undoStack, setUndoStack] = useState<Array<{ vehicleId: string; action: 'add' | 'remove'; washEntryId?: string }>>([]);
   const [showUndo, setShowUndo] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
   useEffect(() => {
     fetchVehicles();
@@ -317,6 +319,50 @@ export function VehicleGridSelector({
     }
   };
 
+  const handleVehicleCreated = async (vehicleId: string) => {
+    console.log('New vehicle created:', vehicleId);
+    
+    // Refresh the vehicle list and wait for it to complete
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select(`
+          *,
+          vehicle_type:vehicle_types(*),
+          client:clients(*),
+          home_location:locations!vehicles_home_location_id_fkey(*)
+        `)
+        .in('home_location_id', locationIds)
+        .eq('is_active', true)
+        .order('vehicle_number');
+
+      if (error) throw error;
+      
+      const updatedVehicles = (data || []) as VehicleWithDetails[];
+      setVehicles(updatedVehicles);
+      
+      // Find the newly created vehicle in the fresh data
+      const newVehicle = updatedVehicles.find(v => v.id === vehicleId);
+      
+      if (newVehicle) {
+        // Wait a tiny bit for state to settle
+        setTimeout(() => {
+          handleTileClick(newVehicle);
+        }, 200);
+      }
+    } catch (error) {
+      console.error('Error refreshing vehicles:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to refresh vehicle list',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -354,6 +400,7 @@ export function VehicleGridSelector({
       {/* Vehicle Grid - Spreadsheet Style */}
       <div className="bg-slate-50 rounded-lg p-2">
         <div className="grid grid-cols-3 gap-1 max-w-2xl mx-auto">
+          {/* Vehicle tiles */}
           {vehicles.map(vehicle => {
             const state = tileStates.get(vehicle.id) || { isWashed: false, isLoading: false };
             
@@ -419,8 +466,37 @@ export function VehicleGridSelector({
               </button>
             );
           })}
+
+          {/* Add New Vehicle Button */}
+          <button
+            onClick={() => setShowAddDialog(true)}
+            className={cn(
+              "relative h-12 min-h-[48px] rounded transition-all duration-150",
+              "flex items-center justify-center gap-2 touch-manipulation",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
+              "font-mono font-semibold text-sm",
+              "bg-gradient-to-b from-blue-50 via-blue-100 to-blue-200",
+              "border-2 border-dashed border-blue-400/70",
+              "hover:border-blue-500 hover:bg-gradient-to-b hover:from-blue-100 hover:via-blue-200 hover:to-blue-300",
+              "hover:-translate-y-px",
+              "active:translate-y-0",
+              "text-blue-700 hover:text-blue-800"
+            )}
+            aria-label="Add new vehicle"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="hidden sm:inline">Add Vehicle</span>
+          </button>
         </div>
       </div>
+
+      {/* Add Vehicle Dialog */}
+      <AddVehicleDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        locationIds={locationIds}
+        onVehicleCreated={handleVehicleCreated}
+      />
 
       {/* Undo Button */}
       {showUndo && (
