@@ -42,8 +42,28 @@ export function VehicleGridSelector({
   }, [locationId]);
 
   useEffect(() => {
-    updateTileStates();
+    console.log('VehicleGridSelector: washedVehicleIds changed:', washedVehicleIds);
+    syncTileStatesWithProp();
   }, [washedVehicleIds, vehicles]);
+
+  const syncTileStatesWithProp = () => {
+    console.log('VehicleGridSelector: Syncing tile states with prop');
+    const newStates = new Map<string, VehicleTileState>();
+    
+    vehicles.forEach(vehicle => {
+      const isWashed = washedVehicleIds.has(vehicle.id);
+      const currentState = tileStates.get(vehicle.id);
+      
+      newStates.set(vehicle.id, {
+        isWashed,
+        isLoading: currentState?.isLoading || false,
+        washEntryId: currentState?.washEntryId,
+        createdAt: currentState?.createdAt,
+      });
+    });
+
+    setTileStates(newStates);
+  };
 
   useEffect(() => {
     if (showUndo) {
@@ -81,36 +101,12 @@ export function VehicleGridSelector({
     }
   };
 
-  const updateTileStates = async () => {
-    const newStates = new Map<string, VehicleTileState>();
-    
-    // Fetch wash entries for the selected date
-    try {
-      const { data: washEntries } = await supabase
-        .from('wash_entries')
-        .select('id, vehicle_id, created_at')
-        .eq('employee_id', employeeId)
-        .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
-
-      vehicles.forEach(vehicle => {
-        const washEntry = washEntries?.find(entry => entry.vehicle_id === vehicle.id);
-        newStates.set(vehicle.id, {
-          isWashed: !!washEntry,
-          isLoading: false,
-          washEntryId: washEntry?.id,
-          createdAt: washEntry?.created_at ? new Date(washEntry.created_at) : undefined,
-        });
-      });
-    } catch (error) {
-      console.error('Error updating tile states:', error);
-    }
-
-    setTileStates(newStates);
-  };
 
   const handleTileClick = async (vehicle: VehicleWithDetails) => {
     const currentState = tileStates.get(vehicle.id);
     if (!currentState || currentState.isLoading) return;
+
+    console.log(`VehicleGridSelector: Tile clicked for vehicle ${vehicle.vehicle_number}, current state:`, currentState);
 
     // Check cutoff date restriction
     if (cutoffDate) {
@@ -136,31 +132,27 @@ export function VehicleGridSelector({
 
     try {
       if (currentState.isWashed) {
-        // Delete wash entry
-        if (!currentState.washEntryId) return;
-
-        // Check if entry was created today
-        const today = new Date();
-        if (currentState.createdAt && !isSameDay(currentState.createdAt, today)) {
-          toast({
-            title: 'Cannot Remove',
-            description: 'Cannot remove entries from previous days',
-            variant: 'destructive',
-          });
-          setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
-          return;
-        }
-
+        console.log(`VehicleGridSelector: Deleting wash entry for ${vehicle.vehicle_number}`);
+        
+        // Delete ALL wash entries for this vehicle on this date
+        // (in case there are duplicates)
         const { error } = await supabase
           .from('wash_entries')
           .delete()
-          .eq('id', currentState.washEntryId);
+          .eq('vehicle_id', vehicle.id)
+          .eq('employee_id', employeeId)
+          .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
 
         if (error) throw error;
 
+        console.log(`VehicleGridSelector: Successfully deleted wash entry for ${vehicle.vehicle_number}`);
+
+        // Update local state immediately
         setTileStates(prev => new Map(prev).set(vehicle.id, {
           isWashed: false,
           isLoading: false,
+          washEntryId: undefined,
+          createdAt: undefined,
         }));
 
         setUndoStack([{ vehicleId: vehicle.id, action: 'remove', washEntryId: currentState.washEntryId }]);
@@ -170,7 +162,17 @@ export function VehicleGridSelector({
           title: 'Removed',
           description: `${vehicle.vehicle_number} removed`,
         });
+        
+        // Wait a bit before triggering parent refresh to ensure DB propagation
+        setTimeout(() => {
+          console.log('VehicleGridSelector: Calling onWashAdded after deletion');
+          onWashAdded();
+        }, 100);
+        
+        return; // Don't call onWashAdded immediately
       } else {
+        console.log(`VehicleGridSelector: Adding wash entry for ${vehicle.vehicle_number}`);
+        
         // Add wash entry
         const { data, error } = await supabase
           .from('wash_entries')
@@ -196,6 +198,8 @@ export function VehicleGridSelector({
           setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
           return;
         }
+
+        console.log(`VehicleGridSelector: Successfully added wash entry for ${vehicle.vehicle_number}`, data);
 
         // Update vehicle last seen
         await supabase
@@ -223,9 +227,10 @@ export function VehicleGridSelector({
         });
       }
 
+      console.log('VehicleGridSelector: Calling onWashAdded');
       onWashAdded();
     } catch (error: any) {
-      console.error('Error handling tile click:', error);
+      console.error('VehicleGridSelector: Error handling tile click:', error);
       toast({
         title: 'Error',
         description: error.message || 'Operation failed',
