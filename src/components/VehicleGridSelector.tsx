@@ -270,44 +270,80 @@ export function VehicleGridSelector({
       } else {
         console.log(`VehicleGridSelector: Adding wash entry for ${vehicle.vehicle_number}`);
         
-        // Debug: Check auth status
+        // Get auth user
         const { data: { user: authUser } } = await supabase.auth.getUser();
-        console.log('Debug - Auth User ID:', authUser?.id);
-        console.log('Debug - Employee ID (from prop):', employeeId);
-        console.log('Debug - IDs match:', authUser?.id === employeeId);
         
-        // Determine which location to use - prefer the vehicle's home location if it's in the user's locations
+        // Determine which location to use
         const actualLocationId = vehicle.home_location_id && locationIds.includes(vehicle.home_location_id)
           ? vehicle.home_location_id
-          : locationIds[0]; // Fallback to first assigned location
+          : locationIds[0];
         
-        // Add wash entry - use auth user ID directly to ensure RLS passes
-        const { data, error } = await supabase
+        // First, check if a deleted entry exists for this vehicle today
+        const { data: deletedEntry } = await supabase
           .from('wash_entries')
-          .insert({
-            employee_id: authUser?.id || employeeId, // Use auth ID directly
-            vehicle_id: vehicle.id,
-            wash_date: format(selectedDate, 'yyyy-MM-dd'),
-            actual_location_id: actualLocationId,
-          })
-          .select('id, created_at')
-          .single();
+          .select('id, deleted_by, deleted_at')
+          .eq('vehicle_id', vehicle.id)
+          .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'))
+          .in('actual_location_id', locationIds)
+          .not('deleted_at', 'is', null)
+          .maybeSingle();
 
-        if (error) {
-          if (error.code === '23505') {
-            toast({
-              title: 'Already Washed',
-              description: `${vehicle.vehicle_number} already washed today`,
-              variant: 'destructive',
-            });
-          } else {
-            throw error;
+        let washEntryId: string;
+        let createdAt: string;
+        let wasRestored = false;
+
+        if (deletedEntry) {
+          // Restore the deleted entry
+          console.log(`VehicleGridSelector: Restoring deleted entry for ${vehicle.vehicle_number}`);
+          const { data: restored, error: restoreError } = await supabase
+            .from('wash_entries')
+            .update({
+              deleted_at: null,
+              deleted_by: null,
+              deletion_reason: null,
+            })
+            .eq('id', deletedEntry.id)
+            .select('id, created_at')
+            .single();
+
+          if (restoreError) throw restoreError;
+          
+          washEntryId = restored.id;
+          createdAt = restored.created_at;
+          wasRestored = true;
+        } else {
+          // Create new entry
+          console.log(`VehicleGridSelector: Creating new wash entry for ${vehicle.vehicle_number}`);
+          const { data: newEntry, error: insertError } = await supabase
+            .from('wash_entries')
+            .insert({
+              employee_id: authUser?.id || employeeId,
+              vehicle_id: vehicle.id,
+              wash_date: format(selectedDate, 'yyyy-MM-dd'),
+              actual_location_id: actualLocationId,
+            })
+            .select('id, created_at')
+            .single();
+
+          if (insertError) {
+            if (insertError.code === '23505') {
+              toast({
+                title: 'Already Washed',
+                description: `${vehicle.vehicle_number} already washed today`,
+                variant: 'destructive',
+              });
+            } else {
+              throw insertError;
+            }
+            setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
+            return;
           }
-          setTileStates(prev => new Map(prev).set(vehicle.id, { ...currentState, isLoading: false }));
-          return;
+
+          washEntryId = newEntry.id;
+          createdAt = newEntry.created_at;
         }
 
-        console.log(`VehicleGridSelector: Successfully added wash entry for ${vehicle.vehicle_number}`, data);
+        console.log(`VehicleGridSelector: Successfully ${wasRestored ? 'restored' : 'added'} wash entry`);
 
         // Update vehicle last seen
         await supabase
@@ -321,16 +357,16 @@ export function VehicleGridSelector({
         setTileStates(prev => new Map(prev).set(vehicle.id, {
           isWashed: true,
           isLoading: false,
-          washEntryId: data.id,
-          createdAt: new Date(data.created_at),
+          washEntryId: washEntryId,
+          createdAt: new Date(createdAt),
         }));
 
-        setUndoStack([{ vehicleId: vehicle.id, action: 'add', washEntryId: data.id }]);
+        setUndoStack([{ vehicleId: vehicle.id, action: 'add', washEntryId: washEntryId }]);
         setShowUndo(true);
 
         toast({
-          title: '✓ Added',
-          description: `${vehicle.vehicle_number} added`,
+          title: wasRestored ? '✓ Restored' : '✓ Added',
+          description: `${vehicle.vehicle_number} ${wasRestored ? 'restored' : 'added'}`,
           className: 'bg-success text-success-foreground',
         });
       }
