@@ -328,17 +328,8 @@ export function VehicleGridSelector({
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex justify-between items-center px-2 pb-4">
-        <Button
-          variant="success"
-          size="sm"
-          onClick={() => setShowAddDialog(true)}
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Add Vehicle
-        </Button>
-
+      {/* Submit Button */}
+      <div className="flex justify-end items-center px-2 pb-4">
         <Button
           onClick={handleSubmit}
           disabled={!hasChanges || submitting}
@@ -421,6 +412,24 @@ export function VehicleGridSelector({
                 </button>
               );
             })}
+
+            {/* Add Vehicle Button - Always Last */}
+            <button
+              onClick={() => setShowAddDialog(true)}
+              className={cn(
+                "relative h-12 min-h-[48px] rounded transition-all duration-150",
+                "flex items-center justify-center gap-1.5 touch-manipulation",
+                "bg-white border-2 border-dashed border-blue-500",
+                "text-blue-600 font-medium text-sm",
+                "hover:bg-blue-50 hover:border-blue-600",
+                "active:bg-blue-100",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1"
+              )}
+              aria-label="Add new vehicle"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+              <span>Add Vehicle</span>
+            </button>
           </div>
         </div>
       )}
