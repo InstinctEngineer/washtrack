@@ -500,19 +500,20 @@ export function AuditLogTable() {
         <div className="text-center py-8 text-muted-foreground">No audit entries found</div>
       ) : (
         <>
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12"></TableHead>
-                  <TableHead className="w-32">Table</TableHead>
-                  <TableHead className="w-24">Action</TableHead>
-                  <TableHead className="w-48">Employee</TableHead>
-                  <TableHead className="w-32">Vehicle</TableHead>
-                  <TableHead className="w-32">Date</TableHead>
-                  <TableHead className="w-28">Time</TableHead>
-                </TableRow>
-              </TableHeader>
+          <div className="border rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead className="w-32">Table</TableHead>
+                    <TableHead className="w-24">Action</TableHead>
+                    <TableHead className="w-48">Employee</TableHead>
+                    <TableHead className="w-32">Vehicle</TableHead>
+                    <TableHead className="w-32">Date</TableHead>
+                    <TableHead className="w-28">Time</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {auditLogs.map((entry) => (
                   <Collapsible key={entry.id} open={expandedRows.has(entry.id)}>
@@ -548,7 +549,8 @@ export function AuditLogTable() {
                   </Collapsible>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
