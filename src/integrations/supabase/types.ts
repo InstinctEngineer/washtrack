@@ -1146,6 +1146,7 @@ export type Database = {
           quality_checked_at: string | null
           quality_checked_by: string | null
           quality_rating: number | null
+          rate_at_time_of_wash: number | null
           rate_override: number | null
           rate_override_reason: string | null
           requires_approval: boolean | null
@@ -1210,6 +1211,7 @@ export type Database = {
           quality_checked_at?: string | null
           quality_checked_by?: string | null
           quality_rating?: number | null
+          rate_at_time_of_wash?: number | null
           rate_override?: number | null
           rate_override_reason?: string | null
           requires_approval?: boolean | null
@@ -1274,6 +1276,7 @@ export type Database = {
           quality_checked_at?: string | null
           quality_checked_by?: string | null
           quality_rating?: number | null
+          rate_at_time_of_wash?: number | null
           rate_override?: number | null
           rate_override_reason?: string | null
           requires_approval?: boolean | null

@@ -209,6 +209,7 @@ export function VehicleGridSelector({
             vehicle_id: vehicleId,
             wash_date: format(selectedDate, "yyyy-MM-dd"),
             actual_location_id: actualLocationId,
+            rate_at_time_of_wash: vehicle?.vehicle_type?.rate_per_wash || 0,
           };
         });
 
