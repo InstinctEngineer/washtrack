@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface AuditLogEntry {
   id: string;
@@ -25,9 +26,40 @@ interface AuditLogEntry {
   };
 }
 
+// Helper functions
+const formatCurrency = (value: any): string => {
+  if (value == null) return 'N/A';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+};
+
+const formatBoolean = (value: any): string => {
+  if (value == null) return 'N/A';
+  return value ? 'Yes' : 'No';
+};
+
+const formatDateTime = (value: any): string => {
+  if (!value) return 'N/A';
+  try {
+    return format(new Date(value), 'MMM d, yyyy h:mm a');
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
+const formatDate = (value: any): string => {
+  if (!value) return 'N/A';
+  try {
+    return format(new Date(value), 'MMM d, yyyy');
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
 export function AuditLogTable() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [vehicleMap, setVehicleMap] = useState<Map<string, string>>(new Map());
+  const [locationMap, setLocationMap] = useState<Map<string, string>>(new Map());
+  const [clientMap, setClientMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -60,24 +92,54 @@ export function AuditLogTable() {
       setAuditLogs(data as AuditLogEntry[] || []);
       setTotalCount(count || 0);
 
-      // Fetch vehicle data
+      // Fetch related data (vehicles, locations, clients)
       if (data && data.length > 0) {
-        const vehicleIds = data
-          .map((entry) => {
-            const vehicleData = entry.action === 'DELETE' ? entry.old_data : entry.new_data;
-            return (vehicleData as any)?.vehicle_id;
-          })
-          .filter(Boolean);
+        const vehicleIds = new Set<string>();
+        const locationIds = new Set<string>();
+        const clientIds = new Set<string>();
 
-        if (vehicleIds.length > 0) {
+        data.forEach((entry) => {
+          const entryData = entry.action === 'DELETE' ? entry.old_data : entry.new_data;
+          if (entryData && typeof entryData === 'object' && !Array.isArray(entryData)) {
+            if ((entryData as any).vehicle_id) vehicleIds.add((entryData as any).vehicle_id);
+            if ((entryData as any).actual_location_id) locationIds.add((entryData as any).actual_location_id);
+            if ((entryData as any).client_id) clientIds.add((entryData as any).client_id);
+          }
+        });
+
+        // Fetch vehicles
+        if (vehicleIds.size > 0) {
           const { data: vehicles } = await supabase
             .from('vehicles')
             .select('id, vehicle_number')
-            .in('id', vehicleIds);
+            .in('id', Array.from(vehicleIds));
 
           if (vehicles) {
-            const map = new Map(vehicles.map((v) => [v.id, v.vehicle_number]));
-            setVehicleMap(map);
+            setVehicleMap(new Map(vehicles.map((v) => [v.id, v.vehicle_number])));
+          }
+        }
+
+        // Fetch locations
+        if (locationIds.size > 0) {
+          const { data: locations } = await supabase
+            .from('locations')
+            .select('id, name')
+            .in('id', Array.from(locationIds));
+
+          if (locations) {
+            setLocationMap(new Map(locations.map((l) => [l.id, l.name])));
+          }
+        }
+
+        // Fetch clients
+        if (clientIds.size > 0) {
+          const { data: clients } = await supabase
+            .from('clients')
+            .select('id, client_name')
+            .in('id', Array.from(clientIds));
+
+          if (clients) {
+            setClientMap(new Map(clients.map((c) => [c.id, c.client_name])));
           }
         }
       }
@@ -104,6 +166,20 @@ export function AuditLogTable() {
     return vehicleId ? vehicleMap.get(vehicleId) || 'Unknown' : 'N/A';
   };
 
+  const getTableBadge = (tableName: string) => {
+    const nameMap: Record<string, string> = {
+      wash_entries: 'Wash Entries',
+      vehicles: 'Vehicles',
+      users: 'Users',
+      locations: 'Locations',
+    };
+    return (
+      <Badge variant="outline" className="font-normal">
+        {nameMap[tableName] || tableName}
+      </Badge>
+    );
+  };
+
   const getActionBadge = (action: string) => {
     const variants = {
       INSERT: { variant: 'default' as const, label: 'NEW', className: 'bg-green-600 hover:bg-green-700' },
@@ -118,40 +194,273 @@ export function AuditLogTable() {
     );
   };
 
+  const getChangedFields = (oldData: any, newData: any) => {
+    const changes: Array<{ field: string; oldValue: any; newValue: any }> = [];
+    const allKeys = new Set([...Object.keys(oldData || {}), ...Object.keys(newData || {})]);
+
+    allKeys.forEach((key) => {
+      const oldVal = oldData?.[key];
+      const newVal = newData?.[key];
+      
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        changes.push({ field: key, oldValue: oldVal, newValue: newVal });
+      }
+    });
+
+    return changes;
+  };
+
+  const formatFieldValue = (field: string, value: any): string => {
+    if (value == null || value === '') return 'N/A';
+
+    // Currency fields
+    if (field.includes('amount') || field.includes('rate') || field.includes('cost') || field.includes('price')) {
+      return formatCurrency(value);
+    }
+
+    // Boolean fields
+    if (typeof value === 'boolean') {
+      return formatBoolean(value);
+    }
+
+    // Date/time fields
+    if (field.includes('_at') && typeof value === 'string') {
+      return formatDateTime(value);
+    }
+    if (field === 'wash_date' || field.includes('_date')) {
+      return formatDate(value);
+    }
+
+    // ID fields - try to resolve
+    if (field === 'vehicle_id') {
+      return vehicleMap.get(value) || value;
+    }
+    if (field === 'actual_location_id') {
+      return locationMap.get(value) || value;
+    }
+    if (field === 'client_id') {
+      return clientMap.get(value) || value;
+    }
+
+    return String(value);
+  };
+
+  const formatFieldName = (field: string): string => {
+    return field
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
   const renderDataComparison = (entry: AuditLogEntry) => {
+    const data = entry.action === 'DELETE' ? entry.old_data : entry.new_data;
+
     if (entry.action === 'UPDATE') {
+      const changes = getChangedFields(entry.old_data, entry.new_data);
+
       return (
-        <div className="grid grid-cols-2 gap-4 mt-2">
+        <div className="space-y-4">
           <div>
-            <h4 className="font-semibold mb-2 text-destructive">Before</h4>
-            <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-64">
-              {JSON.stringify(entry.old_data, null, 2)}
-            </pre>
+            <h4 className="font-semibold mb-3">Overview</h4>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">Wash Date:</span>{' '}
+                <span className="font-medium">{formatDate(data?.wash_date)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Vehicle:</span>{' '}
+                <span className="font-medium">{vehicleMap.get(data?.vehicle_id) || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Location:</span>{' '}
+                <span className="font-medium">{locationMap.get(data?.actual_location_id) || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Client:</span>{' '}
+                <span className="font-medium">{clientMap.get(data?.client_id) || 'N/A'}</span>
+              </div>
+            </div>
           </div>
+
           <div>
-            <h4 className="font-semibold mb-2 text-green-600">After</h4>
-            <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-64">
-              {JSON.stringify(entry.new_data, null, 2)}
-            </pre>
+            <h4 className="font-semibold mb-3">Changes Made ({changes.length})</h4>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Field</TableHead>
+                    <TableHead>Old Value</TableHead>
+                    <TableHead>New Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {changes.map((change, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-medium">{formatFieldName(change.field)}</TableCell>
+                      <TableCell className="text-destructive">{formatFieldValue(change.field, change.oldValue)}</TableCell>
+                      <TableCell className="text-green-600">{formatFieldValue(change.field, change.newValue)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
+
+          {(data?.comment || data?.employee_notes) && (
+            <div>
+              <h4 className="font-semibold mb-2">Notes</h4>
+              <Card>
+                <CardContent className="pt-4">
+                  {data?.comment && (
+                    <div className="mb-2">
+                      <span className="text-sm text-muted-foreground">Comment:</span>{' '}
+                      <span className="text-sm">{data.comment}</span>
+                    </div>
+                  )}
+                  {data?.employee_notes && (
+                    <div>
+                      <span className="text-sm text-muted-foreground">Employee Notes:</span>{' '}
+                      <span className="text-sm">{data.employee_notes}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       );
     } else if (entry.action === 'DELETE') {
       return (
-        <div className="mt-2">
-          <h4 className="font-semibold mb-2">Deleted Data</h4>
-          <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-64">
-            {JSON.stringify(entry.old_data, null, 2)}
-          </pre>
+        <div className="space-y-4">
+          <div>
+            <h4 className="font-semibold mb-3">Deleted Entry Details</h4>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">Wash Date:</span>{' '}
+                <span className="font-medium">{formatDate(data?.wash_date)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Vehicle:</span>{' '}
+                <span className="font-medium">{vehicleMap.get(data?.vehicle_id) || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Location:</span>{' '}
+                <span className="font-medium">{locationMap.get(data?.actual_location_id) || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Client:</span>{' '}
+                <span className="font-medium">{clientMap.get(data?.client_id) || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Time Started:</span>{' '}
+                <span className="font-medium">{formatDateTime(data?.time_started)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Time Completed:</span>{' '}
+                <span className="font-medium">{formatDateTime(data?.time_completed)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Final Amount:</span>{' '}
+                <span className="font-medium">{formatCurrency(data?.final_amount)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Damage Reported:</span>{' '}
+                <span className="font-medium">{formatBoolean(data?.damage_reported)}</span>
+              </div>
+            </div>
+          </div>
+
+          {(data?.comment || data?.employee_notes || data?.deletion_reason) && (
+            <div>
+              <h4 className="font-semibold mb-2">Notes</h4>
+              <Card>
+                <CardContent className="pt-4 space-y-2">
+                  {data?.comment && (
+                    <div>
+                      <span className="text-sm text-muted-foreground">Comment:</span>{' '}
+                      <span className="text-sm">{data.comment}</span>
+                    </div>
+                  )}
+                  {data?.employee_notes && (
+                    <div>
+                      <span className="text-sm text-muted-foreground">Employee Notes:</span>{' '}
+                      <span className="text-sm">{data.employee_notes}</span>
+                    </div>
+                  )}
+                  {data?.deletion_reason && (
+                    <div>
+                      <span className="text-sm text-muted-foreground">Deletion Reason:</span>{' '}
+                      <span className="text-sm">{data.deletion_reason}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       );
     } else {
+      // INSERT
       return (
-        <div className="mt-2">
-          <h4 className="font-semibold mb-2">Created Data</h4>
-          <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-64">
-            {JSON.stringify(entry.new_data, null, 2)}
-          </pre>
+        <div className="space-y-4">
+          <div>
+            <h4 className="font-semibold mb-3">New Entry Details</h4>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">Wash Date:</span>{' '}
+                <span className="font-medium">{formatDate(data?.wash_date)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Vehicle:</span>{' '}
+                <span className="font-medium">{vehicleMap.get(data?.vehicle_id) || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Location:</span>{' '}
+                <span className="font-medium">{locationMap.get(data?.actual_location_id) || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Client:</span>{' '}
+                <span className="font-medium">{clientMap.get(data?.client_id) || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Time Started:</span>{' '}
+                <span className="font-medium">{formatDateTime(data?.time_started)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Time Completed:</span>{' '}
+                <span className="font-medium">{formatDateTime(data?.time_completed)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Final Amount:</span>{' '}
+                <span className="font-medium">{formatCurrency(data?.final_amount)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Requires Approval:</span>{' '}
+                <span className="font-medium">{formatBoolean(data?.requires_approval)}</span>
+              </div>
+            </div>
+          </div>
+
+          {(data?.comment || data?.employee_notes) && (
+            <div>
+              <h4 className="font-semibold mb-2">Notes</h4>
+              <Card>
+                <CardContent className="pt-4 space-y-2">
+                  {data?.comment && (
+                    <div>
+                      <span className="text-sm text-muted-foreground">Comment:</span>{' '}
+                      <span className="text-sm">{data.comment}</span>
+                    </div>
+                  )}
+                  {data?.employee_notes && (
+                    <div>
+                      <span className="text-sm text-muted-foreground">Employee Notes:</span>{' '}
+                      <span className="text-sm">{data.employee_notes}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       );
     }
@@ -196,6 +505,7 @@ export function AuditLogTable() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-32">Table</TableHead>
                   <TableHead className="w-32">Action</TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead className="w-32">Vehicle</TableHead>
@@ -218,6 +528,7 @@ export function AuditLogTable() {
                             <ChevronRight className="h-4 w-4" />
                           )}
                         </TableCell>
+                        <TableCell className="py-4">{getTableBadge(entry.table_name)}</TableCell>
                         <TableCell className="py-4">{getActionBadge(entry.action)}</TableCell>
                         <TableCell className="py-4">
                           <div className="flex flex-col">
@@ -236,7 +547,7 @@ export function AuditLogTable() {
                     </CollapsibleTrigger>
                     <CollapsibleContent asChild>
                       <TableRow>
-                        <TableCell colSpan={6} className="bg-muted/30 p-4">
+                        <TableCell colSpan={7} className="bg-muted/30 p-6">
                           {renderDataComparison(entry)}
                         </TableCell>
                       </TableRow>
