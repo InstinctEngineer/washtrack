@@ -7,6 +7,7 @@ import { Users, MapPin, Settings, Car, List } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { format } from 'date-fns';
+import { AuditLogTable } from '@/components/AuditLogTable';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -165,6 +166,25 @@ export default function AdminDashboard() {
               <Button asChild className="w-full">
                 <Link to="/admin/settings">Manage Settings</Link>
               </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold">Audit Log</h2>
+            <p className="text-muted-foreground">Track all changes to wash entries</p>
+          </div>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Changes</CardTitle>
+              <CardDescription>
+                All INSERT, UPDATE, and DELETE operations on wash entries
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AuditLogTable />
             </CardContent>
           </Card>
         </div>
