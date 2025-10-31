@@ -506,11 +506,11 @@ export function AuditLogTable() {
                 <TableRow>
                   <TableHead className="w-12"></TableHead>
                   <TableHead className="w-32">Table</TableHead>
-                  <TableHead className="w-32">Action</TableHead>
-                  <TableHead>Employee</TableHead>
+                  <TableHead className="w-24">Action</TableHead>
+                  <TableHead className="w-48">Employee</TableHead>
                   <TableHead className="w-32">Vehicle</TableHead>
-                  <TableHead className="w-24">Date</TableHead>
-                  <TableHead className="w-24">Time</TableHead>
+                  <TableHead className="w-32">Date</TableHead>
+                  <TableHead className="w-28">Time</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -521,28 +521,21 @@ export function AuditLogTable() {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => toggleRow(entry.id)}
                       >
-                        <TableCell className="py-4">
+                        <TableCell className="w-12 py-4">
                           {expandedRows.has(entry.id) ? (
                             <ChevronDown className="h-4 w-4" />
                           ) : (
                             <ChevronRight className="h-4 w-4" />
                           )}
                         </TableCell>
-                        <TableCell className="py-4">{getTableBadge(entry.table_name)}</TableCell>
-                        <TableCell className="py-4">{getActionBadge(entry.action)}</TableCell>
-                        <TableCell className="py-4">
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {entry.changed_by_user?.name || 'Unknown'}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              ({entry.changed_by_user?.employee_id || 'N/A'})
-                            </span>
-                          </div>
+                        <TableCell className="w-32 py-4">{getTableBadge(entry.table_name)}</TableCell>
+                        <TableCell className="w-24 py-4">{getActionBadge(entry.action)}</TableCell>
+                        <TableCell className="w-48 py-4">
+                          {entry.changed_by_user?.name || 'Unknown'} ({entry.changed_by_user?.employee_id || 'N/A'})
                         </TableCell>
-                        <TableCell className="py-4">{getVehicleNumber(entry)}</TableCell>
-                        <TableCell className="py-4">{format(new Date(entry.changed_at), 'MMM d')}</TableCell>
-                        <TableCell className="py-4">{format(new Date(entry.changed_at), 'h:mm a')}</TableCell>
+                        <TableCell className="w-32 py-4">{getVehicleNumber(entry)}</TableCell>
+                        <TableCell className="w-32 py-4">{format(new Date(entry.changed_at), 'MMM d')}</TableCell>
+                        <TableCell className="w-28 py-4">{format(new Date(entry.changed_at), 'h:mm a')}</TableCell>
                       </TableRow>
                     </CollapsibleTrigger>
                     <CollapsibleContent asChild>
