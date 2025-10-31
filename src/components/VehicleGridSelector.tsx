@@ -89,7 +89,6 @@ export function VehicleGridSelector({
           employee_id,
           employee:users!wash_entries_employee_id_fkey(id, name)
         `)
-        .is('deleted_at', null)
         .in('actual_location_id', locationIds)
         .eq('wash_date', format(selectedDate, 'yyyy-MM-dd'));
       
@@ -158,10 +157,10 @@ export function VehicleGridSelector({
       return;
     }
 
-    // Check cutoff date - block entries only after the cutoff deadline has passed
-    if (cutoffDate && new Date() > cutoffDate && selectedDate < cutoffDate) {
+    // Check cutoff date
+    if (cutoffDate && selectedDate < cutoffDate) {
       toast({
-        title: 'Entry Period Closed',
+        title: 'Date Locked',
         description: `Cannot submit entries before ${format(cutoffDate, 'MMM d, yyyy')}. Contact your manager.`,
         variant: 'destructive',
       });
@@ -231,7 +230,7 @@ export function VehicleGridSelector({
         }
       }
 
-      // Remove wash entries (soft delete)
+      // Remove wash entries (hard delete)
       if (vehiclesToRemove.length > 0) {
         const washEntryIds = vehiclesToRemove
           .map(vehicleId => existingWashEntries.get(vehicleId)?.id)
@@ -240,11 +239,7 @@ export function VehicleGridSelector({
         if (washEntryIds.length > 0) {
           const { error: deleteError } = await supabase
             .from('wash_entries')
-            .update({
-              deleted_at: new Date().toISOString(),
-              deleted_by: authUser.id,
-              deletion_reason: 'Removed by employee on same day',
-            })
+            .delete()
             .in('id', washEntryIds);
 
           if (deleteError) throw deleteError;

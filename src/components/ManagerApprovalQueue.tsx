@@ -89,14 +89,10 @@ export function ManagerApprovalQueue({ managerId }: { managerId: string }) {
   const handleApprove = async (requestId: string, washEntryId: string) => {
     setProcessingId(requestId);
     try {
-      // Update wash entry to soft delete
+      // Delete wash entry (hard delete)
       const { error: washError } = await supabase
         .from('wash_entries')
-        .update({
-          deleted_at: new Date().toISOString(),
-          deleted_by: managerId,
-          deletion_reason: 'Manager approved removal',
-        })
+        .delete()
         .eq('id', washEntryId);
 
       if (washError) throw washError;
