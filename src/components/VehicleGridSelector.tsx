@@ -298,114 +298,102 @@ export function VehicleGridSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={i} className="aspect-square rounded-lg bg-muted animate-pulse" />
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Summary Bar */}
-      <div className="flex items-center justify-between p-4 bg-accent/30 rounded-lg">
-        <div className="flex items-center gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold">{selectedCount}</div>
-            <div className="text-xs text-muted-foreground">Selected</div>
+    <div className="space-y-6">
+      {/* Daily Summary */}
+      <div className="sticky top-0 z-10 bg-gradient-to-br from-slate-50/95 to-white/95 backdrop-blur-sm py-4 border-b shadow-sm">
+        <div className="text-center space-y-2">
+          <div className="text-xl md:text-2xl font-bold text-foreground">
+            Today: <span className="text-blue-600">{selectedCount}</span> / {vehicles.length}
           </div>
-          {newSelectionsCount > 0 && (
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{newSelectionsCount}</div>
-              <div className="text-xs text-muted-foreground">New</div>
+          <div className="w-full max-w-lg mx-auto h-2 bg-slate-200 rounded-full overflow-hidden shadow-inner">
+            <div
+              className="h-full transition-all duration-500 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
+              style={{ width: `${vehicles.length > 0 ? (selectedCount / vehicles.length) * 100 : 0}%` }}
+            />
+          </div>
+          {vehicles.length > 0 && selectedCount > 0 && (
+            <div className="text-xs font-medium text-slate-600">
+              {Math.round((selectedCount / vehicles.length) * 100)}% Complete
             </div>
           )}
         </div>
-        
-        <div className="flex gap-2">
-          <Button
-            variant="success"
-            size="sm"
-            onClick={() => setShowAddDialog(true)}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add Vehicle
-          </Button>
-          
-          <Button
-            onClick={handleSubmit}
-            disabled={!hasChanges || submitting}
-            variant={hasChanges ? "success" : "outline"}
-            size="sm"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Submit'
-            )}
-          </Button>
-        </div>
       </div>
 
-      {/* Vehicle Grid */}
+      {/* Vehicle Grid - Spreadsheet Style */}
       {vehicles.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p>No vehicles found for your location.</p>
-          <Button
-            variant="success"
-            size="sm"
-            onClick={() => setShowAddDialog(true)}
-            className="mt-4"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add First Vehicle
-          </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {vehicles.map((vehicle) => {
-            const isSelected = selectedVehicles.has(vehicle.id);
-            const existingEntry = existingWashEntries.get(vehicle.id);
-            const isOwnedByOther = existingEntry && existingEntry.employee_id !== employeeId;
+        <div className="bg-slate-50 rounded-lg p-2">
+          <div className="grid grid-cols-3 gap-1 max-w-2xl mx-auto">
+            {vehicles.map((vehicle) => {
+              const isSelected = selectedVehicles.has(vehicle.id);
+              const existingEntry = existingWashEntries.get(vehicle.id);
+              const isOwnedByOther = existingEntry && existingEntry.employee_id !== employeeId;
 
-            return (
-              <button
-                key={vehicle.id}
-                onClick={() => handleVehicleToggle(vehicle.id)}
-                disabled={isOwnedByOther}
-                className={cn(
-                  'relative p-4 rounded-lg border-2 transition-all duration-200',
-                  'hover:shadow-md active:scale-95',
-                  'flex flex-col items-center justify-center gap-2',
-                  'min-h-[100px]',
-                  isSelected
-                    ? 'bg-teal-500 text-white border-teal-500 shadow-lg'
-                    : 'bg-card border-border hover:border-teal-400',
-                  isOwnedByOther && 'opacity-50 cursor-not-allowed'
-                )}
-              >
-                {isSelected && (
-                  <Check className="absolute top-2 right-2 h-5 w-5" />
-                )}
-                
-                <div className="text-center">
-                  <div className="font-mono font-bold text-lg">
-                    {vehicle.vehicle_number}
-                  </div>
-                  <div className="text-xs opacity-80">
-                    {vehicle.vehicle_type?.type_name || 'Unknown Type'}
-                  </div>
-                  {isOwnedByOther && (
-                    <div className="text-xs mt-1 opacity-70">
-                      By {existingEntry.employee_name}
-                    </div>
+              return (
+                <button
+                  key={vehicle.id}
+                  onClick={() => handleVehicleToggle(vehicle.id)}
+                  disabled={isOwnedByOther}
+                  style={{
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                  className={cn(
+                    "relative h-12 min-h-[48px] rounded transition-all duration-150",
+                    "flex items-center justify-center touch-manipulation",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
+                    "font-mono font-semibold text-base",
+                    // Default state - sleek raised cell
+                    !isSelected && [
+                      "bg-gradient-to-b from-white via-slate-50 to-slate-100",
+                      "border border-slate-300/50",
+                      "shadow-[2px_2px_5px_rgba(100,116,139,0.15),-1px_-1px_3px_rgba(255,255,255,0.7)]",
+                      "hover:shadow-[3px_3px_8px_rgba(100,116,139,0.2),-2px_-2px_4px_rgba(255,255,255,0.8)]",
+                      "hover:border-blue-400/50",
+                      "hover:-translate-y-px",
+                      "active:translate-y-0",
+                      "active:shadow-[inset_1px_1px_3px_rgba(100,116,139,0.2)]",
+                      "text-slate-700",
+                    ],
+                    // Washed state - vibrant pressed effect
+                    isSelected && [
+                      "bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-500",
+                      "border border-teal-500/40",
+                      "shadow-[inset_2px_2px_6px_rgba(20,184,166,0.4),inset_-2px_-2px_6px_rgba(255,255,255,0.2),0_2px_4px_rgba(20,184,166,0.3)]",
+                      "text-white",
+                    ],
+                    isOwnedByOther && "opacity-50 cursor-not-allowed"
                   )}
-                </div>
-              </button>
-            );
-          })}
+                  aria-label={`${vehicle.vehicle_number} - ${isSelected ? 'Washed' : 'Not washed'}`}
+                  aria-pressed={isSelected}
+                >
+                  {/* Vehicle Number (always visible) */}
+                  <span className={isSelected ? "drop-shadow-sm" : ""}>
+                    {vehicle.vehicle_number}
+                  </span>
+                  
+                  {/* Washed Checkmark */}
+                  {isSelected && (
+                    <Check 
+                      className="absolute top-1 right-1 h-3.5 w-3.5 text-white drop-shadow-sm animate-in fade-in zoom-in duration-200" 
+                      strokeWidth={3} 
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
