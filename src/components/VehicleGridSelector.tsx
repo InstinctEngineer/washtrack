@@ -158,10 +158,10 @@ export function VehicleGridSelector({
       return;
     }
 
-    // Check cutoff date
-    if (cutoffDate && selectedDate < cutoffDate) {
+    // Check cutoff date - block entries only after the cutoff deadline has passed
+    if (cutoffDate && new Date() > cutoffDate && selectedDate < cutoffDate) {
       toast({
-        title: 'Date Locked',
+        title: 'Entry Period Closed',
         description: `Cannot submit entries before ${format(cutoffDate, 'MMM d, yyyy')}. Contact your manager.`,
         variant: 'destructive',
       });
