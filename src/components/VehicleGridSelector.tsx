@@ -328,6 +328,34 @@ export function VehicleGridSelector({
         </div>
       </div>
 
+      {/* Action Buttons */}
+      <div className="flex justify-between items-center px-2 pb-4">
+        <Button
+          variant="success"
+          size="sm"
+          onClick={() => setShowAddDialog(true)}
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Add Vehicle
+        </Button>
+
+        <Button
+          onClick={handleSubmit}
+          disabled={!hasChanges || submitting}
+          variant={hasChanges ? "success" : "outline"}
+          size="sm"
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Submit'
+          )}
+        </Button>
+      </div>
+
       {/* Vehicle Grid - Spreadsheet Style */}
       {vehicles.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
