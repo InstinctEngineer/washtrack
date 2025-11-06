@@ -571,6 +571,51 @@ export type Database = {
           },
         ]
       }
+      report_templates: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_shared: boolean
+          is_system_template: boolean
+          last_used_at: string | null
+          report_type: string
+          template_name: string
+          updated_at: string
+          use_count: number
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_shared?: boolean
+          is_system_template?: boolean
+          last_used_at?: string | null
+          report_type: string
+          template_name: string
+          updated_at?: string
+          use_count?: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_shared?: boolean
+          is_system_template?: boolean
+          last_used_at?: string | null
+          report_type?: string
+          template_name?: string
+          updated_at?: string
+          use_count?: number
+        }
+        Relationships: []
+      }
       system_settings: {
         Row: {
           category: string | null
