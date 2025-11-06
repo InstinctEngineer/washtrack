@@ -32,7 +32,10 @@ export function RunReportDialog({ open, template, onClose, onRun, onSaved }: Run
   const handleRun = async () => {
     setLoading(true);
     try {
-      let config = { ...template.config };
+      let config = { 
+        ...template.config,
+        reportType: template.report_type
+      };
       
       // Update date filter if user changed it
       if (dateRange.from && dateRange.to && hasDateFilter) {
@@ -63,7 +66,10 @@ export function RunReportDialog({ open, template, onClose, onRun, onSaved }: Run
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      let config = { ...template.config };
+      let config = { 
+        ...template.config,
+        reportType: template.report_type
+      };
       
       // Update date filter if user changed it
       if (dateRange.from && dateRange.to && hasDateFilter) {

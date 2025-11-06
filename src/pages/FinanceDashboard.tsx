@@ -59,8 +59,11 @@ export default function FinanceDashboard() {
         } as any)
         .eq('id', selectedTemplate.id);
 
-      // Execute report with potentially modified config
-      const data = await executeReport(config);
+      // Execute report with potentially modified config (ensure reportType is present)
+      const data = await executeReport({
+        ...config,
+        reportType: selectedTemplate.report_type
+      });
       
       // Determine sum columns based on report type
       const sumColumns: string[] = [];
