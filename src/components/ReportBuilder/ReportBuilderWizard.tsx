@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,10 +8,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, ArrowRight, CalendarIcon, Download, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarIcon, Download, Save, FileSpreadsheet, DollarSign, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { ReportConfig, WASH_ENTRIES_COLUMNS, executeReport } from '@/lib/reportBuilder';
+import { ReportConfig, ReportType, REPORT_TYPES, executeReport, getColumnsByReportType } from '@/lib/reportBuilder';
 import { exportToExcel } from '@/lib/excelExporter';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -22,25 +22,64 @@ interface ReportBuilderWizardProps {
   onSave?: () => void;
 }
 
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
 export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWizardProps) {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [reportConfig, setReportConfig] = useState<ReportConfig>({
     reportType: 'wash_entries',
-    columns: ['wash_date', 'vehicle_number', 'client_name', 'vehicle_type', 'location_name', 'employee_name'],
+    columns: [],
     filters: [],
     sorting: [{ field: 'wash_date', direction: 'desc' }],
   });
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [clients, setClients] = useState<SelectOption[]>([]);
+  const [locations, setLocations] = useState<SelectOption[]>([]);
+  const [employees, setEmployees] = useState<SelectOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [templateName, setTemplateName] = useState('');
   const [templateDescription, setTemplateDescription] = useState('');
 
-  const totalSteps = 4;
+  const totalSteps = 5;
+  const currentColumns = getColumnsByReportType(reportConfig.reportType);
+
+  useEffect(() => {
+    if (open) {
+      fetchFilterOptions();
+    }
+  }, [open]);
+
+  const fetchFilterOptions = async () => {
+    try {
+      const [clientsRes, locationsRes, employeesRes] = await Promise.all([
+        supabase.from('clients').select('id, client_name').eq('is_active', true).order('client_name'),
+        supabase.from('locations').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('users').select('id, name, employee_id').eq('is_active', true).order('name'),
+      ]);
+
+      if (clientsRes.data) {
+        setClients(clientsRes.data.map(c => ({ value: c.id, label: c.client_name })));
+      }
+      if (locationsRes.data) {
+        setLocations(locationsRes.data.map(l => ({ value: l.id, label: l.name })));
+      }
+      if (employeesRes.data) {
+        setEmployees(employeesRes.data.map(e => ({ value: e.id, label: `${e.name} (${e.employee_id})` })));
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
 
   const handleNext = async () => {
-    if (step === 3) {
-      // Generate preview before going to final step
+    if (step === 4) {
       await generatePreview();
     }
     if (step < totalSteps) {
@@ -49,14 +88,28 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
   };
 
   const handleBack = () => {
-    if (step > 1) {
+    if (step > 0) {
       setStep(step - 1);
     }
   };
 
+  const handleReportTypeSelect = (type: ReportType) => {
+    const defaultColumns = getColumnsByReportType(type)
+      .filter(c => c.required)
+      .map(c => c.id);
+    
+    setReportConfig({
+      reportType: type,
+      columns: defaultColumns,
+      filters: [],
+      sorting: type === 'wash_entries' ? [{ field: 'wash_date', direction: 'desc' }] : [],
+    });
+    setStep(1);
+  };
+
   const toggleColumn = (columnId: string) => {
-    const column = WASH_ENTRIES_COLUMNS.find(c => c.id === columnId);
-    if (column?.required) return; // Can't uncheck required columns
+    const column = currentColumns.find(c => c.id === columnId);
+    if (column?.required) return;
     
     setReportConfig(prev => ({
       ...prev,
@@ -69,35 +122,63 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
   const selectAllColumns = () => {
     setReportConfig(prev => ({
       ...prev,
-      columns: WASH_ENTRIES_COLUMNS.map(c => c.id)
+      columns: currentColumns.map(c => c.id)
     }));
   };
 
   const selectCommonColumns = () => {
-    setReportConfig(prev => ({
-      ...prev,
-      columns: ['wash_date', 'vehicle_number', 'client_name', 'vehicle_type', 'rate_per_wash', 'location_name', 'employee_name']
-    }));
+    const common = currentColumns.slice(0, 7).map(c => c.id);
+    setReportConfig(prev => ({ ...prev, columns: common }));
   };
 
-  const applyDateFilter = () => {
+  const applyFilters = () => {
+    const newFilters = [];
+
+    // Date filter
     if (dateRange.from && dateRange.to) {
-      const newFilters = reportConfig.filters.filter(f => f.field !== 'wash_date');
       newFilters.push({
         field: 'wash_date',
-        operator: 'between',
+        operator: 'between' as const,
         value: [format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd')]
       });
-      setReportConfig(prev => ({ ...prev, filters: newFilters }));
-      toast.success('Date filter applied');
     }
+
+    // Client filter
+    if (selectedClients.length > 0) {
+      newFilters.push({
+        field: 'client_id',
+        operator: 'in' as const,
+        value: selectedClients
+      });
+    }
+
+    // Location filter
+    if (selectedLocations.length > 0) {
+      newFilters.push({
+        field: 'location_id',
+        operator: 'in' as const,
+        value: selectedLocations
+      });
+    }
+
+    // Employee filter
+    if (selectedEmployees.length > 0) {
+      newFilters.push({
+        field: 'employee_id',
+        operator: 'in' as const,
+        value: selectedEmployees
+      });
+    }
+
+    setReportConfig(prev => ({ ...prev, filters: newFilters }));
+    toast.success('Filters applied');
   };
 
   const generatePreview = async () => {
     setLoading(true);
     try {
       const data = await executeReport(reportConfig);
-      setPreviewData(data.slice(0, 50)); // Show first 50 rows
+      setPreviewData(data.slice(0, 50));
     } catch (error) {
       console.error('Error generating preview:', error);
       toast.error('Failed to generate preview');
@@ -110,7 +191,24 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
     setLoading(true);
     try {
       const data = await executeReport(reportConfig);
-      exportToExcel(data, 'wash_entries_report', 'Wash Entries');
+      
+      // Determine which columns should have sum rows
+      const sumColumns: string[] = [];
+      if (reportConfig.reportType === 'client_billing') {
+        sumColumns.push('Total Washes', 'Total Revenue ($)');
+      } else if (reportConfig.reportType === 'employee_performance') {
+        sumColumns.push('Total Washes', 'Total Revenue ($)');
+      } else if (reportConfig.reportType === 'wash_entries' && reportConfig.columns.includes('final_amount')) {
+        sumColumns.push('Final Amount ($)');
+      }
+
+      exportToExcel(
+        data, 
+        templateName || reportConfig.reportType,
+        'Report',
+        { addSumRow: sumColumns.length > 0, sumColumns }
+      );
+      
       toast.success('Report exported successfully!');
       onClose();
     } catch (error) {
@@ -153,22 +251,61 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
     }
   };
 
+  const getReportIcon = (type: string) => {
+    switch (type) {
+      case 'FileSpreadsheet': return <FileSpreadsheet className="h-8 w-8" />;
+      case 'DollarSign': return <DollarSign className="h-8 w-8" />;
+      case 'Users': return <Users className="h-8 w-8" />;
+      default: return <FileSpreadsheet className="h-8 w-8" />;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Custom Report</DialogTitle>
+          <DialogTitle>
+            {step === 0 ? 'Select Report Type' : 'Create Custom Report'}
+          </DialogTitle>
           <DialogDescription>
-            Step {step} of {totalSteps}: {
-              step === 1 ? 'Select Columns' :
-              step === 2 ? 'Apply Filters' :
-              step === 3 ? 'Configure Sorting' :
-              'Preview & Export'
-            }
+            {step === 0 ? 'Choose the type of report you want to generate' :
+             step === 1 ? `Step ${step} of ${totalSteps - 1}: Select Columns` :
+             step === 2 ? `Step ${step} of ${totalSteps - 1}: Apply Filters` :
+             step === 3 ? `Step ${step} of ${totalSteps - 1}: Configure Sorting` :
+             step === 4 ? `Step ${step} of ${totalSteps - 1}: Preview & Export` : ''}
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-4">
+          {/* Step 0: Report Type Selection */}
+          {step === 0 && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {REPORT_TYPES.map((reportType) => (
+                <Card 
+                  key={reportType.id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => handleReportTypeSelect(reportType.id)}
+                >
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="text-primary">
+                        {getReportIcon(reportType.icon)}
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">{reportType.name}</CardTitle>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      {reportType.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
           {/* Step 1: Column Selection */}
           {step === 1 && (
             <div className="space-y-4">
@@ -182,7 +319,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
               </div>
               
               <div className="grid grid-cols-2 gap-3">
-                {WASH_ENTRIES_COLUMNS.map((column) => (
+                {currentColumns.map((column) => (
                   <div key={column.id} className="flex items-center space-x-2">
                     <Checkbox
                       id={column.id}
@@ -215,7 +352,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Date Range</CardTitle>
-                  <CardDescription>Filter wash entries by date</CardDescription>
+                  <CardDescription>Filter by date range</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -260,15 +397,103 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                       </Popover>
                     </div>
                   </div>
-                  <Button onClick={applyDateFilter} variant="outline" size="sm">
-                    Apply Date Filter
-                  </Button>
                 </CardContent>
               </Card>
-              
-              <p className="text-sm text-muted-foreground">
-                Additional filters (client, location, employee) will be available in future updates
-              </p>
+
+              {reportConfig.reportType === 'wash_entries' && (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Filter by Client</CardTitle>
+                      <CardDescription>Select one or more clients (optional)</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {clients.map((client) => (
+                          <div key={client.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`client-${client.value}`}
+                              checked={selectedClients.includes(client.value)}
+                              onCheckedChange={(checked) => {
+                                setSelectedClients(prev => 
+                                  checked 
+                                    ? [...prev, client.value]
+                                    : prev.filter(id => id !== client.value)
+                                );
+                              }}
+                            />
+                            <Label htmlFor={`client-${client.value}`} className="cursor-pointer">
+                              {client.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Filter by Location</CardTitle>
+                      <CardDescription>Select one or more locations (optional)</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {locations.map((location) => (
+                          <div key={location.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`location-${location.value}`}
+                              checked={selectedLocations.includes(location.value)}
+                              onCheckedChange={(checked) => {
+                                setSelectedLocations(prev => 
+                                  checked 
+                                    ? [...prev, location.value]
+                                    : prev.filter(id => id !== location.value)
+                                );
+                              }}
+                            />
+                            <Label htmlFor={`location-${location.value}`} className="cursor-pointer">
+                              {location.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Filter by Employee</CardTitle>
+                      <CardDescription>Select one or more employees (optional)</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {employees.map((employee) => (
+                          <div key={employee.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`employee-${employee.value}`}
+                              checked={selectedEmployees.includes(employee.value)}
+                              onCheckedChange={(checked) => {
+                                setSelectedEmployees(prev => 
+                                  checked 
+                                    ? [...prev, employee.value]
+                                    : prev.filter(id => id !== employee.value)
+                                );
+                              }}
+                            />
+                            <Label htmlFor={`employee-${employee.value}`} className="cursor-pointer">
+                              {employee.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+
+              <Button onClick={applyFilters} className="w-full">
+                Apply All Filters
+              </Button>
             </div>
           )}
 
@@ -282,13 +507,16 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Primary Sort</Label>
+                    <Label>Primary Sort Field</Label>
                     <Select 
                       value={reportConfig.sorting[0]?.field || 'wash_date'}
                       onValueChange={(value) => {
                         setReportConfig(prev => ({
                           ...prev,
-                          sorting: [{ field: value, direction: prev.sorting[0]?.direction || 'desc' }]
+                          sorting: [
+                            { field: value, direction: prev.sorting[0]?.direction || 'desc' },
+                            ...(prev.sorting[1] ? [prev.sorting[1]] : [])
+                          ]
                         }));
                       }}
                     >
@@ -296,20 +524,23 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="wash_date">Date</SelectItem>
-                        <SelectItem value="client_name">Client Name</SelectItem>
-                        <SelectItem value="vehicle_number">Vehicle Number</SelectItem>
+                        {currentColumns.slice(0, 5).map(col => (
+                          <SelectItem key={col.id} value={col.id}>{col.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Direction</Label>
+                    <Label>Primary Direction</Label>
                     <Select 
                       value={reportConfig.sorting[0]?.direction || 'desc'}
                       onValueChange={(value: 'asc' | 'desc') => {
                         setReportConfig(prev => ({
                           ...prev,
-                          sorting: [{ field: prev.sorting[0]?.field || 'wash_date', direction: value }]
+                          sorting: [
+                            { field: prev.sorting[0]?.field || 'wash_date', direction: value },
+                            ...(prev.sorting[1] ? [prev.sorting[1]] : [])
+                          ]
                         }));
                       }}
                     >
@@ -317,11 +548,98 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="asc">Ascending (A-Z, 0-9)</SelectItem>
-                        <SelectItem value="desc">Descending (Z-A, 9-0)</SelectItem>
+                        <SelectItem value="asc">Ascending (A-Z, 0-9, Old-New)</SelectItem>
+                        <SelectItem value="desc">Descending (Z-A, 9-0, New-Old)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {reportConfig.sorting.length < 2 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const availableFields = currentColumns.filter(
+                          c => c.id !== reportConfig.sorting[0]?.field
+                        );
+                        if (availableFields.length > 0) {
+                          setReportConfig(prev => ({
+                            ...prev,
+                            sorting: [
+                              ...prev.sorting,
+                              { field: availableFields[0].id, direction: 'asc' }
+                            ]
+                          }));
+                        }
+                      }}
+                    >
+                      + Add Secondary Sort
+                    </Button>
+                  )}
+
+                  {reportConfig.sorting.length > 1 && (
+                    <>
+                      <div className="border-t pt-4 space-y-2">
+                        <Label>Secondary Sort Field</Label>
+                        <Select 
+                          value={reportConfig.sorting[1]?.field}
+                          onValueChange={(value) => {
+                            setReportConfig(prev => ({
+                              ...prev,
+                              sorting: [
+                                prev.sorting[0],
+                                { field: value, direction: prev.sorting[1]?.direction || 'asc' }
+                              ]
+                            }));
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currentColumns.filter(c => c.id !== reportConfig.sorting[0]?.field).map(col => (
+                              <SelectItem key={col.id} value={col.id}>{col.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Secondary Direction</Label>
+                        <Select 
+                          value={reportConfig.sorting[1]?.direction || 'asc'}
+                          onValueChange={(value: 'asc' | 'desc') => {
+                            setReportConfig(prev => ({
+                              ...prev,
+                              sorting: [
+                                prev.sorting[0],
+                                { field: prev.sorting[1]?.field, direction: value }
+                              ]
+                            }));
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="asc">Ascending</SelectItem>
+                            <SelectItem value="desc">Descending</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setReportConfig(prev => ({
+                            ...prev,
+                            sorting: [prev.sorting[0]]
+                          }));
+                        }}
+                      >
+                        Remove Secondary Sort
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -355,7 +673,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                 <CardHeader>
                   <CardTitle className="text-base">Preview</CardTitle>
                   <CardDescription>
-                    Showing first {Math.min(previewData.length, 50)} rows
+                    {loading ? 'Generating preview...' : `Showing first ${Math.min(previewData.length, 50)} rows`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -367,7 +685,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-b">
+                          <tr className="border-b bg-muted/50">
                             {Object.keys(previewData[0]).map((key) => (
                               <th key={key} className="text-left p-2 font-semibold">
                                 {key}
@@ -377,7 +695,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                         </thead>
                         <tbody>
                           {previewData.slice(0, 10).map((row, idx) => (
-                            <tr key={idx} className="border-b">
+                            <tr key={idx} className="border-b hover:bg-muted/30">
                               {Object.values(row).map((value: any, i) => (
                                 <td key={i} className="p-2">
                                   {String(value)}
@@ -401,12 +719,12 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
 
         <DialogFooter>
           <div className="flex justify-between w-full">
-            <Button onClick={handleBack} variant="outline" disabled={step === 1}>
+            <Button onClick={handleBack} variant="outline" disabled={step === 0}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
             <div className="flex gap-2">
-              {step === totalSteps ? (
+              {step === 4 ? (
                 <>
                   {templateName && (
                     <Button onClick={handleSaveTemplate} variant="outline" disabled={loading}>
@@ -419,12 +737,12 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                     Export to Excel
                   </Button>
                 </>
-              ) : (
+              ) : step > 0 ? (
                 <Button onClick={handleNext} disabled={loading}>
                   Next
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
         </DialogFooter>

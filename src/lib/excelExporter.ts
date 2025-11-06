@@ -1,20 +1,55 @@
 import * as XLSX from 'xlsx';
 
-export function exportToExcel(data: any[], filename: string, sheetName: string = 'Report') {
+export interface ExcelExportOptions {
+  addSumRow?: boolean;
+  sumColumns?: string[];
+}
+
+export function exportToExcel(
+  data: any[], 
+  filename: string, 
+  sheetName: string = 'Report',
+  options: ExcelExportOptions = {}
+) {
   if (data.length === 0) {
     throw new Error('No data to export');
   }
 
+  const headers = Object.keys(data[0]);
+  
+  // Add sum row if requested
+  let exportData = [...data];
+  if (options.addSumRow && options.sumColumns && options.sumColumns.length > 0) {
+    const sumRow: any = {};
+    
+    headers.forEach(header => {
+      if (options.sumColumns!.includes(header)) {
+        // Calculate sum for numeric columns
+        const sum = data.reduce((acc, row) => {
+          const value = parseFloat(row[header]) || 0;
+          return acc + value;
+        }, 0);
+        sumRow[header] = sum.toFixed(2);
+      } else if (header === headers[0]) {
+        // First column shows "TOTAL"
+        sumRow[header] = 'TOTAL';
+      } else {
+        sumRow[header] = '';
+      }
+    });
+    
+    exportData.push(sumRow);
+  }
+
   // Create worksheet from data
-  const worksheet = XLSX.utils.json_to_sheet(data);
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
 
   // Calculate column widths based on content
   const columnWidths: { wch: number }[] = [];
-  const headers = Object.keys(data[0]);
   
-  headers.forEach((header, index) => {
+  headers.forEach((header) => {
     let maxWidth = header.length;
-    data.forEach(row => {
+    exportData.forEach(row => {
       const value = String(row[header] || '');
       maxWidth = Math.max(maxWidth, value.length);
     });
@@ -30,8 +65,23 @@ export function exportToExcel(data: any[], filename: string, sheetName: string =
     if (worksheet[cellAddress]) {
       worksheet[cellAddress].s = {
         font: { bold: true },
-        fill: { fgColor: { rgb: 'CCCCCC' } }
+        fill: { fgColor: { rgb: 'E2E8F0' } },
+        alignment: { horizontal: 'center' }
       };
+    }
+  }
+
+  // Style sum row if exists
+  if (options.addSumRow && exportData.length > data.length) {
+    const sumRowIndex = exportData.length - 1;
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: sumRowIndex + 1, c: col });
+      if (worksheet[cellAddress]) {
+        worksheet[cellAddress].s = {
+          font: { bold: true },
+          fill: { fgColor: { rgb: 'FEF3C7' } }
+        };
+      }
     }
   }
 

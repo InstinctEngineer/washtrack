@@ -52,8 +52,23 @@ export default function FinanceDashboard() {
       // Execute report
       const data = await executeReport(template.config);
       
-      // Export to Excel
-      exportToExcel(data, template.template_name.toLowerCase().replace(/\s+/g, '_'), 'Report');
+      // Determine sum columns based on report type
+      const sumColumns: string[] = [];
+      if (template.report_type === 'client_billing') {
+        sumColumns.push('Total Washes', 'Total Revenue ($)');
+      } else if (template.report_type === 'employee_performance') {
+        sumColumns.push('Total Washes', 'Total Revenue ($)');
+      } else if (template.config.columns.includes('final_amount')) {
+        sumColumns.push('Final Amount ($)');
+      }
+      
+      // Export to Excel with sum rows
+      exportToExcel(
+        data, 
+        template.template_name.toLowerCase().replace(/\s+/g, '_'), 
+        'Report',
+        { addSumRow: sumColumns.length > 0, sumColumns }
+      );
       
       toast.success('Report exported successfully!');
       fetchTemplates(); // Refresh to show updated use count
@@ -62,6 +77,30 @@ export default function FinanceDashboard() {
       toast.error('Failed to generate report');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDuplicate = async (template: ReportTemplate) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase.from('report_templates').insert({
+        template_name: `${template.template_name} (Copy)`,
+        description: template.description,
+        report_type: template.report_type,
+        config: template.config as any,
+        created_by: user.id,
+        is_shared: true,
+      } as any);
+
+      if (error) throw error;
+
+      toast.success('Template duplicated successfully');
+      fetchTemplates();
+    } catch (error) {
+      console.error('Error duplicating template:', error);
+      toast.error('Failed to duplicate template');
     }
   };
 
@@ -106,6 +145,7 @@ export default function FinanceDashboard() {
               templates={templates}
               onRunTemplate={handleRunTemplate}
               onCreateNew={() => setShowWizard(true)}
+              onDuplicate={handleDuplicate}
               onDelete={handleDelete}
             />
           </TabsContent>
