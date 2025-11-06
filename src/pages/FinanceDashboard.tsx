@@ -5,9 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WashEntryTableEditor } from '@/components/WashEntryTableEditor';
 import { ReportTemplateList } from '@/components/ReportBuilder/ReportTemplateList';
 import { ReportBuilderWizard } from '@/components/ReportBuilder/ReportBuilderWizard';
+import { RunReportDialog } from '@/components/ReportBuilder/RunReportDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ReportTemplate, executeReport } from '@/lib/reportBuilder';
+import { ReportTemplate, ReportConfig, executeReport } from '@/lib/reportBuilder';
 import { exportToExcel } from '@/lib/excelExporter';
 import { toast } from 'sonner';
 
@@ -15,6 +16,8 @@ export default function FinanceDashboard() {
   const { user } = useAuth();
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
   const [showWizard, setShowWizard] = useState(false);
+  const [showRunDialog, setShowRunDialog] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -37,41 +40,48 @@ export default function FinanceDashboard() {
     }
   };
 
-  const handleRunTemplate = async (template: ReportTemplate) => {
+  const handleRunTemplate = (template: ReportTemplate) => {
+    setSelectedTemplate(template);
+    setShowRunDialog(true);
+  };
+
+  const executeTemplateReport = async (config: ReportConfig) => {
+    if (!selectedTemplate) return;
+    
     setLoading(true);
     try {
       // Update use count and last used timestamp
       await supabase
         .from('report_templates')
         .update({
-          use_count: template.use_count + 1,
+          use_count: selectedTemplate.use_count + 1,
           last_used_at: new Date().toISOString(),
         } as any)
-        .eq('id', template.id);
+        .eq('id', selectedTemplate.id);
 
-      // Execute report
-      const data = await executeReport(template.config);
+      // Execute report with potentially modified config
+      const data = await executeReport(config);
       
       // Determine sum columns based on report type
       const sumColumns: string[] = [];
-      if (template.report_type === 'client_billing') {
+      if (selectedTemplate.report_type === 'client_billing') {
         sumColumns.push('Total Washes', 'Total Revenue ($)');
-      } else if (template.report_type === 'employee_performance') {
+      } else if (selectedTemplate.report_type === 'employee_performance') {
         sumColumns.push('Total Washes', 'Total Revenue ($)');
-      } else if (template.config.columns.includes('final_amount')) {
+      } else if (config.columns.includes('final_amount')) {
         sumColumns.push('Final Amount ($)');
       }
       
       // Export to Excel with sum rows
       exportToExcel(
         data, 
-        template.template_name.toLowerCase().replace(/\s+/g, '_'), 
+        selectedTemplate.template_name.toLowerCase().replace(/\s+/g, '_'), 
         'Report',
         { addSumRow: sumColumns.length > 0, sumColumns }
       );
       
       toast.success('Report exported successfully!');
-      fetchTemplates(); // Refresh to show updated use count
+      fetchTemplates();
     } catch (error) {
       console.error('Error running report:', error);
       toast.error('Failed to generate report');
@@ -196,6 +206,17 @@ export default function FinanceDashboard() {
             fetchTemplates();
             setShowWizard(false);
           }}
+        />
+
+        <RunReportDialog
+          open={showRunDialog}
+          template={selectedTemplate}
+          onClose={() => {
+            setShowRunDialog(false);
+            setSelectedTemplate(null);
+          }}
+          onRun={executeTemplateReport}
+          onSaved={fetchTemplates}
         />
       </div>
     </Layout>
