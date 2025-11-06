@@ -156,7 +156,7 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
         client:clients(client_name)
       ),
       actual_location:locations!inner(id, name),
-      employee:users!inner(id, name, employee_id)
+      employee:users!wash_entries_employee_id_fkey(id, name, employee_id)
     `);
 
   // Apply filters
@@ -372,7 +372,7 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
       quality_rating,
       damage_reported,
       final_amount,
-      employee:users!inner(id, name, employee_id, location_id),
+      employee:users!wash_entries_employee_id_fkey(id, name, employee_id, location_id),
       actual_location:locations(name)
     `);
 
