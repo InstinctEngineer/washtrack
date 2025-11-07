@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,8 +24,6 @@ interface ReportBuilderPanelProps {
 
 export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanelProps) {
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
@@ -32,6 +31,25 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
   const [templateDescription, setTemplateDescription] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Calculate current week dates
+  const today = new Date();
+  const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
+  const weekEnd = endOfWeek(today, { weekStartsOn: 0 }); // Saturday
+  
+  const [dateFrom, setDateFrom] = useState(format(weekStart, 'yyyy-MM-dd'));
+  const [dateTo, setDateTo] = useState(format(weekEnd, 'yyyy-MM-dd'));
+
+  // Reset dates to current week when dialog opens
+  useEffect(() => {
+    if (open) {
+      const today = new Date();
+      const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
+      setDateFrom(format(weekStart, 'yyyy-MM-dd'));
+      setDateTo(format(weekEnd, 'yyyy-MM-dd'));
+    }
+  }, [open]);
 
   const buildReportConfig = (): ReportConfig => {
     const filters: ReportConfig['filters'] = [];
