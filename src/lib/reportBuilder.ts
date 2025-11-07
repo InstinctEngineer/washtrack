@@ -157,28 +157,28 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
     config.columns.forEach((col) => {
       switch (col) {
         case 'wash_date':
-          row['Date'] = entry.wash_date;
+          row['wash_date'] = entry.wash_date;
           break;
         case 'vehicle_number':
-          row['Vehicle Number'] = entry.vehicle?.vehicle_number || '';
+          row['vehicle_number'] = entry.vehicle?.vehicle_number || '';
           break;
         case 'client_name':
-          row['Client Name'] = entry.vehicle?.client?.client_name || '';
+          row['client_name'] = entry.vehicle?.client?.client_name || '';
           break;
         case 'vehicle_type':
-          row['Vehicle Type'] = entry.vehicle?.vehicle_type?.type_name || '';
+          row['vehicle_type'] = entry.vehicle?.vehicle_type?.type_name || '';
           break;
         case 'vehicle_home_location':
-          row['Vehicle Home Location'] = entry.vehicle?.home_location?.name || '';
+          row['vehicle_home_location'] = entry.vehicle?.home_location?.name || '';
           break;
         case 'rate_at_time_of_wash':
-          row['Rate ($)'] = entry.rate_at_time_of_wash || '';
+          row['rate_at_time_of_wash'] = entry.rate_at_time_of_wash || '';
           break;
         case 'location_name':
-          row['Actual Location'] = entry.actual_location?.name || '';
+          row['location_name'] = entry.actual_location?.name || '';
           break;
         case 'employee_name':
-          row['Employee Name'] = entry.employee?.name || '';
+          row['employee_name'] = entry.employee?.name || '';
           break;
       }
     });
@@ -245,19 +245,19 @@ export async function buildClientBillingQuery(config: ReportConfig) {
     config.columns.forEach((col) => {
       switch (col) {
         case 'client_name':
-          row['Client Name'] = client.client_name;
+          row['client_name'] = client.client_name;
           break;
         case 'total_washes':
-          row['Total Washes'] = client.total_washes;
+          row['total_washes'] = client.total_washes;
           break;
         case 'total_revenue':
-          row['Total Revenue ($)'] = client.total_revenue.toFixed(2);
+          row['total_revenue'] = client.total_revenue.toFixed(2);
           break;
         case 'avg_wash_value':
-          row['Avg Wash Value ($)'] = (client.total_revenue / client.total_washes).toFixed(2);
+          row['avg_wash_value'] = (client.total_revenue / client.total_washes).toFixed(2);
           break;
         case 'locations_serviced':
-          row['Locations Serviced'] = Array.from(client.locations).join(', ');
+          row['locations_serviced'] = Array.from(client.locations).join(', ');
           break;
       }
     });
@@ -267,8 +267,8 @@ export async function buildClientBillingQuery(config: ReportConfig) {
 
   // Sort by total revenue descending by default
   return results.sort((a, b) => {
-    const aRev = parseFloat(a['Total Revenue ($)'] || '0');
-    const bRev = parseFloat(b['Total Revenue ($)'] || '0');
+    const aRev = parseFloat(a['total_revenue'] || '0');
+    const bRev = parseFloat(b['total_revenue'] || '0');
     return bRev - aRev;
   });
 }
@@ -337,22 +337,22 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
     config.columns.forEach((col) => {
       switch (col) {
         case 'employee_name':
-          row['Employee Name'] = employee.employee_name;
+          row['employee_name'] = employee.employee_name;
           break;
         case 'location_name':
-          row['Actual Location'] = employee.location_name;
+          row['location_name'] = employee.location_name;
           break;
         case 'total_washes':
-          row['Total Washes'] = employee.total_washes;
+          row['total_washes'] = employee.total_washes;
           break;
         case 'total_revenue':
-          row['Total Revenue ($)'] = employee.total_revenue.toFixed(2);
+          row['total_revenue'] = employee.total_revenue.toFixed(2);
           break;
         case 'avg_wash_value':
-          row['Avg Wash Value ($)'] = (employee.total_revenue / employee.total_washes).toFixed(2);
+          row['avg_wash_value'] = (employee.total_revenue / employee.total_washes).toFixed(2);
           break;
         case 'locations_serviced':
-          row['Locations Serviced'] = Array.from(employee.locations).join(', ');
+          row['locations_serviced'] = Array.from(employee.locations).join(', ');
           break;
       }
     });
@@ -362,8 +362,8 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
 
   // Sort by total washes descending by default
   return results.sort((a, b) => {
-    const aWashes = parseInt(a['Total Washes'] || '0');
-    const bWashes = parseInt(b['Total Washes'] || '0');
+    const aWashes = parseInt(a['total_washes'] || '0');
+    const bWashes = parseInt(b['total_washes'] || '0');
     return bWashes - aWashes;
   });
 }

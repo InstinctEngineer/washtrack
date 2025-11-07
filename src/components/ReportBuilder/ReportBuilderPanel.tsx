@@ -12,7 +12,7 @@ import { Save, CalendarIcon } from 'lucide-react';
 import { ColumnSelector } from './ColumnSelector';
 import { FilterPanel } from './FilterPanel';
 import { LiveReportPreview } from './LiveReportPreview';
-import { ReportConfig } from '@/lib/reportBuilder';
+import { ReportConfig, UNIFIED_COLUMNS } from '@/lib/reportBuilder';
 import { exportToExcel } from '@/lib/excelExporter';
 import { executeReport } from '@/lib/reportBuilder';
 import { supabase } from '@/integrations/supabase/client';
@@ -114,8 +114,24 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
         return;
       }
 
+      // Determine sum columns
+      const sumColumns: string[] = [];
+      if (selectedColumns.includes('total_revenue')) {
+        sumColumns.push('Total Revenue ($)');
+      }
+      if (selectedColumns.includes('total_washes')) {
+        sumColumns.push('Total Washes');
+      }
+      if (selectedColumns.includes('avg_wash_value')) {
+        sumColumns.push('Avg Wash Value ($)');
+      }
+
       const filename = templateName || 'custom-report';
-      exportToExcel(data, filename, 'Report Data');
+      exportToExcel(data, filename, 'Report Data', {
+        addSumRow: sumColumns.length > 0,
+        sumColumns,
+        columnDefinitions: UNIFIED_COLUMNS
+      });
       toast.success(`Report exported successfully (${data.length} rows)`);
     } catch (error) {
       console.error('Export error:', error);

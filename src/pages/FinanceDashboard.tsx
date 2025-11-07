@@ -8,7 +8,7 @@ import { ReportBuilderPanel } from '@/components/ReportBuilder/ReportBuilderPane
 import { RunReportDialog } from '@/components/ReportBuilder/RunReportDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ReportTemplate, ReportConfig, executeReport } from '@/lib/reportBuilder';
+import { ReportTemplate, ReportConfig, executeReport, UNIFIED_COLUMNS } from '@/lib/reportBuilder';
 import { exportToExcel } from '@/lib/excelExporter';
 import { toast } from 'sonner';
 
@@ -76,13 +76,20 @@ export default function FinanceDashboard() {
       if (config.columns.includes('total_washes')) {
         sumColumns.push('Total Washes');
       }
+      if (config.columns.includes('avg_wash_value')) {
+        sumColumns.push('Avg Wash Value ($)');
+      }
       
       // Export to Excel with sum rows
       exportToExcel(
         data, 
         selectedTemplate.template_name.toLowerCase().replace(/\s+/g, '_'), 
         'Report',
-        { addSumRow: sumColumns.length > 0, sumColumns }
+        { 
+          addSumRow: sumColumns.length > 0, 
+          sumColumns,
+          columnDefinitions: UNIFIED_COLUMNS
+        }
       );
       
       toast.success('Report exported successfully!');

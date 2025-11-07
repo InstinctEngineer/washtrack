@@ -1,8 +1,14 @@
 import * as XLSX from 'xlsx';
 
+export interface ColumnDefinition {
+  id: string;
+  label: string;
+}
+
 export interface ExcelExportOptions {
   addSumRow?: boolean;
   sumColumns?: string[];
+  columnDefinitions?: ColumnDefinition[];
 }
 
 export function exportToExcel(
@@ -15,17 +21,37 @@ export function exportToExcel(
     throw new Error('No data to export');
   }
 
-  const headers = Object.keys(data[0]);
+  const dataKeys = Object.keys(data[0]);
+  
+  // Create a mapping from column IDs to labels
+  const columnMap = new Map<string, string>();
+  if (options.columnDefinitions) {
+    options.columnDefinitions.forEach(col => {
+      columnMap.set(col.id, col.label);
+    });
+  }
+  
+  // Transform data to use friendly labels as keys for Excel
+  const transformedData = data.map(row => {
+    const newRow: any = {};
+    dataKeys.forEach(key => {
+      const label = columnMap.get(key) || key;
+      newRow[label] = row[key];
+    });
+    return newRow;
+  });
+  
+  const headers = Object.keys(transformedData[0]);
   
   // Add sum row if requested
-  let exportData = [...data];
+  let exportData = [...transformedData];
   if (options.addSumRow && options.sumColumns && options.sumColumns.length > 0) {
     const sumRow: any = {};
     
     headers.forEach(header => {
       if (options.sumColumns!.includes(header)) {
         // Calculate sum for numeric columns
-        const sum = data.reduce((acc, row) => {
+        const sum = transformedData.reduce((acc, row) => {
           const value = parseFloat(row[header]) || 0;
           return acc + value;
         }, 0);
