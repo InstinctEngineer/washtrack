@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WashEntryTableEditor } from '@/components/WashEntryTableEditor';
 import { ReportTemplateList } from '@/components/ReportBuilder/ReportTemplateList';
-import { ReportBuilderWizard } from '@/components/ReportBuilder/ReportBuilderWizard';
+import { ReportBuilderPanel } from '@/components/ReportBuilder/ReportBuilderPanel';
 import { RunReportDialog } from '@/components/ReportBuilder/RunReportDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -204,7 +204,7 @@ export default function FinanceDashboard() {
           </TabsContent>
         </Tabs>
 
-        <ReportBuilderWizard
+        <ReportBuilderPanel
           open={showWizard}
           onClose={() => setShowWizard(false)}
           onSave={() => {

@@ -400,6 +400,30 @@ export async function executeReport(config: ReportConfig) {
   return buildUnifiedQuery(config);
 }
 
+// Generate a preview of the report with limited rows
+export async function generateReportPreview(config: ReportConfig, limit: number = 20) {
+  // Add reportType if not present
+  const fullConfig = {
+    ...config,
+    reportType: 'unified' as ReportType,
+  };
+  
+  // Execute the full query
+  const data = await buildUnifiedQuery(fullConfig);
+  
+  // Determine report type based on columns
+  const hasAggregateFields = config.columns.some(col =>
+    UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
+  );
+  
+  // Return limited data with metadata
+  return {
+    data: data.slice(0, limit),
+    totalCount: data.length,
+    reportType: hasAggregateFields ? 'aggregated' as const : 'detail' as const,
+  };
+}
+
 export function getColumnsByReportType(reportType: ReportType) {
   return UNIFIED_COLUMNS;
 }
