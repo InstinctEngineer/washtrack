@@ -37,49 +37,33 @@ export interface ReportTemplate {
   is_system_template: boolean;
 }
 
-// Unified column definitions - all available data fields
+// Unified column definitions - only fields currently being captured in the app
 export const UNIFIED_COLUMNS = [
   // Wash Entry Details
   { id: 'wash_date', label: 'Date', category: 'Wash Entry', isAggregate: false },
-  { id: 'time_started', label: 'Time Started', category: 'Wash Entry', isAggregate: false },
-  { id: 'time_completed', label: 'Time Completed', category: 'Wash Entry', isAggregate: false },
-  { id: 'wash_duration_minutes', label: 'Duration (min)', category: 'Wash Entry', isAggregate: false },
-  { id: 'quality_rating', label: 'Quality Rating', category: 'Wash Entry', isAggregate: false },
-  { id: 'damage_reported', label: 'Damage Reported', category: 'Wash Entry', isAggregate: false },
-  { id: 'damage_description', label: 'Damage Description', category: 'Wash Entry', isAggregate: false },
   
   // Vehicle Information
   { id: 'vehicle_number', label: 'Vehicle Number', category: 'Vehicle', isAggregate: false },
   { id: 'vehicle_type', label: 'Vehicle Type', category: 'Vehicle', isAggregate: false },
+  { id: 'vehicle_home_location', label: 'Vehicle Home Location', category: 'Vehicle', isAggregate: false },
   
   // Client Information
   { id: 'client_name', label: 'Client Name', category: 'Client', isAggregate: false },
-  { id: 'client_code', label: 'Client Code', category: 'Client', isAggregate: false },
-  { id: 'primary_contact', label: 'Primary Contact', category: 'Client', isAggregate: false },
-  { id: 'contact_email', label: 'Contact Email', category: 'Client', isAggregate: false },
   
   // Location Information
-  { id: 'location_name', label: 'Location', category: 'Location', isAggregate: false },
-  { id: 'locations_serviced', label: 'Locations Serviced', category: 'Location', isAggregate: true },
+  { id: 'location_name', label: 'Actual Location', category: 'Location', isAggregate: false },
   
   // Employee Information
   { id: 'employee_name', label: 'Employee Name', category: 'Employee', isAggregate: false },
-  { id: 'employee_id', label: 'Employee ID', category: 'Employee', isAggregate: false },
   
   // Financial Information
-  { id: 'rate_per_wash', label: 'Rate ($)', category: 'Financial', isAggregate: false },
-  { id: 'rate_override', label: 'Custom Rate', category: 'Financial', isAggregate: false },
-  { id: 'final_amount', label: 'Final Amount ($)', category: 'Financial', isAggregate: false },
-  { id: 'customer_po_number', label: 'Client PO Number', category: 'Financial', isAggregate: false },
+  { id: 'rate_at_time_of_wash', label: 'Rate ($)', category: 'Financial', isAggregate: false },
   
   // Aggregated Metrics
   { id: 'total_washes', label: 'Total Washes', category: 'Metrics', isAggregate: true },
   { id: 'total_revenue', label: 'Total Revenue ($)', category: 'Metrics', isAggregate: true },
   { id: 'avg_wash_value', label: 'Avg Wash Value ($)', category: 'Metrics', isAggregate: true },
-  { id: 'avg_washes_per_day', label: 'Avg Washes/Day', category: 'Metrics', isAggregate: true },
-  { id: 'avg_quality_rating', label: 'Avg Quality Rating', category: 'Metrics', isAggregate: true },
-  { id: 'damage_reports_count', label: 'Damage Reports', category: 'Metrics', isAggregate: true },
-  { id: 'avg_duration', label: 'Avg Duration (min)', category: 'Metrics', isAggregate: true },
+  { id: 'locations_serviced', label: 'Locations Serviced', category: 'Metrics', isAggregate: true },
 ];
 
 // Legacy column arrays for backward compatibility
@@ -115,24 +99,17 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
     .select(`
       id,
       wash_date,
-      time_started,
-      time_completed,
-      wash_duration_minutes,
-      quality_rating,
-      damage_reported,
-      damage_description,
-      rate_override,
-      final_amount,
-      customer_po_number,
+      rate_at_time_of_wash,
       vehicle:vehicles!inner(
         id,
         vehicle_number,
         client_id,
-        vehicle_type:vehicle_types(type_name, rate_per_wash),
-        client:clients(client_name)
+        vehicle_type:vehicle_types(type_name),
+        client:clients(client_name),
+        home_location:locations(name)
       ),
       actual_location:locations!inner(id, name),
-      employee:users!wash_entries_employee_id_fkey(id, name, employee_id)
+      employee:users!wash_entries_employee_id_fkey(id, name)
     `);
 
   // Apply filters
@@ -140,8 +117,6 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
     if (filter.field === 'wash_date' && filter.operator === 'between') {
       const [startDate, endDate] = resolveDateRange(filter.value);
       query = query.gte('wash_date', startDate).lte('wash_date', endDate);
-    } else if (filter.field === 'damage_reported' && filter.operator === 'equals') {
-      query = query.eq('damage_reported', filter.value);
     }
   }
 
@@ -193,44 +168,17 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
         case 'vehicle_type':
           row['Vehicle Type'] = entry.vehicle?.vehicle_type?.type_name || '';
           break;
-        case 'rate_per_wash':
-          row['Rate ($)'] = entry.vehicle?.vehicle_type?.rate_per_wash || '';
+        case 'vehicle_home_location':
+          row['Vehicle Home Location'] = entry.vehicle?.home_location?.name || '';
+          break;
+        case 'rate_at_time_of_wash':
+          row['Rate ($)'] = entry.rate_at_time_of_wash || '';
           break;
         case 'location_name':
-          row['Location'] = entry.actual_location?.name || '';
+          row['Actual Location'] = entry.actual_location?.name || '';
           break;
         case 'employee_name':
           row['Employee Name'] = entry.employee?.name || '';
-          break;
-        case 'employee_id':
-          row['Employee ID'] = entry.employee?.employee_id || '';
-          break;
-        case 'time_started':
-          row['Time Started'] = entry.time_started || '';
-          break;
-        case 'time_completed':
-          row['Time Completed'] = entry.time_completed || '';
-          break;
-        case 'wash_duration_minutes':
-          row['Duration (min)'] = entry.wash_duration_minutes || '';
-          break;
-        case 'quality_rating':
-          row['Quality Rating'] = entry.quality_rating || '';
-          break;
-        case 'damage_reported':
-          row['Damage Reported'] = entry.damage_reported ? 'Yes' : 'No';
-          break;
-        case 'damage_description':
-          row['Damage Description'] = entry.damage_description || '';
-          break;
-        case 'rate_override':
-          row['Custom Rate'] = entry.rate_override || '';
-          break;
-        case 'final_amount':
-          row['Final Amount ($)'] = entry.final_amount || '';
-          break;
-        case 'customer_po_number':
-          row['Client PO Number'] = entry.customer_po_number || '';
           break;
       }
     });
@@ -246,10 +194,10 @@ export async function buildClientBillingQuery(config: ReportConfig) {
     .select(`
       id,
       wash_date,
-      final_amount,
+      rate_at_time_of_wash,
       vehicle:vehicles!inner(
         client_id,
-        client:clients(client_name, client_code, primary_contact_name, primary_contact_email)
+        client:clients(client_name)
       ),
       actual_location:locations(name)
     `);
@@ -276,9 +224,6 @@ export async function buildClientBillingQuery(config: ReportConfig) {
     if (!clientMap.has(clientId)) {
       clientMap.set(clientId, {
         client_name: clientName,
-        client_code: entry.vehicle?.client?.client_code || '',
-        primary_contact: entry.vehicle?.client?.primary_contact_name || '',
-        contact_email: entry.vehicle?.client?.primary_contact_email || '',
         total_washes: 0,
         total_revenue: 0,
         locations: new Set<string>(),
@@ -287,7 +232,7 @@ export async function buildClientBillingQuery(config: ReportConfig) {
     
     const client = clientMap.get(clientId);
     client.total_washes += 1;
-    client.total_revenue += parseFloat(entry.final_amount || 0);
+    client.total_revenue += parseFloat(entry.rate_at_time_of_wash || 0);
     if (entry.actual_location?.name) {
       client.locations.add(entry.actual_location.name);
     }
@@ -302,9 +247,6 @@ export async function buildClientBillingQuery(config: ReportConfig) {
         case 'client_name':
           row['Client Name'] = client.client_name;
           break;
-        case 'client_code':
-          row['Client Code'] = client.client_code;
-          break;
         case 'total_washes':
           row['Total Washes'] = client.total_washes;
           break;
@@ -316,12 +258,6 @@ export async function buildClientBillingQuery(config: ReportConfig) {
           break;
         case 'locations_serviced':
           row['Locations Serviced'] = Array.from(client.locations).join(', ');
-          break;
-        case 'primary_contact':
-          row['Primary Contact'] = client.primary_contact;
-          break;
-        case 'contact_email':
-          row['Contact Email'] = client.contact_email;
           break;
       }
     });
@@ -344,11 +280,8 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
     .select(`
       id,
       wash_date,
-      wash_duration_minutes,
-      quality_rating,
-      damage_reported,
-      final_amount,
-      employee:users!wash_entries_employee_id_fkey(id, name, employee_id, location_id),
+      rate_at_time_of_wash,
+      employee:users!wash_entries_employee_id_fkey(id, name, location_id),
       actual_location:locations(name)
     `);
 
@@ -373,7 +306,6 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
 
   // Group by employee
   const employeeMap = new Map<string, any>();
-  const datesSet = new Map<string, Set<string>>();
   
   data?.forEach((entry: any) => {
     const employeeId = entry.employee?.id;
@@ -382,42 +314,24 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
     if (!employeeMap.has(employeeId)) {
       employeeMap.set(employeeId, {
         employee_name: employeeName,
-        employee_id: entry.employee?.employee_id || '',
         location_name: locationMap.get(entry.employee?.location_id) || '',
         total_washes: 0,
         total_revenue: 0,
-        total_duration: 0,
-        duration_count: 0,
-        quality_ratings: [] as number[],
-        damage_reports: 0,
+        locations: new Set<string>(),
       });
-      datesSet.set(employeeId, new Set<string>());
     }
     
     const employee = employeeMap.get(employeeId);
     employee.total_washes += 1;
-    employee.total_revenue += parseFloat(entry.final_amount || 0);
+    employee.total_revenue += parseFloat(entry.rate_at_time_of_wash || 0);
     
-    if (entry.wash_duration_minutes) {
-      employee.total_duration += entry.wash_duration_minutes;
-      employee.duration_count += 1;
+    if (entry.actual_location?.name) {
+      employee.locations.add(entry.actual_location.name);
     }
-    
-    if (entry.quality_rating) {
-      employee.quality_ratings.push(entry.quality_rating);
-    }
-    
-    if (entry.damage_reported) {
-      employee.damage_reports += 1;
-    }
-    
-    // Track unique dates for avg per day calculation
-    datesSet.get(employeeId)?.add(entry.wash_date);
   });
 
   // Transform to array and calculate averages
-  const results = Array.from(employeeMap.entries()).map(([employeeId, employee]) => {
-    const uniqueDays = datesSet.get(employeeId)?.size || 1;
+  const results = Array.from(employeeMap.values()).map(employee => {
     const row: any = {};
     
     config.columns.forEach((col) => {
@@ -425,11 +339,8 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
         case 'employee_name':
           row['Employee Name'] = employee.employee_name;
           break;
-        case 'employee_id':
-          row['Employee ID'] = employee.employee_id;
-          break;
         case 'location_name':
-          row['Location'] = employee.location_name;
+          row['Actual Location'] = employee.location_name;
           break;
         case 'total_washes':
           row['Total Washes'] = employee.total_washes;
@@ -437,23 +348,11 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
         case 'total_revenue':
           row['Total Revenue ($)'] = employee.total_revenue.toFixed(2);
           break;
-        case 'avg_washes_per_day':
-          row['Avg Washes/Day'] = (employee.total_washes / uniqueDays).toFixed(1);
+        case 'avg_wash_value':
+          row['Avg Wash Value ($)'] = (employee.total_revenue / employee.total_washes).toFixed(2);
           break;
-        case 'avg_quality_rating':
-          const avgRating = employee.quality_ratings.length > 0
-            ? employee.quality_ratings.reduce((a: number, b: number) => a + b, 0) / employee.quality_ratings.length
-            : 0;
-          row['Avg Quality Rating'] = avgRating.toFixed(1);
-          break;
-        case 'damage_reports_count':
-          row['Damage Reports'] = employee.damage_reports;
-          break;
-        case 'avg_duration':
-          const avgDuration = employee.duration_count > 0
-            ? employee.total_duration / employee.duration_count
-            : 0;
-          row['Avg Duration (min)'] = avgDuration.toFixed(0);
+        case 'locations_serviced':
+          row['Locations Serviced'] = Array.from(employee.locations).join(', ');
           break;
       }
     });
@@ -479,12 +378,12 @@ async function buildUnifiedQuery(config: ReportConfig) {
   // If only client aggregate columns, use client billing logic
   const clientAggregates = ['total_washes', 'total_revenue', 'avg_wash_value', 'locations_serviced'];
   const hasClientAggregates = config.columns.some(col => clientAggregates.includes(col));
-  const hasClientFields = config.columns.some(col => ['client_name', 'client_code', 'primary_contact', 'contact_email'].includes(col));
+  const hasClientFields = config.columns.some(col => ['client_name'].includes(col));
   
   // If only employee aggregate columns, use employee performance logic
-  const employeeAggregates = ['avg_washes_per_day', 'avg_quality_rating', 'damage_reports_count', 'avg_duration'];
+  const employeeAggregates = ['total_washes', 'total_revenue', 'avg_wash_value', 'locations_serviced'];
   const hasEmployeeAggregates = config.columns.some(col => employeeAggregates.includes(col));
-  const hasEmployeeFields = config.columns.some(col => ['employee_name', 'employee_id'].includes(col));
+  const hasEmployeeFields = config.columns.some(col => ['employee_name'].includes(col));
   
   if (hasClientAggregates && hasClientFields) {
     return buildClientBillingQuery(config);
