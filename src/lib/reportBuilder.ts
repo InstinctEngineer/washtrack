@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 
-export type ReportType = 'wash_entries' | 'client_billing' | 'employee_performance' | 'revenue_analysis';
+export type ReportType = 'unified';
 
 export interface ReportFilter {
   field: string;
@@ -37,79 +37,55 @@ export interface ReportTemplate {
   is_system_template: boolean;
 }
 
-export interface ReportTypeInfo {
-  id: ReportType;
-  name: string;
-  description: string;
-  icon: string;
-}
-
-export const REPORT_TYPES: ReportTypeInfo[] = [
-  {
-    id: 'wash_entries',
-    name: 'Wash Entries Report',
-    description: 'Detailed list of all wash entries with full customization',
-    icon: 'FileSpreadsheet'
-  },
-  {
-    id: 'client_billing',
-    name: 'Client Billing Report',
-    description: 'Invoice-ready summary grouped by client with totals',
-    icon: 'DollarSign'
-  },
-  {
-    id: 'employee_performance',
-    name: 'Employee Performance Report',
-    description: 'Performance metrics and statistics by employee',
-    icon: 'Users'
-  }
+// Unified column definitions - all available data fields
+export const UNIFIED_COLUMNS = [
+  // Wash Entry Details
+  { id: 'wash_date', label: 'Date', category: 'Wash Entry', isAggregate: false },
+  { id: 'time_started', label: 'Time Started', category: 'Wash Entry', isAggregate: false },
+  { id: 'time_completed', label: 'Time Completed', category: 'Wash Entry', isAggregate: false },
+  { id: 'wash_duration_minutes', label: 'Duration (min)', category: 'Wash Entry', isAggregate: false },
+  { id: 'quality_rating', label: 'Quality Rating', category: 'Wash Entry', isAggregate: false },
+  { id: 'damage_reported', label: 'Damage Reported', category: 'Wash Entry', isAggregate: false },
+  { id: 'damage_description', label: 'Damage Description', category: 'Wash Entry', isAggregate: false },
+  
+  // Vehicle Information
+  { id: 'vehicle_number', label: 'Vehicle Number', category: 'Vehicle', isAggregate: false },
+  { id: 'vehicle_type', label: 'Vehicle Type', category: 'Vehicle', isAggregate: false },
+  
+  // Client Information
+  { id: 'client_name', label: 'Client Name', category: 'Client', isAggregate: false },
+  { id: 'client_code', label: 'Client Code', category: 'Client', isAggregate: false },
+  { id: 'primary_contact', label: 'Primary Contact', category: 'Client', isAggregate: false },
+  { id: 'contact_email', label: 'Contact Email', category: 'Client', isAggregate: false },
+  
+  // Location Information
+  { id: 'location_name', label: 'Location', category: 'Location', isAggregate: false },
+  { id: 'locations_serviced', label: 'Locations Serviced', category: 'Location', isAggregate: true },
+  
+  // Employee Information
+  { id: 'employee_name', label: 'Employee Name', category: 'Employee', isAggregate: false },
+  { id: 'employee_id', label: 'Employee ID', category: 'Employee', isAggregate: false },
+  
+  // Financial Information
+  { id: 'rate_per_wash', label: 'Rate ($)', category: 'Financial', isAggregate: false },
+  { id: 'rate_override', label: 'Custom Rate', category: 'Financial', isAggregate: false },
+  { id: 'final_amount', label: 'Final Amount ($)', category: 'Financial', isAggregate: false },
+  { id: 'customer_po_number', label: 'Client PO Number', category: 'Financial', isAggregate: false },
+  
+  // Aggregated Metrics
+  { id: 'total_washes', label: 'Total Washes', category: 'Metrics', isAggregate: true },
+  { id: 'total_revenue', label: 'Total Revenue ($)', category: 'Metrics', isAggregate: true },
+  { id: 'avg_wash_value', label: 'Avg Wash Value ($)', category: 'Metrics', isAggregate: true },
+  { id: 'avg_washes_per_day', label: 'Avg Washes/Day', category: 'Metrics', isAggregate: true },
+  { id: 'avg_quality_rating', label: 'Avg Quality Rating', category: 'Metrics', isAggregate: true },
+  { id: 'damage_reports_count', label: 'Damage Reports', category: 'Metrics', isAggregate: true },
+  { id: 'avg_duration', label: 'Avg Duration (min)', category: 'Metrics', isAggregate: true },
 ];
 
-// Column definitions for wash entries report
-export const WASH_ENTRIES_COLUMNS = [
-  { id: 'wash_date', label: 'Date', required: true },
-  { id: 'vehicle_number', label: 'Vehicle Number', required: true },
-  { id: 'client_name', label: 'Client Name', required: false },
-  { id: 'vehicle_type', label: 'Vehicle Type', required: false },
-  { id: 'rate_per_wash', label: 'Rate ($)', required: false },
-  { id: 'location_name', label: 'Location', required: false },
-  { id: 'employee_name', label: 'Employee Name', required: false },
-  { id: 'employee_id', label: 'Employee ID', required: false },
-  { id: 'time_started', label: 'Time Started', required: false },
-  { id: 'time_completed', label: 'Time Completed', required: false },
-  { id: 'wash_duration_minutes', label: 'Duration (min)', required: false },
-  { id: 'quality_rating', label: 'Quality Rating', required: false },
-  { id: 'damage_reported', label: 'Damage Reported', required: false },
-  { id: 'damage_description', label: 'Damage Description', required: false },
-  { id: 'rate_override', label: 'Custom Rate', required: false },
-  { id: 'final_amount', label: 'Final Amount ($)', required: false },
-  { id: 'customer_po_number', label: 'Client PO Number', required: false },
-];
-
-// Column definitions for client billing report
-export const CLIENT_BILLING_COLUMNS = [
-  { id: 'client_name', label: 'Client Name', required: true },
-  { id: 'client_code', label: 'Client Code', required: false },
-  { id: 'total_washes', label: 'Total Washes', required: true },
-  { id: 'total_revenue', label: 'Total Revenue ($)', required: true },
-  { id: 'avg_wash_value', label: 'Avg Wash Value ($)', required: false },
-  { id: 'locations_serviced', label: 'Locations Serviced', required: false },
-  { id: 'primary_contact', label: 'Primary Contact', required: false },
-  { id: 'contact_email', label: 'Contact Email', required: false },
-];
-
-// Column definitions for employee performance report
-export const EMPLOYEE_PERFORMANCE_COLUMNS = [
-  { id: 'employee_name', label: 'Employee Name', required: true },
-  { id: 'employee_id', label: 'Employee ID', required: true },
-  { id: 'location_name', label: 'Location', required: false },
-  { id: 'total_washes', label: 'Total Washes', required: true },
-  { id: 'total_revenue', label: 'Total Revenue ($)', required: false },
-  { id: 'avg_washes_per_day', label: 'Avg Washes/Day', required: false },
-  { id: 'avg_quality_rating', label: 'Avg Quality Rating', required: false },
-  { id: 'damage_reports_count', label: 'Damage Reports', required: false },
-  { id: 'avg_duration', label: 'Avg Duration (min)', required: false },
-];
+// Legacy column arrays for backward compatibility
+export const WASH_ENTRIES_COLUMNS = UNIFIED_COLUMNS.filter(c => !c.isAggregate);
+export const CLIENT_BILLING_COLUMNS = UNIFIED_COLUMNS.filter(c => c.category === 'Client' || c.category === 'Metrics');
+export const EMPLOYEE_PERFORMANCE_COLUMNS = UNIFIED_COLUMNS.filter(c => c.category === 'Employee' || c.category === 'Metrics' || c.id === 'location_name');
 
 // Helper function to resolve date range values
 function resolveDateRange(value: string | [string, string]): [string, string] {
@@ -493,30 +469,38 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
   });
 }
 
-// Main function to build query based on report type
-export async function executeReport(config: ReportConfig) {
-  switch (config.reportType) {
-    case 'wash_entries':
-      return buildWashEntriesQuery(config);
-    case 'client_billing':
-      return buildClientBillingQuery(config);
-    case 'employee_performance':
-      return buildEmployeePerformanceQuery(config);
-    default:
-      throw new Error(`Report type ${config.reportType} not implemented`);
+// Unified query builder that intelligently routes based on selected columns
+async function buildUnifiedQuery(config: ReportConfig) {
+  // Check if any aggregate columns are selected
+  const hasAggregateColumns = config.columns.some(col => 
+    UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
+  );
+  
+  // If only client aggregate columns, use client billing logic
+  const clientAggregates = ['total_washes', 'total_revenue', 'avg_wash_value', 'locations_serviced'];
+  const hasClientAggregates = config.columns.some(col => clientAggregates.includes(col));
+  const hasClientFields = config.columns.some(col => ['client_name', 'client_code', 'primary_contact', 'contact_email'].includes(col));
+  
+  // If only employee aggregate columns, use employee performance logic
+  const employeeAggregates = ['avg_washes_per_day', 'avg_quality_rating', 'damage_reports_count', 'avg_duration'];
+  const hasEmployeeAggregates = config.columns.some(col => employeeAggregates.includes(col));
+  const hasEmployeeFields = config.columns.some(col => ['employee_name', 'employee_id'].includes(col));
+  
+  if (hasClientAggregates && hasClientFields) {
+    return buildClientBillingQuery(config);
+  } else if (hasEmployeeAggregates && hasEmployeeFields) {
+    return buildEmployeePerformanceQuery(config);
+  } else {
+    // Default to wash entries for detailed data
+    return buildWashEntriesQuery(config);
   }
 }
 
-// Helper to get column definitions by report type
+// Main function to build query based on report type
+export async function executeReport(config: ReportConfig) {
+  return buildUnifiedQuery(config);
+}
+
 export function getColumnsByReportType(reportType: ReportType) {
-  switch (reportType) {
-    case 'wash_entries':
-      return WASH_ENTRIES_COLUMNS;
-    case 'client_billing':
-      return CLIENT_BILLING_COLUMNS;
-    case 'employee_performance':
-      return EMPLOYEE_PERFORMANCE_COLUMNS;
-    default:
-      return WASH_ENTRIES_COLUMNS;
-  }
+  return UNIFIED_COLUMNS;
 }

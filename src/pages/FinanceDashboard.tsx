@@ -59,20 +59,22 @@ export default function FinanceDashboard() {
         } as any)
         .eq('id', selectedTemplate.id);
 
-      // Execute report with potentially modified config (ensure reportType is present)
+      // Execute report with config (ensure reportType is present)
       const data = await executeReport({
         ...config,
-        reportType: selectedTemplate.report_type
+        reportType: 'unified'
       });
       
-      // Determine sum columns based on report type
+      // Determine sum columns based on selected columns
       const sumColumns: string[] = [];
-      if (selectedTemplate.report_type === 'client_billing') {
-        sumColumns.push('Total Washes', 'Total Revenue ($)');
-      } else if (selectedTemplate.report_type === 'employee_performance') {
-        sumColumns.push('Total Washes', 'Total Revenue ($)');
-      } else if (config.columns.includes('final_amount')) {
+      if (config.columns.includes('final_amount')) {
         sumColumns.push('Final Amount ($)');
+      }
+      if (config.columns.includes('total_revenue')) {
+        sumColumns.push('Total Revenue ($)');
+      }
+      if (config.columns.includes('total_washes')) {
+        sumColumns.push('Total Washes');
       }
       
       // Export to Excel with sum rows

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ArrowLeft, ArrowRight, CalendarIcon, Download, Save, FileSpreadsheet, DollarSign, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { ReportConfig, ReportType, REPORT_TYPES, executeReport, getColumnsByReportType } from '@/lib/reportBuilder';
+import { ReportConfig, ReportType, executeReport, getColumnsByReportType } from '@/lib/reportBuilder';
 import { exportToExcel } from '@/lib/excelExporter';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -28,9 +28,9 @@ interface SelectOption {
 }
 
 export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWizardProps) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(1);
   const [reportConfig, setReportConfig] = useState<ReportConfig>({
-    reportType: 'wash_entries',
+    reportType: 'unified',
     columns: [],
     filters: [],
     sorting: [{ field: 'wash_date', direction: 'desc' }],
@@ -47,8 +47,16 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
   const [templateName, setTemplateName] = useState('');
   const [templateDescription, setTemplateDescription] = useState('');
 
-  const totalSteps = 5;
+  const totalSteps = 4;
   const currentColumns = getColumnsByReportType(reportConfig.reportType);
+  
+  // Group columns by category
+  const columnsByCategory = currentColumns.reduce((acc, col) => {
+    const category = col.category || 'Other';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(col);
+    return acc;
+  }, {} as Record<string, typeof currentColumns>);
 
   useEffect(() => {
     if (open) {
@@ -79,7 +87,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
   };
 
   const handleNext = async () => {
-    if (step === 4) {
+    if (step === 3) {
       await generatePreview();
     }
     if (step < totalSteps) {
@@ -88,29 +96,13 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
   };
 
   const handleBack = () => {
-    if (step > 0) {
+    if (step > 1) {
       setStep(step - 1);
     }
   };
 
-  const handleReportTypeSelect = (type: ReportType) => {
-    const defaultColumns = getColumnsByReportType(type)
-      .filter(c => c.required)
-      .map(c => c.id);
-    
-    setReportConfig({
-      reportType: type,
-      columns: defaultColumns,
-      filters: [],
-      sorting: type === 'wash_entries' ? [{ field: 'wash_date', direction: 'desc' }] : [],
-    });
-    setStep(1);
-  };
 
   const toggleColumn = (columnId: string) => {
-    const column = currentColumns.find(c => c.id === columnId);
-    if (column?.required) return;
-    
     setReportConfig(prev => ({
       ...prev,
       columns: prev.columns.includes(columnId)
@@ -125,10 +117,9 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
       columns: currentColumns.map(c => c.id)
     }));
   };
-
-  const selectCommonColumns = () => {
-    const common = currentColumns.slice(0, 7).map(c => c.id);
-    setReportConfig(prev => ({ ...prev, columns: common }));
+  
+  const clearAllColumns = () => {
+    setReportConfig(prev => ({ ...prev, columns: [] }));
   };
 
   const applyFilters = () => {
@@ -192,19 +183,21 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
     try {
       const data = await executeReport(reportConfig);
       
-      // Determine which columns should have sum rows
+      // Determine which columns should have sum rows based on selected columns
       const sumColumns: string[] = [];
-      if (reportConfig.reportType === 'client_billing') {
-        sumColumns.push('Total Washes', 'Total Revenue ($)');
-      } else if (reportConfig.reportType === 'employee_performance') {
-        sumColumns.push('Total Washes', 'Total Revenue ($)');
-      } else if (reportConfig.reportType === 'wash_entries' && reportConfig.columns.includes('final_amount')) {
+      if (reportConfig.columns.includes('final_amount')) {
         sumColumns.push('Final Amount ($)');
+      }
+      if (reportConfig.columns.includes('total_revenue')) {
+        sumColumns.push('Total Revenue ($)');
+      }
+      if (reportConfig.columns.includes('total_washes')) {
+        sumColumns.push('Total Washes');
       }
 
       exportToExcel(
         data, 
-        templateName || reportConfig.reportType,
+        templateName || 'custom-report',
         'Report',
         { addSumRow: sumColumns.length > 0, sumColumns }
       );
@@ -251,97 +244,64 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
     }
   };
 
-  const getReportIcon = (type: string) => {
-    switch (type) {
-      case 'FileSpreadsheet': return <FileSpreadsheet className="h-8 w-8" />;
-      case 'DollarSign': return <DollarSign className="h-8 w-8" />;
-      case 'Users': return <Users className="h-8 w-8" />;
-      default: return <FileSpreadsheet className="h-8 w-8" />;
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {step === 0 ? 'Select Report Type' : 'Create Custom Report'}
-          </DialogTitle>
+          <DialogTitle>Create Custom Report</DialogTitle>
           <DialogDescription>
-            {step === 0 ? 'Choose the type of report you want to generate' :
-             step === 1 ? `Step ${step} of ${totalSteps - 1}: Select Columns` :
-             step === 2 ? `Step ${step} of ${totalSteps - 1}: Apply Filters` :
-             step === 3 ? `Step ${step} of ${totalSteps - 1}: Configure Sorting` :
-             step === 4 ? `Step ${step} of ${totalSteps - 1}: Preview & Export` : ''}
+            {step === 1 ? `Step 1 of ${totalSteps}: Select Data Fields` :
+             step === 2 ? `Step 2 of ${totalSteps}: Apply Filters` :
+             step === 3 ? `Step 3 of ${totalSteps}: Preview & Export` : ''}
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-4">
-          {/* Step 0: Report Type Selection */}
-          {step === 0 && (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {REPORT_TYPES.map((reportType) => (
-                <Card 
-                  key={reportType.id}
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => handleReportTypeSelect(reportType.id)}
-                >
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="text-primary">
-                        {getReportIcon(reportType.icon)}
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{reportType.name}</CardTitle>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      {reportType.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
           {/* Step 1: Column Selection */}
           {step === 1 && (
             <div className="space-y-4">
               <div className="flex gap-2 mb-4">
                 <Button onClick={selectAllColumns} variant="outline" size="sm">
-                  Select All
+                  Select All Fields
                 </Button>
-                <Button onClick={selectCommonColumns} variant="outline" size="sm">
-                  Select Common
+                <Button onClick={clearAllColumns} variant="outline" size="sm">
+                  Clear All
                 </Button>
               </div>
               
-              <div className="grid grid-cols-2 gap-3">
-                {currentColumns.map((column) => (
-                  <div key={column.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={column.id}
-                      checked={reportConfig.columns.includes(column.id)}
-                      onCheckedChange={() => toggleColumn(column.id)}
-                      disabled={column.required}
-                    />
-                    <Label
-                      htmlFor={column.id}
-                      className={cn(
-                        "cursor-pointer",
-                        column.required && "font-semibold"
-                      )}
-                    >
-                      {column.label}
-                      {column.required && ' *'}
-                    </Label>
+              <div className="space-y-6">
+                {Object.entries(columnsByCategory).map(([category, columns]) => (
+                  <div key={category} className="space-y-3">
+                    <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                      {category}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 pl-2">
+                      {columns.map((column) => (
+                        <div key={column.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={column.id}
+                            checked={reportConfig.columns.includes(column.id)}
+                            onCheckedChange={() => toggleColumn(column.id)}
+                          />
+                          <Label
+                            htmlFor={column.id}
+                            className="cursor-pointer flex items-center gap-1"
+                          >
+                            {column.label}
+                            {column.isAggregate && (
+                              <span className="text-xs text-muted-foreground">(calculated)</span>
+                            )}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
+              
               <p className="text-sm text-muted-foreground mt-4">
-                * Required columns cannot be removed
+                Select any combination of fields. Calculated fields will aggregate data automatically.
               </p>
             </div>
           )}
@@ -400,13 +360,11 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                 </CardContent>
               </Card>
 
-              {reportConfig.reportType === 'wash_entries' && (
-                <>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Filter by Client</CardTitle>
-                      <CardDescription>Select one or more clients (optional)</CardDescription>
-                    </CardHeader>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Filter by Client</CardTitle>
+                  <CardDescription>Select one or more clients (optional)</CardDescription>
+                </CardHeader>
                     <CardContent>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {clients.map((client) => (
@@ -488,8 +446,6 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                       </div>
                     </CardContent>
                   </Card>
-                </>
-              )}
 
               <Button onClick={applyFilters} className="w-full">
                 Apply All Filters
@@ -497,7 +453,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
             </div>
           )}
 
-          {/* Step 3: Sorting */}
+          {/* Step 3: Preview & Export */}
           {step === 3 && (
             <div className="space-y-4">
               <Card>
