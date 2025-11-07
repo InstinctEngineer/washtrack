@@ -24,12 +24,12 @@ export function ReportTemplateList({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Report Templates</h2>
-          <p className="text-muted-foreground">Generate and export custom reports to Excel</p>
+          <h2 className="text-2xl font-bold">Saved Reports</h2>
+          <p className="text-muted-foreground">Your custom report configurations for quick data extraction</p>
         </div>
         <Button onClick={onCreateNew}>
           <Plus className="h-4 w-4 mr-2" />
-          Create Custom Report
+          Build New Report
         </Button>
       </div>
 
@@ -37,9 +37,10 @@ export function ReportTemplateList({
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No report templates found</p>
-            <Button onClick={onCreateNew} variant="outline" className="mt-4">
-              Create Your First Report
+            <p className="text-muted-foreground mb-1 font-medium">No saved reports yet</p>
+            <p className="text-sm text-muted-foreground mb-4">Build your first custom report to extract and analyze your data</p>
+            <Button onClick={onCreateNew} variant="outline">
+              Build Your First Report
             </Button>
           </CardContent>
         </Card>
@@ -48,17 +49,12 @@ export function ReportTemplateList({
           {templates.map((template) => (
             <Card key={template.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
-                <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg">{template.template_name}</CardTitle>
                     <CardDescription className="mt-1">
                       {template.description || 'No description'}
                     </CardDescription>
                   </div>
-                  {template.is_system_template && (
-                    <Badge variant="secondary">System</Badge>
-                  )}
-                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -76,7 +72,7 @@ export function ReportTemplateList({
                       size="sm"
                     >
                       <Play className="h-3 w-3 mr-1" />
-                      Run Report
+                      Export Data
                     </Button>
                     
                     {onDuplicate && (
@@ -89,7 +85,7 @@ export function ReportTemplateList({
                       </Button>
                     )}
                     
-                    {!template.is_system_template && onDelete && (
+                    {onDelete && (
                       <Button
                         onClick={() => onDelete(template)}
                         variant="outline"
