@@ -106,9 +106,9 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
         client_id,
         vehicle_type:vehicle_types(type_name),
         client:clients(client_name),
-        home_location:locations(name)
+        home_location:locations!vehicles_home_location_id_fkey(name)
       ),
-      actual_location:locations!inner(id, name),
+      actual_location:locations!wash_entries_actual_location_id_fkey(id, name),
       employee:users!wash_entries_employee_id_fkey(id, name)
     `);
 

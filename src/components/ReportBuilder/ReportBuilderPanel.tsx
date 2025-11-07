@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -155,6 +155,9 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
       <DialogContent className="max-w-[95vw] h-[90vh] p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle>Create Custom Report</DialogTitle>
+          <DialogDescription>
+            Select columns, apply filters, and preview your data before exporting
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
