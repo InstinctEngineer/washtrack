@@ -1,23 +1,15 @@
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ChevronDown, CalendarIcon } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
 
 interface FilterPanelProps {
-  dateFrom: string;
-  dateTo: string;
   selectedClients: string[];
   selectedLocations: string[];
   selectedEmployees: string[];
-  onDateFromChange: (value: string) => void;
-  onDateToChange: (value: string) => void;
   onClientsChange: (value: string[]) => void;
   onLocationsChange: (value: string[]) => void;
   onEmployeesChange: (value: string[]) => void;
@@ -30,13 +22,9 @@ interface SelectOption {
 }
 
 export function FilterPanel({
-  dateFrom,
-  dateTo,
   selectedClients,
   selectedLocations,
   selectedEmployees,
-  onDateFromChange,
-  onDateToChange,
   onClientsChange,
   onLocationsChange,
   onEmployeesChange,
@@ -76,13 +64,13 @@ export function FilterPanel({
     }
   };
 
-  const hasAnyFilters = dateFrom || dateTo || selectedClients.length > 0 || 
+  const hasAnyFilters = selectedClients.length > 0 || 
                         selectedLocations.length > 0 || selectedEmployees.length > 0;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Filters</h3>
+        <h3 className="text-sm font-semibold">Additional Filters</h3>
         {hasAnyFilters && (
           <Button variant="ghost" size="sm" onClick={onClearAll} className="h-7 text-xs">
             Clear All
@@ -91,58 +79,6 @@ export function FilterPanel({
       </div>
 
       <div className="space-y-3">
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold">Date Range</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "justify-start text-left font-normal text-sm",
-                    !dateFrom && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateFrom ? format(new Date(dateFrom), "MMM d, yyyy") : "From date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dateFrom ? new Date(dateFrom) : undefined}
-                  onSelect={(date) => onDateFromChange(date ? format(date, 'yyyy-MM-dd') : '')}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "justify-start text-left font-normal text-sm",
-                    !dateTo && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateTo ? format(new Date(dateTo), "MMM d, yyyy") : "To date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dateTo ? new Date(dateTo) : undefined}
-                  onSelect={(date) => onDateToChange(date ? format(date, 'yyyy-MM-dd') : '')}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
 
         <Collapsible defaultOpen={selectedClients.length > 0}>
           <CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded px-2">

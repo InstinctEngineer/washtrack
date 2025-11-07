@@ -6,7 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Save } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Save, CalendarIcon } from 'lucide-react';
 import { ColumnSelector } from './ColumnSelector';
 import { FilterPanel } from './FilterPanel';
 import { LiveReportPreview } from './LiveReportPreview';
@@ -15,6 +17,7 @@ import { exportToExcel } from '@/lib/excelExporter';
 import { executeReport } from '@/lib/reportBuilder';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ReportBuilderPanelProps {
   open: boolean;
@@ -161,8 +164,6 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
   };
 
   const handleClearAllFilters = () => {
-    setDateFrom('');
-    setDateTo('');
     setSelectedClients([]);
     setSelectedLocations([]);
     setSelectedEmployees([]);
@@ -182,6 +183,60 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
           {/* Left Panel - Configuration */}
           <div className="w-[40%] border-r overflow-y-auto">
             <div className="p-6 space-y-6">
+              {/* Date Range - Always at the top */}
+              <div className="space-y-2 pb-4 border-b">
+                <Label className="text-sm font-semibold">Date Range</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal text-sm",
+                          !dateFrom && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateFrom ? format(new Date(dateFrom), "MMM d, yyyy") : "From date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateFrom ? new Date(dateFrom) : undefined}
+                        onSelect={(date) => setDateFrom(date ? format(date, 'yyyy-MM-dd') : '')}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal text-sm",
+                          !dateTo && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateTo ? format(new Date(dateTo), "MMM d, yyyy") : "To date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateTo ? new Date(dateTo) : undefined}
+                        onSelect={(date) => setDateTo(date ? format(date, 'yyyy-MM-dd') : '')}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
               <ColumnSelector
                 selectedColumns={selectedColumns}
                 onColumnsChange={setSelectedColumns}
@@ -190,13 +245,9 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
               <Separator />
 
               <FilterPanel
-                dateFrom={dateFrom}
-                dateTo={dateTo}
                 selectedClients={selectedClients}
                 selectedLocations={selectedLocations}
                 selectedEmployees={selectedEmployees}
-                onDateFromChange={setDateFrom}
-                onDateToChange={setDateTo}
                 onClientsChange={setSelectedClients}
                 onLocationsChange={setSelectedLocations}
                 onEmployeesChange={setSelectedEmployees}
