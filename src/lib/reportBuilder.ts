@@ -370,24 +370,88 @@ async function buildUnifiedQuery(config: ReportConfig) {
     UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
   );
   
-  // If only client aggregate columns, use client billing logic
+  // Check if any detail columns are selected
+  const detailColumns = config.columns.filter(col => 
+    !UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
+  );
+  const hasDetailColumns = detailColumns.length > 0;
+  
+  // Aggregate column groups
   const clientAggregates = ['total_washes', 'total_revenue', 'avg_wash_value', 'locations_serviced'];
   const hasClientAggregates = config.columns.some(col => clientAggregates.includes(col));
   const hasClientFields = config.columns.some(col => ['client_name'].includes(col));
   
-  // If only employee aggregate columns, use employee performance logic
   const employeeAggregates = ['total_washes', 'total_revenue', 'avg_wash_value', 'locations_serviced'];
   const hasEmployeeAggregates = config.columns.some(col => employeeAggregates.includes(col));
   const hasEmployeeFields = config.columns.some(col => ['employee_name'].includes(col));
   
-  if (hasClientAggregates && hasClientFields) {
-    return buildClientBillingQuery(config);
-  } else if (hasEmployeeAggregates && hasEmployeeFields) {
-    return buildEmployeePerformanceQuery(config);
-  } else {
-    // Default to wash entries for detailed data
-    return buildWashEntriesQuery(config);
+  // MIXED MODE: Both detail and aggregate columns selected
+  if (hasDetailColumns && hasAggregateColumns) {
+    // Build detail rows with only detail columns
+    const detailConfig = { ...config, columns: detailColumns };
+    const detailData = await buildWashEntriesQuery(detailConfig);
+    
+    // Build aggregate summary
+    const aggregateConfig = { ...config, columns: config.columns.filter(col => 
+      UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate || 
+      col === 'client_name' || 
+      col === 'employee_name'
+    )};
+    
+    let aggregateData: any[] = [];
+    if (hasClientAggregates && hasClientFields) {
+      aggregateData = await buildClientBillingQuery(aggregateConfig);
+    } else if (hasEmployeeAggregates && hasEmployeeFields) {
+      aggregateData = await buildEmployeePerformanceQuery(aggregateConfig);
+    }
+    
+    // Combine detail and aggregate data
+    // Add a separator row
+    const separator: any = {};
+    detailColumns.forEach(col => {
+      const colDef = UNIFIED_COLUMNS.find(c => c.id === col);
+      separator[col] = '';
+    });
+    
+    // Add section headers
+    const detailHeader: any = {};
+    detailColumns.forEach(col => {
+      const colDef = UNIFIED_COLUMNS.find(c => c.id === col);
+      detailHeader[col] = col === detailColumns[0] ? '--- DETAIL ROWS ---' : '';
+    });
+    
+    const summaryHeader: any = {};
+    config.columns.forEach(col => {
+      summaryHeader[col] = col === config.columns[0] ? '--- SUMMARY ---' : '';
+    });
+    
+    // Merge aggregate data to include detail columns (empty)
+    const expandedAggregateData = aggregateData.map(row => {
+      const expandedRow: any = {};
+      config.columns.forEach(col => {
+        expandedRow[col] = row[col] || '';
+      });
+      return expandedRow;
+    });
+    
+    return [
+      detailHeader,
+      ...detailData,
+      separator,
+      summaryHeader,
+      ...expandedAggregateData
+    ];
   }
+  
+  // AGGREGATE ONLY MODE
+  if (hasClientAggregates && hasClientFields && !hasDetailColumns) {
+    return buildClientBillingQuery(config);
+  } else if (hasEmployeeAggregates && hasEmployeeFields && !hasDetailColumns) {
+    return buildEmployeePerformanceQuery(config);
+  }
+  
+  // DETAIL ONLY MODE (default)
+  return buildWashEntriesQuery(config);
 }
 
 // Main function to build query based on report type
@@ -410,12 +474,18 @@ export async function generateReportPreview(config: ReportConfig, limit: number 
   const hasAggregateFields = config.columns.some(col =>
     UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
   );
+  const hasDetailFields = config.columns.some(col =>
+    !UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
+  );
+  
+  // Determine if mixed mode
+  const isMixed = hasAggregateFields && hasDetailFields;
   
   // Return limited data with metadata
   return {
     data: data.slice(0, limit),
     totalCount: data.length,
-    reportType: hasAggregateFields ? 'aggregated' as const : 'detail' as const,
+    reportType: isMixed ? 'mixed' as const : (hasAggregateFields ? 'aggregated' as const : 'detail' as const),
   };
 }
 

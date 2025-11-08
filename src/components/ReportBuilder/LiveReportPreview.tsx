@@ -16,7 +16,7 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [reportType, setReportType] = useState<'detail' | 'aggregated'>('detail');
+  const [reportType, setReportType] = useState<'detail' | 'aggregated' | 'mixed'>('detail');
 
   useEffect(() => {
     if (config.columns.length === 0) {
@@ -52,6 +52,16 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
   const hasAggregateFields = config.columns.some(col =>
     UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
   );
+  const hasDetailFields = config.columns.some(col =>
+    !UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
+  );
+  const isMixed = hasAggregateFields && hasDetailFields;
+
+  const getReportTypeLabel = () => {
+    if (isMixed) return 'Mixed Report';
+    if (hasAggregateFields) return 'Aggregated Report';
+    return 'Detail Report';
+  };
 
   return (
     <div className="flex flex-col h-full border-l bg-background">
@@ -69,8 +79,8 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
               )}
             </p>
           </div>
-          <Badge variant={hasAggregateFields ? "secondary" : "default"}>
-            {hasAggregateFields ? 'Aggregated Report' : 'Detail Report'}
+          <Badge variant={isMixed ? "outline" : (hasAggregateFields ? "secondary" : "default")}>
+            {getReportTypeLabel()}
           </Badge>
         </div>
         

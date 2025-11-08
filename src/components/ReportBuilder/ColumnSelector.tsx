@@ -119,7 +119,7 @@ export function ColumnSelector({ selectedColumns, onColumnsChange }: ColumnSelec
           <Alert className="mb-3">
             <Info className="h-4 w-4" />
             <AlertDescription className="text-xs">
-              Mixing detail and aggregate fields will create an aggregated report grouped by the detail fields selected.
+              This report will include both detail rows and aggregate summaries in separate sections.
             </AlertDescription>
           </Alert>
         )}
