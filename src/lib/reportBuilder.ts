@@ -45,13 +45,12 @@ export const UNIFIED_COLUMNS = [
   // Vehicle Information
   { id: 'vehicle_number', label: 'Vehicle Number', category: 'Vehicle', isAggregate: false },
   { id: 'vehicle_type', label: 'Vehicle Type', category: 'Vehicle', isAggregate: false },
-  { id: 'vehicle_home_location', label: 'Vehicle Home Location', category: 'Vehicle', isAggregate: false },
   
   // Client Information
   { id: 'client_name', label: 'Client Name', category: 'Client', isAggregate: false },
   
   // Location Information
-  { id: 'location_name', label: 'Actual Location', category: 'Location', isAggregate: false },
+  { id: 'location_name', label: 'Vehicle Location', category: 'Location', isAggregate: false },
   
   // Employee Information
   { id: 'employee_name', label: 'Employee Name', category: 'Employee', isAggregate: false },
@@ -105,8 +104,7 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
         vehicle_number,
         client_id,
         vehicle_type:vehicle_types(type_name),
-        client:clients(client_name),
-        home_location:locations!vehicles_home_location_id_fkey(name)
+        client:clients(client_name)
       ),
       actual_location:locations!wash_entries_actual_location_id_fkey(id, name),
       employee:users!wash_entries_employee_id_fkey(id, name)
@@ -167,9 +165,6 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
           break;
         case 'vehicle_type':
           row['vehicle_type'] = entry.vehicle?.vehicle_type?.type_name || '';
-          break;
-        case 'vehicle_home_location':
-          row['vehicle_home_location'] = entry.vehicle?.home_location?.name || '';
           break;
         case 'rate_at_time_of_wash':
           row['rate_at_time_of_wash'] = entry.rate_at_time_of_wash || '';
