@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon, Download, Save } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { ReportTemplate, ReportConfig } from '@/lib/reportBuilder';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -24,6 +24,19 @@ export function RunReportDialog({ open, template, onClose, onRun, onSaved }: Run
   const [saveAsNew, setSaveAsNew] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Set current week dates when dialog opens
+  useEffect(() => {
+    if (open && template) {
+      const hasDateFilter = template.config.filters.some(f => f.field === 'wash_date');
+      if (hasDateFilter) {
+        const today = new Date();
+        const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
+        const weekEnd = endOfWeek(today, { weekStartsOn: 0 }); // Saturday
+        setDateRange({ from: weekStart, to: weekEnd });
+      }
+    }
+  }, [open, template]);
 
   if (!template) return null;
 
@@ -116,7 +129,7 @@ export function RunReportDialog({ open, template, onClose, onRun, onSaved }: Run
         <div className="space-y-4 py-4">
           {hasDateFilter && (
             <div className="space-y-2">
-              <Label>Date Range (Optional - override template default)</Label>
+              <Label>Date Range (defaults to current week)</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
