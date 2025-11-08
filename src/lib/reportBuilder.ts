@@ -37,6 +37,73 @@ export interface ReportTemplate {
   is_system_template: boolean;
 }
 
+// System templates with pre-configured smart defaults
+export const SYSTEM_TEMPLATES: Omit<ReportTemplate, 'created_by' | 'created_at' | 'updated_at' | 'last_used_at' | 'use_count'>[] = [
+  {
+    id: 'system-invoice-report',
+    template_name: 'Weekly Invoice Report',
+    description: 'Generate client invoices by location with weekly totals and billable amounts',
+    report_type: 'unified',
+    is_shared: true,
+    is_system_template: true,
+    config: {
+      reportType: 'unified',
+      columns: [
+        'client_name',
+        'location_name',
+        'vehicle_number',
+        'vehicle_type',
+        'wash_date',
+        'rate_at_time_of_wash',
+        'total_washes',
+        'total_revenue',
+      ],
+      filters: [
+        {
+          field: 'wash_date',
+          operator: 'between',
+          value: 'current_month', // Will be resolved to actual dates
+        }
+      ],
+      sorting: [
+        { field: 'wash_date', direction: 'asc' }
+      ],
+    },
+  },
+  {
+    id: 'system-payroll-report',
+    template_name: 'Employee Payroll Report',
+    description: 'Track employee work for payroll with wash counts, revenue, and performance metrics',
+    report_type: 'unified',
+    is_shared: true,
+    is_system_template: true,
+    config: {
+      reportType: 'unified',
+      columns: [
+        'employee_name',
+        'location_name',
+        'wash_date',
+        'vehicle_number',
+        'vehicle_type',
+        'rate_at_time_of_wash',
+        'total_washes',
+        'total_revenue',
+        'avg_wash_value',
+      ],
+      filters: [
+        {
+          field: 'wash_date',
+          operator: 'between',
+          value: 'current_month',
+        }
+      ],
+      sorting: [
+        { field: 'wash_date', direction: 'asc' }
+      ],
+    },
+  },
+];
+
 // Unified column definitions - only fields currently being captured in the app
 export const UNIFIED_COLUMNS = [
   // Wash Entry Details
