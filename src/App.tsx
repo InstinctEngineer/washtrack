@@ -20,6 +20,7 @@ import Users from "./pages/Users";
 import VehicleTypes from "./pages/VehicleTypes";
 import Vehicles from "./pages/Vehicles";
 import Locations from "./pages/Locations";
+import Clients from "./pages/Clients";
 import SuperAdminDatabase from "./pages/SuperAdminDatabase";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
@@ -118,6 +119,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <Locations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/clients"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <Clients />
                 </ProtectedRoute>
               }
             />

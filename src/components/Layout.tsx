@@ -20,7 +20,8 @@ import {
   User as UserIcon,
   DollarSign,
   Briefcase,
-  UserCircle
+  UserCircle,
+  Building2
 } from 'lucide-react';
 import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
@@ -85,6 +86,7 @@ export const Layout = ({ children }: LayoutProps) => {
       // Admin-only features
       navItems.push(
         { label: 'Users', icon: Users, path: '/admin/users', section: 'Administration' },
+        { label: 'Clients', icon: Building2, path: '/admin/clients', section: 'Administration' },
         { label: 'Locations', icon: MapPin, path: '/admin/locations', section: 'Administration' },
         { label: 'Settings', icon: Settings, path: '/admin/settings', section: 'Administration' }
       );
