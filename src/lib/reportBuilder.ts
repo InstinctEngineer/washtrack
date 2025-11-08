@@ -281,7 +281,7 @@ export async function buildClientBillingQuery(config: ReportConfig) {
   
   data?.forEach((entry: any) => {
     const clientId = entry.vehicle?.client_id;
-    const clientName = entry.vehicle?.client?.client_name || 'Unknown';
+    const clientName = entry.vehicle?.client?.client_name || 'No Client Assigned';
     
     if (!clientMap.has(clientId)) {
       clientMap.set(clientId, {
@@ -371,7 +371,7 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
   
   data?.forEach((entry: any) => {
     const employeeId = entry.employee?.id;
-    const employeeName = entry.employee?.name || 'Unknown';
+    const employeeName = entry.employee?.name || 'No Employee Assigned';
     
     if (!employeeMap.has(employeeId)) {
       employeeMap.set(employeeId, {
@@ -458,12 +458,19 @@ async function buildUnifiedQuery(config: ReportConfig) {
     const detailConfig = { ...config, columns: detailColumns };
     const detailData = await buildWashEntriesQuery(detailConfig);
     
-    // Build aggregate summary
-    const aggregateConfig = { ...config, columns: config.columns.filter(col => 
-      UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate || 
-      col === 'client_name' || 
-      col === 'employee_name'
-    )};
+    // Build aggregate summary - include the grouping field + aggregate columns
+    const aggregateColumns = config.columns.filter(col => 
+      UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
+    );
+    
+    const aggregateConfig = { 
+      ...config, 
+      columns: hasClientFields 
+        ? ['client_name', ...aggregateColumns]
+        : hasEmployeeFields 
+          ? ['employee_name', ...aggregateColumns]
+          : aggregateColumns
+    };
     
     let aggregateData: any[] = [];
     if (hasClientAggregates && hasClientFields) {
@@ -475,16 +482,14 @@ async function buildUnifiedQuery(config: ReportConfig) {
     // Combine detail and aggregate data
     // Add a separator row
     const separator: any = {};
-    detailColumns.forEach(col => {
-      const colDef = UNIFIED_COLUMNS.find(c => c.id === col);
+    config.columns.forEach(col => {
       separator[col] = '';
     });
     
-    // Add section headers
+    // Add section headers - use ALL columns for consistent Excel layout
     const detailHeader: any = {};
-    detailColumns.forEach(col => {
-      const colDef = UNIFIED_COLUMNS.find(c => c.id === col);
-      detailHeader[col] = col === detailColumns[0] ? '--- DETAIL ROWS ---' : '';
+    config.columns.forEach(col => {
+      detailHeader[col] = col === config.columns[0] ? '--- DETAIL ROWS ---' : '';
     });
     
     const summaryHeader: any = {};
@@ -492,18 +497,28 @@ async function buildUnifiedQuery(config: ReportConfig) {
       summaryHeader[col] = col === config.columns[0] ? '--- SUMMARY ---' : '';
     });
     
-    // Merge aggregate data to include detail columns (empty)
+    // Merge aggregate data to include ALL columns (detail columns stay empty in summary)
     const expandedAggregateData = aggregateData.map(row => {
       const expandedRow: any = {};
       config.columns.forEach(col => {
-        expandedRow[col] = row[col] || '';
+        // Keep aggregate and grouping columns, empty strings for detail columns
+        expandedRow[col] = row[col] !== undefined ? row[col] : '';
+      });
+      return expandedRow;
+    });
+    
+    // Expand detail data to include ALL columns for consistent structure
+    const expandedDetailData = detailData.map(row => {
+      const expandedRow: any = {};
+      config.columns.forEach(col => {
+        expandedRow[col] = row[col] !== undefined ? row[col] : '';
       });
       return expandedRow;
     });
     
     return [
       detailHeader,
-      ...detailData,
+      ...expandedDetailData,
       separator,
       summaryHeader,
       ...expandedAggregateData
