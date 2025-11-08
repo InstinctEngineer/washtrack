@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { RootRedirect } from "@/components/RootRedirect";
 
 // Pages
 import Login from "./pages/Login";
@@ -38,8 +39,8 @@ const App = () => (
             <Route path="/change-password" element={<ChangePassword />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
 
-            {/* Protected Routes - Redirect root to login */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            {/* Protected Routes - Smart root redirect */}
+            <Route path="/" element={<RootRedirect />} />
 
             {/* Employee Routes */}
             <Route
