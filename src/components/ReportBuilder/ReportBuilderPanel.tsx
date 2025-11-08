@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Save, CalendarIcon } from 'lucide-react';
+import { Save, CalendarIcon, Filter } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
 import { ColumnSelector } from './ColumnSelector';
 import { FilterPanel } from './FilterPanel';
 import { LiveReportPreview } from './LiveReportPreview';
@@ -34,6 +36,8 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
   const [templateDescription, setTemplateDescription] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
 
   // Calculate current week dates
   const today = new Date();
@@ -185,14 +189,94 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
     setSelectedEmployees([]);
   };
 
+  const totalActiveFilters = selectedClients.length + selectedLocations.length + selectedEmployees.length;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] h-[90vh] p-0 gap-0">
-        <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle>Create Custom Report</DialogTitle>
-          <DialogDescription>
-            Select columns, apply filters, and preview your data before exporting
-          </DialogDescription>
+        <DialogHeader className="px-6 py-3 border-b space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <DialogTitle>Create Custom Report</DialogTitle>
+              <DialogDescription>
+                Select columns, apply filters, and preview your data before exporting
+              </DialogDescription>
+            </div>
+            
+            {/* Compact Additional Filters in Header */}
+            <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" size="sm" className="shrink-0">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filters
+                  {totalActiveFilters > 0 && (
+                    <Badge variant="secondary" className="ml-2 h-5 px-1.5">
+                      {totalActiveFilters}
+                    </Badge>
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="absolute right-6 top-[4.5rem] z-50 w-80 bg-background border rounded-lg shadow-lg">
+                <div className="p-4">
+                  <FilterPanel
+                    selectedClients={selectedClients}
+                    selectedLocations={selectedLocations}
+                    selectedEmployees={selectedEmployees}
+                    onClientsChange={setSelectedClients}
+                    onLocationsChange={setSelectedLocations}
+                    onEmployeesChange={setSelectedEmployees}
+                    onClearAll={handleClearAllFilters}
+                  />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
+          {/* Compact Save as Template in Header */}
+          <Collapsible open={templateOpen} onOpenChange={setTemplateOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full justify-start">
+                <Save className="h-4 w-4 mr-2" />
+                Save as Template (Optional)
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="pt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="template-name" className="text-xs">Template Name</Label>
+                    <Input
+                      id="template-name"
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      placeholder="e.g., Weekly Vehicle Wash Report"
+                      className="mt-1.5 h-8 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="template-description" className="text-xs">Description</Label>
+                    <Input
+                      id="template-description"
+                      value={templateDescription}
+                      onChange={(e) => setTemplateDescription(e.target.value)}
+                      placeholder="Optional description..."
+                      className="mt-1.5 h-8 text-sm"
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={handleSaveTemplate}
+                  disabled={isSaving || !templateName.trim() || selectedColumns.length === 0}
+                  variant="default"
+                  size="sm"
+                  className="w-full"
+                >
+                  <Save className="h-3 w-3 mr-2" />
+                  {isSaving ? 'Saving...' : 'Save Template'}
+                </Button>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
@@ -200,7 +284,7 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
           <div className="w-[40%] border-r overflow-y-auto">
             <div className="p-6 space-y-6">
               {/* Date Range - Always at the top */}
-              <div className="space-y-2 pb-4 border-b">
+              <div className="space-y-2">
                 <Label className="text-sm font-semibold">Date Range</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Popover>
@@ -253,59 +337,12 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
                 </div>
               </div>
 
+              <Separator />
+
               <ColumnSelector
                 selectedColumns={selectedColumns}
                 onColumnsChange={setSelectedColumns}
               />
-
-              <Separator />
-
-              <FilterPanel
-                selectedClients={selectedClients}
-                selectedLocations={selectedLocations}
-                selectedEmployees={selectedEmployees}
-                onClientsChange={setSelectedClients}
-                onLocationsChange={setSelectedLocations}
-                onEmployeesChange={setSelectedEmployees}
-                onClearAll={handleClearAllFilters}
-              />
-
-              <Separator />
-
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold">Save as Template (Optional)</h3>
-                <div>
-                  <Label htmlFor="template-name" className="text-xs">Template Name</Label>
-                  <Input
-                    id="template-name"
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="e.g., Weekly Vehicle Wash Report"
-                    className="mt-1.5"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="template-description" className="text-xs">Description</Label>
-                  <Textarea
-                    id="template-description"
-                    value={templateDescription}
-                    onChange={(e) => setTemplateDescription(e.target.value)}
-                    placeholder="Optional description..."
-                    className="mt-1.5 resize-none"
-                    rows={2}
-                  />
-                </div>
-                <Button
-                  onClick={handleSaveTemplate}
-                  disabled={isSaving || !templateName.trim() || selectedColumns.length === 0}
-                  variant="outline"
-                  className="w-full"
-                  size="sm"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSaving ? 'Saving...' : 'Save Template'}
-                </Button>
-              </div>
             </div>
           </div>
 
