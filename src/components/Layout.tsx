@@ -139,11 +139,11 @@ export const Layout = ({ children }: LayoutProps) => {
                 </span>
                 <span className="text-[10px] text-muted-foreground -mt-0.5">for ES&D Service</span>
               </div>
-              <div className="hidden md:block h-8 w-px bg-border mx-1" />
+              <div className="hidden md:block h-10 w-px bg-border mx-1" />
               <img 
                 src={esAndDLogo} 
                 alt="ES&D Services Inc." 
-                className="hidden md:block h-8 w-auto object-contain"
+                className="hidden md:block h-10 w-auto object-contain"
               />
             </Link>
           </div>
