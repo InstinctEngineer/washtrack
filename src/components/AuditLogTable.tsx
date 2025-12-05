@@ -1,14 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight } from 'lucide-react';
-import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown, ChevronRight, CalendarIcon, Filter, X, Columns3, Download, ArrowRight } from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { exportToExcel } from '@/lib/excelExporter';
+import { toast } from '@/hooks/use-toast';
 
 interface AuditLogEntry {
   id: string;
@@ -25,6 +41,17 @@ interface AuditLogEntry {
     employee_id: string;
   };
 }
+
+type AuditColumnKey = 'table' | 'action' | 'employee' | 'vehicle' | 'date' | 'time';
+
+const AUDIT_COLUMN_CONFIG: { key: AuditColumnKey; label: string; filterable: boolean }[] = [
+  { key: 'table', label: 'Table', filterable: true },
+  { key: 'action', label: 'Action', filterable: true },
+  { key: 'employee', label: 'Employee', filterable: true },
+  { key: 'vehicle', label: 'Vehicle', filterable: true },
+  { key: 'date', label: 'Date', filterable: true },
+  { key: 'time', label: 'Time', filterable: false },
+];
 
 // Helper functions
 const formatCurrency = (value: any): string => {
@@ -55,42 +82,185 @@ const formatDate = (value: any): string => {
   }
 };
 
+// Column Filter Dropdown Component
+function ColumnFilterDropdown({
+  label,
+  uniqueValues,
+  selectedValues,
+  onSelectionChange,
+}: {
+  label: string;
+  uniqueValues: string[];
+  selectedValues: string[];
+  onSelectionChange: (values: string[]) => void;
+}) {
+  const isFiltered = selectedValues.length > 0;
+
+  const handleToggle = (value: string) => {
+    if (selectedValues.includes(value)) {
+      onSelectionChange(selectedValues.filter((v) => v !== value));
+    } else {
+      onSelectionChange([...selectedValues, value]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onSelectionChange([]);
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn('h-6 w-6 p-0', isFiltered && 'text-primary')}
+        >
+          <Filter className="h-3 w-3" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-0 bg-popover border" align="start">
+        <div className="p-2 border-b">
+          <p className="text-sm font-medium">Filter {label}</p>
+        </div>
+        <div className="p-2 border-b">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-xs"
+            onClick={handleSelectAll}
+          >
+            {selectedValues.length === 0 ? 'All Selected' : 'Clear Filter'}
+          </Button>
+        </div>
+        <ScrollArea className="h-[200px]">
+          <div className="p-2 space-y-1">
+            {uniqueValues.map((value) => (
+              <div
+                key={value}
+                className="flex items-center space-x-2 p-1 hover:bg-muted rounded cursor-pointer"
+                onClick={() => handleToggle(value)}
+              >
+                <Checkbox
+                  checked={selectedValues.length === 0 || selectedValues.includes(value)}
+                  className="pointer-events-none"
+                />
+                <span className="text-sm truncate">{value || '(Empty)'}</span>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function AuditLogTable() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [vehicleMap, setVehicleMap] = useState<Map<string, string>>(new Map());
   const [locationMap, setLocationMap] = useState<Map<string, string>>(new Map());
   const [clientMap, setClientMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
-  const [actionFilter, setActionFilter] = useState<string>('all');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const pageSize = 20;
+
+  // Date range state
+  const [dateMode, setDateMode] = useState<'month' | 'custom'>('month');
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
+
+  // Column visibility state
+  const [visibleColumns, setVisibleColumns] = useState<Record<AuditColumnKey, boolean>>({
+    table: true,
+    action: true,
+    employee: true,
+    vehicle: true,
+    date: true,
+    time: true,
+  });
+
+  // Per-column text search
+  const [columnSearches, setColumnSearches] = useState<Record<AuditColumnKey, string>>({
+    table: '',
+    action: '',
+    employee: '',
+    vehicle: '',
+    date: '',
+    time: '',
+  });
+
+  // Per-column dropdown filters
+  const [columnFilters, setColumnFilters] = useState<Record<AuditColumnKey, string[]>>({
+    table: [],
+    action: [],
+    employee: [],
+    vehicle: [],
+    date: [],
+    time: [],
+  });
+
+  // Row selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Validate custom date range
+  const isCustomRangeValid = useMemo(() => {
+    if (dateMode !== 'custom') return true;
+    if (!customStartDate || !customEndDate) return false;
+    if (customEndDate < customStartDate) return false;
+    if (differenceInDays(customEndDate, customStartDate) > 365) return false;
+    return true;
+  }, [dateMode, customStartDate, customEndDate]);
+
+  const dateRangeError = useMemo(() => {
+    if (dateMode !== 'custom') return null;
+    if (!customStartDate || !customEndDate) return 'Select both start and end dates';
+    if (customEndDate < customStartDate) return 'End date must be after start date';
+    if (differenceInDays(customEndDate, customStartDate) > 365) return 'Maximum range is 365 days';
+    return null;
+  }, [dateMode, customStartDate, customEndDate]);
 
   useEffect(() => {
-    fetchAuditLogs();
-  }, [page, actionFilter]);
+    if (dateMode === 'month' || (dateMode === 'custom' && isCustomRangeValid && customStartDate && customEndDate)) {
+      fetchAuditLogs();
+    }
+  }, [selectedMonth, dateMode, customStartDate, customEndDate]);
+
+  // Handle switching to custom mode - pre-populate with current month
+  const handleDateModeChange = (mode: string) => {
+    if (mode === 'custom' && !customStartDate && !customEndDate) {
+      setCustomStartDate(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1));
+      setCustomEndDate(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0));
+    }
+    setDateMode(mode as 'month' | 'custom');
+  };
 
   const fetchAuditLogs = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('audit_log')
-        .select('*, changed_by_user:users!changed_by(id, name, employee_id)', { count: 'exact' })
-        .eq('table_name', 'wash_entries')
-        .order('changed_at', { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      let startDate: Date;
+      let endDate: Date;
 
-      if (actionFilter !== 'all') {
-        query = query.eq('action', actionFilter);
+      if (dateMode === 'month') {
+        startDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
+        endDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0, 23, 59, 59);
+      } else {
+        startDate = customStartDate!;
+        endDate = new Date(customEndDate!);
+        endDate.setHours(23, 59, 59);
       }
 
-      const { data, error, count } = await query;
+      const { data, error } = await supabase
+        .from('audit_log')
+        .select('*, changed_by_user:users!changed_by(id, name, employee_id)')
+        .eq('table_name', 'wash_entries')
+        .gte('changed_at', startDate.toISOString())
+        .lte('changed_at', endDate.toISOString())
+        .order('changed_at', { ascending: false })
+        .limit(1000);
 
       if (error) throw error;
 
       setAuditLogs(data as AuditLogEntry[] || []);
-      setTotalCount(count || 0);
 
       // Fetch related data (vehicles, locations, clients)
       if (data && data.length > 0) {
@@ -143,6 +313,9 @@ export function AuditLogTable() {
           }
         }
       }
+
+      // Clear selection when data changes
+      setSelectedIds(new Set());
     } catch (error) {
       console.error('Error fetching audit logs:', error);
     } finally {
@@ -160,11 +333,180 @@ export function AuditLogTable() {
     setExpandedRows(newExpanded);
   };
 
-  const getVehicleNumber = (entry: AuditLogEntry) => {
+  // Get column value for filtering
+  const getColumnValue = (entry: AuditLogEntry, key: AuditColumnKey): string => {
     const data = entry.action === 'DELETE' ? entry.old_data : entry.new_data;
     const vehicleId = (data as any)?.vehicle_id;
-    return vehicleId ? vehicleMap.get(vehicleId) || 'Unknown' : 'N/A';
+
+    switch (key) {
+      case 'table':
+        return entry.table_name === 'wash_entries' ? 'Wash Entries' : entry.table_name;
+      case 'action':
+        return entry.action;
+      case 'employee':
+        return entry.changed_by_user?.name || 'Unknown';
+      case 'vehicle':
+        return vehicleId ? vehicleMap.get(vehicleId) || 'Unknown' : 'N/A';
+      case 'date':
+        return format(new Date(entry.changed_at), 'MMM d, yyyy');
+      case 'time':
+        return format(new Date(entry.changed_at), 'h:mm a');
+      default:
+        return '';
+    }
   };
+
+  // Get unique values for each column
+  const uniqueValues = useMemo(() => {
+    const values: Record<AuditColumnKey, string[]> = {
+      table: [],
+      action: [],
+      employee: [],
+      vehicle: [],
+      date: [],
+      time: [],
+    };
+
+    auditLogs.forEach((entry) => {
+      AUDIT_COLUMN_CONFIG.forEach(({ key }) => {
+        const value = getColumnValue(entry, key);
+        if (value && !values[key].includes(value)) {
+          values[key].push(value);
+        }
+      });
+    });
+
+    // Sort each array
+    Object.keys(values).forEach((key) => {
+      values[key as AuditColumnKey].sort();
+    });
+
+    return values;
+  }, [auditLogs, vehicleMap]);
+
+  // Filter entries based on all filters
+  const filteredEntries = useMemo(() => {
+    return auditLogs.filter((entry) => {
+      return AUDIT_COLUMN_CONFIG.every(({ key }) => {
+        const value = getColumnValue(entry, key).toLowerCase();
+        const searchTerm = columnSearches[key].toLowerCase();
+        const filterValues = columnFilters[key];
+
+        // Check text search
+        if (searchTerm && !value.includes(searchTerm)) {
+          return false;
+        }
+
+        // Check dropdown filter
+        if (filterValues.length > 0 && !filterValues.includes(getColumnValue(entry, key))) {
+          return false;
+        }
+
+        return true;
+      });
+    });
+  }, [auditLogs, columnSearches, columnFilters, vehicleMap]);
+
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    Object.values(columnSearches).forEach((v) => {
+      if (v) count++;
+    });
+    Object.values(columnFilters).forEach((v) => {
+      if (v.length > 0) count++;
+    });
+    return count;
+  }, [columnSearches, columnFilters]);
+
+  const clearAllFilters = () => {
+    setColumnSearches({
+      table: '',
+      action: '',
+      employee: '',
+      vehicle: '',
+      date: '',
+      time: '',
+    });
+    setColumnFilters({
+      table: [],
+      action: [],
+      employee: [],
+      vehicle: [],
+      date: [],
+      time: [],
+    });
+  };
+
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(filteredEntries.map(e => e.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const isAllSelected = filteredEntries.length > 0 && filteredEntries.every(e => selectedIds.has(e.id));
+  const isSomeSelected = filteredEntries.some(e => selectedIds.has(e.id)) && !isAllSelected;
+
+  // Export functionality
+  const handleExport = (entriesToExport: AuditLogEntry[]) => {
+    const exportData = entriesToExport.map(entry => {
+      const data = entry.action === 'DELETE' ? entry.old_data : entry.new_data;
+      const vehicleId = (data as any)?.vehicle_id;
+      
+      return {
+        'Table': entry.table_name === 'wash_entries' ? 'Wash Entries' : entry.table_name,
+        'Action': entry.action,
+        'Employee Name': entry.changed_by_user?.name || 'Unknown',
+        'Employee ID': entry.changed_by_user?.employee_id || 'N/A',
+        'Vehicle': vehicleId ? vehicleMap.get(vehicleId) || 'Unknown' : 'N/A',
+        'Date': format(new Date(entry.changed_at), 'yyyy-MM-dd'),
+        'Time': format(new Date(entry.changed_at), 'h:mm a'),
+        'Wash Date': data?.wash_date || 'N/A',
+        'Location': data?.actual_location_id ? locationMap.get(data.actual_location_id) || 'N/A' : 'N/A',
+        'Client': data?.client_id ? clientMap.get(data.client_id) || 'N/A' : 'N/A',
+      };
+    });
+
+    exportToExcel(exportData, `audit_log_${format(new Date(), 'yyyy-MM-dd')}`, 'Audit Log');
+
+    toast({
+      title: 'Export Complete',
+      description: `Exported ${entriesToExport.length} entries`,
+    });
+  };
+
+  const handleExportSelected = () => {
+    const selected = filteredEntries.filter(e => selectedIds.has(e.id));
+    handleExport(selected);
+  };
+
+  const handleExportAll = () => {
+    handleExport(filteredEntries);
+  };
+
+  // Date range display
+  const dateRangeDisplay = useMemo(() => {
+    if (dateMode === 'month') {
+      return format(selectedMonth, 'MMMM yyyy');
+    }
+    if (customStartDate && customEndDate) {
+      return `${format(customStartDate, 'MMM d, yyyy')} - ${format(customEndDate, 'MMM d, yyyy')}`;
+    }
+    return 'Select date range';
+  }, [dateMode, selectedMonth, customStartDate, customEndDate]);
 
   const getTableBadge = (tableName: string) => {
     const nameMap: Record<string, string> = {
@@ -213,17 +555,14 @@ export function AuditLogTable() {
   const formatFieldValue = (field: string, value: any): string => {
     if (value == null || value === '') return 'N/A';
 
-    // Currency fields
     if (field.includes('amount') || field.includes('rate') || field.includes('cost') || field.includes('price')) {
       return formatCurrency(value);
     }
 
-    // Boolean fields
     if (typeof value === 'boolean') {
       return formatBoolean(value);
     }
 
-    // Date/time fields
     if (field.includes('_at') && typeof value === 'string') {
       return formatDateTime(value);
     }
@@ -231,7 +570,6 @@ export function AuditLogTable() {
       return formatDate(value);
     }
 
-    // ID fields - try to resolve
     if (field === 'vehicle_id') {
       return vehicleMap.get(value) || value;
     }
@@ -466,83 +804,379 @@ export function AuditLogTable() {
     }
   };
 
+  const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length;
+
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Audit Log</CardTitle>
+          <CardDescription>Loading...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <Select value={actionFilter} onValueChange={setActionFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by action" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Actions</SelectItem>
-            <SelectItem value="INSERT">New Entries</SelectItem>
-            <SelectItem value="UPDATE">Edits</SelectItem>
-            <SelectItem value="DELETE">Deletions</SelectItem>
-          </SelectContent>
-        </Select>
-        {actionFilter !== 'all' && (
-          <Button variant="ghost" size="sm" onClick={() => setActionFilter('all')}>
-            Reset
-          </Button>
-        )}
-      </div>
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <CardTitle>Audit Log</CardTitle>
+            <CardDescription>
+              {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'} • {dateRangeDisplay}
+            </CardDescription>
+          </div>
 
-      {auditLogs.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">No audit entries found</div>
-      ) : (
-        <>
+          {/* Selection toolbar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+              <Button variant="outline" size="sm" onClick={handleExportSelected}>
+                <Download className="h-4 w-4 mr-1" />
+                Export Selected
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {/* Toolbar */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          {/* Date range controls */}
+          <div className="flex items-center gap-2">
+            <Tabs value={dateMode} onValueChange={handleDateModeChange}>
+              <TabsList>
+                <TabsTrigger value="month">Month</TabsTrigger>
+                <TabsTrigger value="custom">Custom Range</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {dateMode === 'month' ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-[180px] justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(selectedMonth, 'MMMM yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedMonth}
+                    onSelect={(date) => date && setSelectedMonth(date)}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-[130px] justify-start text-left font-normal", !customStartDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customStartDate ? format(customStartDate, 'MMM d, yyyy') : 'Start'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customStartDate}
+                      onSelect={setCustomStartDate}
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-[130px] justify-start text-left font-normal", !customEndDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customEndDate ? format(customEndDate, 'MMM d, yyyy') : 'End'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customEndDate}
+                      onSelect={setCustomEndDate}
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+          </div>
+
+          {/* Right side controls */}
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Columns3 className="h-4 w-4 mr-1" />
+                  Columns
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {AUDIT_COLUMN_CONFIG.map(({ key, label }) => (
+                  <DropdownMenuCheckboxItem
+                    key={key}
+                    checked={visibleColumns[key]}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns((prev) => ({ ...prev, [key]: checked }))
+                    }
+                  >
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {activeFilterCount > 0 && (
+              <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                <X className="h-4 w-4 mr-1" />
+                Clear Filters
+                <Badge variant="secondary" className="ml-1">{activeFilterCount}</Badge>
+              </Button>
+            )}
+
+            <Button variant="outline" size="sm" onClick={handleExportAll}>
+              <Download className="h-4 w-4 mr-1" />
+              Export All
+            </Button>
+          </div>
+        </div>
+
+        {dateRangeError && (
+          <div className="text-sm text-destructive">{dateRangeError}</div>
+        )}
+
+        {filteredEntries.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">No audit entries found</div>
+        ) : (
           <div className="border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <Table className="table-fixed">
                 <TableHeader>
+                  {/* Header row */}
                   <TableRow className="bg-muted/50">
+                    <TableHead style={{ width: '48px', minWidth: '48px' }}>
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                        aria-label="Select all"
+                        className={cn(isSomeSelected && "data-[state=checked]:bg-primary/50")}
+                        ref={(el) => {
+                          if (el) {
+                            (el as any).indeterminate = isSomeSelected;
+                          }
+                        }}
+                      />
+                    </TableHead>
+                    <TableHead style={{ width: '40px', minWidth: '40px' }}></TableHead>
+                    {visibleColumns.table && (
+                      <TableHead style={{ width: '120px', minWidth: '120px' }}>
+                        <div className="flex items-center gap-1">
+                          Table
+                          <ColumnFilterDropdown
+                            label="Table"
+                            uniqueValues={uniqueValues.table}
+                            selectedValues={columnFilters.table}
+                            onSelectionChange={(values) => setColumnFilters(prev => ({ ...prev, table: values }))}
+                          />
+                        </div>
+                      </TableHead>
+                    )}
+                    {visibleColumns.action && (
+                      <TableHead style={{ width: '90px', minWidth: '90px' }}>
+                        <div className="flex items-center gap-1">
+                          Action
+                          <ColumnFilterDropdown
+                            label="Action"
+                            uniqueValues={uniqueValues.action}
+                            selectedValues={columnFilters.action}
+                            onSelectionChange={(values) => setColumnFilters(prev => ({ ...prev, action: values }))}
+                          />
+                        </div>
+                      </TableHead>
+                    )}
+                    {visibleColumns.employee && (
+                      <TableHead style={{ width: '180px', minWidth: '180px' }}>
+                        <div className="flex items-center gap-1">
+                          Employee
+                          <ColumnFilterDropdown
+                            label="Employee"
+                            uniqueValues={uniqueValues.employee}
+                            selectedValues={columnFilters.employee}
+                            onSelectionChange={(values) => setColumnFilters(prev => ({ ...prev, employee: values }))}
+                          />
+                        </div>
+                      </TableHead>
+                    )}
+                    {visibleColumns.vehicle && (
+                      <TableHead style={{ width: '120px', minWidth: '120px' }}>
+                        <div className="flex items-center gap-1">
+                          Vehicle
+                          <ColumnFilterDropdown
+                            label="Vehicle"
+                            uniqueValues={uniqueValues.vehicle}
+                            selectedValues={columnFilters.vehicle}
+                            onSelectionChange={(values) => setColumnFilters(prev => ({ ...prev, vehicle: values }))}
+                          />
+                        </div>
+                      </TableHead>
+                    )}
+                    {visibleColumns.date && (
+                      <TableHead style={{ width: '100px', minWidth: '100px' }}>
+                        <div className="flex items-center gap-1">
+                          Date
+                          <ColumnFilterDropdown
+                            label="Date"
+                            uniqueValues={uniqueValues.date}
+                            selectedValues={columnFilters.date}
+                            onSelectionChange={(values) => setColumnFilters(prev => ({ ...prev, date: values }))}
+                          />
+                        </div>
+                      </TableHead>
+                    )}
+                    {visibleColumns.time && (
+                      <TableHead style={{ width: '100px', minWidth: '100px' }}>Time</TableHead>
+                    )}
+                  </TableRow>
+
+                  {/* Search row */}
+                  <TableRow>
                     <TableHead style={{ width: '48px', minWidth: '48px' }}></TableHead>
-                    <TableHead style={{ width: '120px', minWidth: '120px' }}>Table</TableHead>
-                    <TableHead style={{ width: '90px', minWidth: '90px' }}>Action</TableHead>
-                    <TableHead style={{ width: '180px', minWidth: '180px' }}>Employee</TableHead>
-                    <TableHead style={{ width: '120px', minWidth: '120px' }}>Vehicle</TableHead>
-                    <TableHead style={{ width: '100px', minWidth: '100px' }}>Date</TableHead>
-                    <TableHead style={{ width: '100px', minWidth: '100px' }}>Time</TableHead>
+                    <TableHead style={{ width: '40px', minWidth: '40px' }}></TableHead>
+                    {visibleColumns.table && (
+                      <TableHead style={{ width: '120px', minWidth: '120px' }}>
+                        <Input
+                          placeholder="Search..."
+                          value={columnSearches.table}
+                          onChange={(e) => setColumnSearches(prev => ({ ...prev, table: e.target.value }))}
+                          className="h-7 text-xs"
+                        />
+                      </TableHead>
+                    )}
+                    {visibleColumns.action && (
+                      <TableHead style={{ width: '90px', minWidth: '90px' }}>
+                        <Input
+                          placeholder="Search..."
+                          value={columnSearches.action}
+                          onChange={(e) => setColumnSearches(prev => ({ ...prev, action: e.target.value }))}
+                          className="h-7 text-xs"
+                        />
+                      </TableHead>
+                    )}
+                    {visibleColumns.employee && (
+                      <TableHead style={{ width: '180px', minWidth: '180px' }}>
+                        <Input
+                          placeholder="Search..."
+                          value={columnSearches.employee}
+                          onChange={(e) => setColumnSearches(prev => ({ ...prev, employee: e.target.value }))}
+                          className="h-7 text-xs"
+                        />
+                      </TableHead>
+                    )}
+                    {visibleColumns.vehicle && (
+                      <TableHead style={{ width: '120px', minWidth: '120px' }}>
+                        <Input
+                          placeholder="Search..."
+                          value={columnSearches.vehicle}
+                          onChange={(e) => setColumnSearches(prev => ({ ...prev, vehicle: e.target.value }))}
+                          className="h-7 text-xs"
+                        />
+                      </TableHead>
+                    )}
+                    {visibleColumns.date && (
+                      <TableHead style={{ width: '100px', minWidth: '100px' }}>
+                        <Input
+                          placeholder="Search..."
+                          value={columnSearches.date}
+                          onChange={(e) => setColumnSearches(prev => ({ ...prev, date: e.target.value }))}
+                          className="h-7 text-xs"
+                        />
+                      </TableHead>
+                    )}
+                    {visibleColumns.time && (
+                      <TableHead style={{ width: '100px', minWidth: '100px' }}>
+                        <Input
+                          placeholder="Search..."
+                          value={columnSearches.time}
+                          onChange={(e) => setColumnSearches(prev => ({ ...prev, time: e.target.value }))}
+                          className="h-7 text-xs"
+                        />
+                      </TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {auditLogs.map((entry) => (
+                  {filteredEntries.map((entry) => (
                     <Collapsible key={entry.id} open={expandedRows.has(entry.id)} asChild>
                       <>
-                        <CollapsibleTrigger asChild>
-                          <TableRow
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => toggleRow(entry.id)}
-                          >
-                            <TableCell style={{ width: '48px', minWidth: '48px' }} className="py-4">
+                        <TableRow className="cursor-pointer hover:bg-muted/50">
+                          <TableCell style={{ width: '48px', minWidth: '48px' }} className="py-4" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selectedIds.has(entry.id)}
+                              onCheckedChange={(checked) => handleSelectRow(entry.id, !!checked)}
+                              aria-label={`Select row ${entry.id}`}
+                            />
+                          </TableCell>
+                          <CollapsibleTrigger asChild>
+                            <TableCell style={{ width: '40px', minWidth: '40px' }} className="py-4" onClick={() => toggleRow(entry.id)}>
                               {expandedRows.has(entry.id) ? (
                                 <ChevronDown className="h-4 w-4" />
                               ) : (
                                 <ChevronRight className="h-4 w-4" />
                               )}
                             </TableCell>
-                            <TableCell style={{ width: '120px', minWidth: '120px' }} className="py-4">{getTableBadge(entry.table_name)}</TableCell>
-                            <TableCell style={{ width: '90px', minWidth: '90px' }} className="py-4">{getActionBadge(entry.action)}</TableCell>
-                            <TableCell style={{ width: '180px', minWidth: '180px' }} className="py-4">
+                          </CollapsibleTrigger>
+                          {visibleColumns.table && (
+                            <TableCell style={{ width: '120px', minWidth: '120px' }} className="py-4" onClick={() => toggleRow(entry.id)}>
+                              {getTableBadge(entry.table_name)}
+                            </TableCell>
+                          )}
+                          {visibleColumns.action && (
+                            <TableCell style={{ width: '90px', minWidth: '90px' }} className="py-4" onClick={() => toggleRow(entry.id)}>
+                              {getActionBadge(entry.action)}
+                            </TableCell>
+                          )}
+                          {visibleColumns.employee && (
+                            <TableCell style={{ width: '180px', minWidth: '180px' }} className="py-4" onClick={() => toggleRow(entry.id)}>
                               {entry.changed_by_user?.name || 'Unknown'} ({entry.changed_by_user?.employee_id || 'N/A'})
                             </TableCell>
-                            <TableCell style={{ width: '120px', minWidth: '120px' }} className="py-4">{getVehicleNumber(entry)}</TableCell>
-                            <TableCell style={{ width: '100px', minWidth: '100px' }} className="py-4">{format(new Date(entry.changed_at), 'MMM d')}</TableCell>
-                            <TableCell style={{ width: '100px', minWidth: '100px' }} className="py-4">{format(new Date(entry.changed_at), 'h:mm a')}</TableCell>
-                          </TableRow>
-                        </CollapsibleTrigger>
+                          )}
+                          {visibleColumns.vehicle && (
+                            <TableCell style={{ width: '120px', minWidth: '120px' }} className="py-4" onClick={() => toggleRow(entry.id)}>
+                              {getColumnValue(entry, 'vehicle')}
+                            </TableCell>
+                          )}
+                          {visibleColumns.date && (
+                            <TableCell style={{ width: '100px', minWidth: '100px' }} className="py-4" onClick={() => toggleRow(entry.id)}>
+                              {format(new Date(entry.changed_at), 'MMM d')}
+                            </TableCell>
+                          )}
+                          {visibleColumns.time && (
+                            <TableCell style={{ width: '100px', minWidth: '100px' }} className="py-4" onClick={() => toggleRow(entry.id)}>
+                              {format(new Date(entry.changed_at), 'h:mm a')}
+                            </TableCell>
+                          )}
+                        </TableRow>
                         <CollapsibleContent asChild>
                           <TableRow>
-                            <TableCell colSpan={7} className="bg-muted/30 p-6">
+                            <TableCell colSpan={visibleColumnCount + 2} className="bg-muted/30 p-6">
                               {renderDataComparison(entry)}
                             </TableCell>
                           </TableRow>
@@ -554,33 +1188,12 @@ export function AuditLogTable() {
               </Table>
             </div>
           </div>
+        )}
 
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Showing {page * pageSize + 1}-{Math.min((page + 1) * pageSize, totalCount)} of{' '}
-              {totalCount} entries
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => p + 1)}
-                disabled={(page + 1) * pageSize >= totalCount}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+        <div className="text-sm text-muted-foreground">
+          Showing {filteredEntries.length} of {auditLogs.length} entries (max 1000 per date range)
+        </div>
+      </CardContent>
+    </Card>
   );
 }
