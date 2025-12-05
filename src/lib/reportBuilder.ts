@@ -106,30 +106,64 @@ export const SYSTEM_TEMPLATES: Omit<ReportTemplate, 'created_by' | 'created_at' 
 
 // Unified column definitions - only fields currently being captured in the app
 export const UNIFIED_COLUMNS = [
-  // Wash Entry Details
-  { id: 'wash_date', label: 'Date', category: 'Wash Entry', isAggregate: false },
+  // Wash Entry Details - Main
+  { id: 'wash_date', label: 'Date', category: 'Wash Entry', isAggregate: false, isAdvanced: false },
   
-  // Vehicle Information
-  { id: 'vehicle_number', label: 'Vehicle Number', category: 'Vehicle', isAggregate: false },
-  { id: 'vehicle_type', label: 'Vehicle Type', category: 'Vehicle', isAggregate: false },
+  // Vehicle Information - Main
+  { id: 'vehicle_number', label: 'Vehicle Number', category: 'Vehicle', isAggregate: false, isAdvanced: false },
+  { id: 'vehicle_type', label: 'Vehicle Type', category: 'Vehicle', isAggregate: false, isAdvanced: false },
   
-  // Client Information
-  { id: 'client_name', label: 'Client Name', category: 'Client', isAggregate: false },
+  // Client Information - Main
+  { id: 'client_name', label: 'Client Name', category: 'Client', isAggregate: false, isAdvanced: false },
   
-  // Location Information
-  { id: 'location_name', label: 'Vehicle Location', category: 'Location', isAggregate: false },
+  // Location Information - Main
+  { id: 'location_name', label: 'Vehicle Location', category: 'Location', isAggregate: false, isAdvanced: false },
   
-  // Employee Information
-  { id: 'employee_name', label: 'Employee Name', category: 'Employee', isAggregate: false },
+  // Employee Information - Main
+  { id: 'employee_name', label: 'Employee Name', category: 'Employee', isAggregate: false, isAdvanced: false },
   
-  // Financial Information
-  { id: 'rate_at_time_of_wash', label: 'Rate ($)', category: 'Financial', isAggregate: false },
+  // Financial Information - Main
+  { id: 'rate_at_time_of_wash', label: 'Rate ($)', category: 'Financial', isAggregate: false, isAdvanced: false },
   
-  // Aggregated Metrics
-  { id: 'total_washes', label: 'Total Washes', category: 'Metrics', isAggregate: true },
-  { id: 'total_revenue', label: 'Total Revenue ($)', category: 'Metrics', isAggregate: true },
-  { id: 'avg_wash_value', label: 'Avg Wash Value ($)', category: 'Metrics', isAggregate: true },
-  { id: 'locations_serviced', label: 'Locations Serviced', category: 'Metrics', isAggregate: true },
+  // Aggregated Metrics - Main
+  { id: 'total_washes', label: 'Total Washes', category: 'Metrics', isAggregate: true, isAdvanced: false },
+  { id: 'total_revenue', label: 'Total Revenue ($)', category: 'Metrics', isAggregate: true, isAdvanced: false },
+  { id: 'avg_wash_value', label: 'Avg Wash Value ($)', category: 'Metrics', isAggregate: true, isAdvanced: false },
+  { id: 'locations_serviced', label: 'Locations Serviced', category: 'Metrics', isAggregate: true, isAdvanced: false },
+
+  // ============ ADVANCED FIELDS ============
+  
+  // Wash Entry Details - Advanced
+  { id: 'created_at', label: 'Entry Created', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
+  { id: 'comment', label: 'Comment/Notes', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
+  { id: 'time_started', label: 'Time Started', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
+  { id: 'time_completed', label: 'Time Completed', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
+  { id: 'wash_duration_minutes', label: 'Duration (mins)', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
+  { id: 'service_type', label: 'Service Type', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
+  { id: 'customer_po_number', label: 'PO Number', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
+
+  // Vehicle Details - Advanced
+  { id: 'fleet_number', label: 'Fleet Number', category: 'Vehicle', isAggregate: false, isAdvanced: true },
+  { id: 'license_plate', label: 'License Plate', category: 'Vehicle', isAggregate: false, isAdvanced: true },
+  { id: 'vehicle_make', label: 'Make', category: 'Vehicle', isAggregate: false, isAdvanced: true },
+  { id: 'vehicle_model', label: 'Model', category: 'Vehicle', isAggregate: false, isAdvanced: true },
+  { id: 'vehicle_year', label: 'Year', category: 'Vehicle', isAggregate: false, isAdvanced: true },
+  { id: 'vehicle_color', label: 'Color', category: 'Vehicle', isAggregate: false, isAdvanced: true },
+
+  // Client Details - Advanced
+  { id: 'client_code', label: 'Client Code', category: 'Client', isAggregate: false, isAdvanced: true },
+  { id: 'client_contact_name', label: 'Client Contact', category: 'Client', isAggregate: false, isAdvanced: true },
+  { id: 'client_contact_email', label: 'Client Email', category: 'Client', isAggregate: false, isAdvanced: true },
+  { id: 'client_contact_phone', label: 'Client Phone', category: 'Client', isAggregate: false, isAdvanced: true },
+
+  // Location Details - Advanced
+  { id: 'location_address', label: 'Location Address', category: 'Location', isAggregate: false, isAdvanced: true },
+  { id: 'location_city', label: 'City', category: 'Location', isAggregate: false, isAdvanced: true },
+  { id: 'location_state', label: 'State', category: 'Location', isAggregate: false, isAdvanced: true },
+
+  // Employee Details - Advanced
+  { id: 'employee_id_number', label: 'Employee ID', category: 'Employee', isAggregate: false, isAdvanced: true },
+  { id: 'employee_email', label: 'Employee Email', category: 'Employee', isAggregate: false, isAdvanced: true },
 ];
 
 // Legacy column arrays for backward compatibility
@@ -160,22 +194,72 @@ function resolveDateRange(value: string | [string, string]): [string, string] {
 
 // Build query for wash entries report
 export async function buildWashEntriesQuery(config: ReportConfig) {
+  // Check if we need advanced fields to optimize the query
+  const needsAdvancedWashFields = config.columns.some(col => 
+    ['created_at', 'comment', 'time_started', 'time_completed', 'wash_duration_minutes', 'service_type', 'customer_po_number'].includes(col)
+  );
+  const needsAdvancedVehicleFields = config.columns.some(col => 
+    ['fleet_number', 'license_plate', 'vehicle_make', 'vehicle_model', 'vehicle_year', 'vehicle_color'].includes(col)
+  );
+  const needsAdvancedClientFields = config.columns.some(col => 
+    ['client_code', 'client_contact_name', 'client_contact_email', 'client_contact_phone'].includes(col)
+  );
+  const needsAdvancedLocationFields = config.columns.some(col => 
+    ['location_address', 'location_city', 'location_state'].includes(col)
+  );
+  const needsAdvancedEmployeeFields = config.columns.some(col => 
+    ['employee_id_number', 'employee_email'].includes(col)
+  );
+
+  // Build dynamic select based on needed fields
+  let selectParts = [
+    'id',
+    'wash_date',
+    'rate_at_time_of_wash',
+  ];
+  
+  if (needsAdvancedWashFields) {
+    selectParts.push('created_at', 'comment', 'time_started', 'time_completed', 'wash_duration_minutes', 'service_type', 'customer_po_number');
+  }
+
+  // Build vehicle select
+  let vehicleSelect = 'id, vehicle_number, client_id';
+  if (needsAdvancedVehicleFields) {
+    vehicleSelect += ', fleet_number, license_plate, make, model, year, color';
+  }
+  
+  // Build client select within vehicle
+  let clientSelect = 'client_name';
+  if (needsAdvancedClientFields) {
+    clientSelect += ', client_code, primary_contact_name, primary_contact_email, primary_contact_phone';
+  }
+
+  // Build location select
+  let locationSelect = 'id, name';
+  if (needsAdvancedLocationFields) {
+    locationSelect += ', address, city, state';
+  }
+
+  // Build employee select
+  let employeeSelect = 'id, name';
+  if (needsAdvancedEmployeeFields) {
+    employeeSelect += ', employee_id, email';
+  }
+
+  const fullSelect = `
+    ${selectParts.join(', ')},
+    vehicle:vehicles!inner(
+      ${vehicleSelect},
+      vehicle_type:vehicle_types(type_name),
+      client:clients(${clientSelect})
+    ),
+    actual_location:locations!wash_entries_actual_location_id_fkey(${locationSelect}),
+    employee:users!wash_entries_employee_id_fkey(${employeeSelect})
+  `;
+
   let query = supabase
     .from('wash_entries')
-    .select(`
-      id,
-      wash_date,
-      rate_at_time_of_wash,
-      vehicle:vehicles!inner(
-        id,
-        vehicle_number,
-        client_id,
-        vehicle_type:vehicle_types(type_name),
-        client:clients(client_name)
-      ),
-      actual_location:locations!wash_entries_actual_location_id_fkey(id, name),
-      employee:users!wash_entries_employee_id_fkey(id, name)
-    `);
+    .select(fullSelect);
 
   // Apply filters
   for (const filter of config.filters) {
@@ -221,6 +305,7 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
     
     config.columns.forEach((col) => {
       switch (col) {
+        // Main fields
         case 'wash_date':
           row['wash_date'] = entry.wash_date;
           break;
@@ -241,6 +326,82 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
           break;
         case 'employee_name':
           row['employee_name'] = entry.employee?.name || '';
+          break;
+        
+        // Advanced wash entry fields
+        case 'created_at':
+          row['created_at'] = entry.created_at || '';
+          break;
+        case 'comment':
+          row['comment'] = entry.comment || '';
+          break;
+        case 'time_started':
+          row['time_started'] = entry.time_started || '';
+          break;
+        case 'time_completed':
+          row['time_completed'] = entry.time_completed || '';
+          break;
+        case 'wash_duration_minutes':
+          row['wash_duration_minutes'] = entry.wash_duration_minutes || '';
+          break;
+        case 'service_type':
+          row['service_type'] = entry.service_type || '';
+          break;
+        case 'customer_po_number':
+          row['customer_po_number'] = entry.customer_po_number || '';
+          break;
+        
+        // Advanced vehicle fields
+        case 'fleet_number':
+          row['fleet_number'] = entry.vehicle?.fleet_number || '';
+          break;
+        case 'license_plate':
+          row['license_plate'] = entry.vehicle?.license_plate || '';
+          break;
+        case 'vehicle_make':
+          row['vehicle_make'] = entry.vehicle?.make || '';
+          break;
+        case 'vehicle_model':
+          row['vehicle_model'] = entry.vehicle?.model || '';
+          break;
+        case 'vehicle_year':
+          row['vehicle_year'] = entry.vehicle?.year || '';
+          break;
+        case 'vehicle_color':
+          row['vehicle_color'] = entry.vehicle?.color || '';
+          break;
+        
+        // Advanced client fields
+        case 'client_code':
+          row['client_code'] = entry.vehicle?.client?.client_code || '';
+          break;
+        case 'client_contact_name':
+          row['client_contact_name'] = entry.vehicle?.client?.primary_contact_name || '';
+          break;
+        case 'client_contact_email':
+          row['client_contact_email'] = entry.vehicle?.client?.primary_contact_email || '';
+          break;
+        case 'client_contact_phone':
+          row['client_contact_phone'] = entry.vehicle?.client?.primary_contact_phone || '';
+          break;
+        
+        // Advanced location fields
+        case 'location_address':
+          row['location_address'] = entry.actual_location?.address || '';
+          break;
+        case 'location_city':
+          row['location_city'] = entry.actual_location?.city || '';
+          break;
+        case 'location_state':
+          row['location_state'] = entry.actual_location?.state || '';
+          break;
+        
+        // Advanced employee fields
+        case 'employee_id_number':
+          row['employee_id_number'] = entry.employee?.employee_id || '';
+          break;
+        case 'employee_email':
+          row['employee_email'] = entry.employee?.email || '';
           break;
       }
     });
