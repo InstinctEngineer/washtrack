@@ -170,24 +170,7 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-bold">Audit Log</h2>
-            <p className="text-muted-foreground">Track all changes to wash entries</p>
-          </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Changes</CardTitle>
-              <CardDescription>
-                All INSERT, UPDATE, and DELETE operations on wash entries
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AuditLogTable />
-            </CardContent>
-          </Card>
-        </div>
+        <AuditLogTable />
       </div>
     </Layout>
   );
