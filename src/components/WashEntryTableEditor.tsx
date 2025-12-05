@@ -1193,7 +1193,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
             <Table>
               <TableHeader>
                 {/* Header Row with Filter Icons */}
-                <TableRow>
+                <TableRow className="bg-muted/50">
                   <TableHead className="w-[50px]"></TableHead>
                   {COLUMN_CONFIG.map(
                     ({ key, label, filterable, editable }) =>
