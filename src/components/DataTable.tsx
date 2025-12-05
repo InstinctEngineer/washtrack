@@ -10,8 +10,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
 
@@ -28,6 +30,10 @@ interface DataTableProps<T> {
   searchKey?: keyof T;
   itemsPerPage?: number;
   actions?: (item: T) => React.ReactNode;
+  title?: string;
+  description?: string;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }
 
 export function DataTable<T extends { id: string }>({
@@ -36,12 +42,17 @@ export function DataTable<T extends { id: string }>({
   searchKey,
   itemsPerPage = 50,
   actions,
+  title,
+  description,
+  collapsible = false,
+  defaultOpen = true,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(itemsPerPage);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [isTableOpen, setIsTableOpen] = useState(defaultOpen);
 
   const handlePageSizeChange = (value: string) => {
     setRowsPerPage(Number(value));

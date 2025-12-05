@@ -28,7 +28,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Edit, Eye, Power } from 'lucide-react';
+import { Edit, Eye, Power, ChevronDown } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
 interface LocationTableProps {
@@ -63,6 +66,7 @@ export const LocationTable = ({
     open: false,
     location: null,
   });
+  const [isTableOpen, setIsTableOpen] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -160,27 +164,39 @@ export const LocationTable = ({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-4 items-center">
-        <Input
-          placeholder="Search by name or address..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
-        <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Locations</SelectItem>
-            <SelectItem value="active">Active Only</SelectItem>
-            <SelectItem value="inactive">Inactive Only</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+    <Card>
+      <Collapsible open={isTableOpen} onOpenChange={setIsTableOpen}>
+        <CardHeader className="cursor-pointer" onClick={() => setIsTableOpen(!isTableOpen)}>
+          <div className="flex items-center gap-2">
+            <ChevronDown className={cn("h-5 w-5 transition-transform", !isTableOpen && "-rotate-90")} />
+            <div>
+              <CardTitle>Locations</CardTitle>
+              <CardDescription>{locations.length} location{locations.length !== 1 ? 's' : ''}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
+            <div className="flex gap-4 items-center">
+              <Input
+                placeholder="Search by name or address..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-sm"
+              />
+              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  <SelectItem value="active">Active Only</SelectItem>
+                  <SelectItem value="inactive">Inactive Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-      <div className="border rounded-lg">
+            <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
@@ -306,6 +322,9 @@ export const LocationTable = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 };

@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 
 interface ApprovalRequest {
   id: string;
@@ -31,6 +33,7 @@ export function ManagerApprovalQueue({ managerId }: { managerId: string }) {
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     fetchRequests();
@@ -162,15 +165,20 @@ export function ManagerApprovalQueue({ managerId }: { managerId: string }) {
   if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Pending Approvals
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">Loading approval requests...</p>
-        </CardContent>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CardHeader className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+            <CardTitle className="flex items-center gap-2">
+              <ChevronDown className={cn("h-5 w-5 transition-transform", !isOpen && "-rotate-90")} />
+              <Clock className="h-5 w-5" />
+              Pending Approvals
+            </CardTitle>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Loading approval requests...</p>
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
     );
   }
@@ -178,28 +186,36 @@ export function ManagerApprovalQueue({ managerId }: { managerId: string }) {
   if (requests.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Pending Approvals
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">No pending approval requests</p>
-        </CardContent>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CardHeader className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+            <CardTitle className="flex items-center gap-2">
+              <ChevronDown className={cn("h-5 w-5 transition-transform", !isOpen && "-rotate-90")} />
+              <Clock className="h-5 w-5" />
+              Pending Approvals
+            </CardTitle>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">No pending approval requests</p>
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
     );
   }
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5" />
-          Pending Approvals ({requests.length})
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CardHeader className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+          <CardTitle className="flex items-center gap-2">
+            <ChevronDown className={cn("h-5 w-5 transition-transform", !isOpen && "-rotate-90")} />
+            <Clock className="h-5 w-5" />
+            Pending Approvals ({requests.length})
+          </CardTitle>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="space-y-3">
         {requests.map((request) => (
           <div
             key={request.id}
@@ -256,7 +272,9 @@ export function ManagerApprovalQueue({ managerId }: { managerId: string }) {
             </div>
           </div>
         ))}
-      </CardContent>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 }

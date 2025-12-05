@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -423,6 +424,9 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
+
+  // Collapsible state
+  const [isTableOpen, setIsTableOpen] = useState(true);
 
   const handlePageSizeChange = (value: string) => {
     setRowsPerPage(Number(value));
@@ -1058,9 +1062,10 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   return (
     <>
       <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <Collapsible open={isTableOpen} onOpenChange={setIsTableOpen}>
+          <CardHeader className="cursor-pointer" onClick={() => setIsTableOpen(!isTableOpen)}>
+            <div className="flex items-center gap-2">
+              <ChevronDown className={cn("h-5 w-5 transition-transform", !isTableOpen && "-rotate-90")} />
               <div>
                 <CardTitle>Wash Entry Management</CardTitle>
                 <CardDescription>
@@ -1072,178 +1077,179 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                   )}
                 </CardDescription>
               </div>
-              <div className="flex flex-wrap gap-2 items-center">
+            </div>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              {/* Date Range Controls */}
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
+                  <Tabs value={dateMode} onValueChange={handleDateModeChange} className="w-auto">
+                    <TabsList className="h-8">
+                      <TabsTrigger value="week" className="text-xs px-3">Week</TabsTrigger>
+                      <TabsTrigger value="month" className="text-xs px-3">Month</TabsTrigger>
+                      <TabsTrigger value="custom" className="text-xs px-3">Custom Range</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
 
-            {/* Date Range Controls */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
-              <Tabs value={dateMode} onValueChange={handleDateModeChange} className="w-auto">
-                <TabsList className="h-8">
-                  <TabsTrigger value="week" className="text-xs px-3">Week</TabsTrigger>
-                  <TabsTrigger value="month" className="text-xs px-3">Month</TabsTrigger>
-                  <TabsTrigger value="custom" className="text-xs px-3">Custom Range</TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {dateMode === 'week' && (
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setSelectedWeek(prev => {
-                      const newDate = new Date(prev);
-                      newDate.setDate(newDate.getDate() - 7);
-                      return newDate;
-                    })}
-                  >
-                    ← Prev
-                  </Button>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(startOfWeek(selectedWeek, { weekStartsOn: 0 }), 'MMM d')} - {format(endOfWeek(selectedWeek, { weekStartsOn: 0 }), 'MMM d')}
+                  {dateMode === 'week' && (
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setSelectedWeek(prev => {
+                          const newDate = new Date(prev);
+                          newDate.setDate(newDate.getDate() - 7);
+                          return newDate;
+                        })}
+                      >
+                        ← Prev
                       </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={selectedWeek}
-                        onSelect={(date) => date && setSelectedWeek(date)}
-                        initialFocus
-                        className={cn('p-3 pointer-events-auto')}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setSelectedWeek(prev => {
-                      const newDate = new Date(prev);
-                      newDate.setDate(newDate.getDate() + 7);
-                      return newDate;
-                    })}
-                  >
-                    Next →
-                  </Button>
-                </div>
-              )}
-
-              {dateMode === 'month' && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(selectedMonth, 'MMM yyyy')}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedMonth}
-                      onSelect={(date) => date && setSelectedMonth(date)}
-                      initialFocus
-                      className={cn('p-3 pointer-events-auto')}
-                    />
-                  </PopoverContent>
-                </Popover>
-              )}
-
-              {dateMode === 'custom' && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className={cn(!customStartDate && 'text-muted-foreground')}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {customStartDate ? format(customStartDate, 'MMM d, yyyy') : 'Start date'}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {format(startOfWeek(selectedWeek, { weekStartsOn: 0 }), 'MMM d')} - {format(endOfWeek(selectedWeek, { weekStartsOn: 0 }), 'MMM d')}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={selectedWeek}
+                            onSelect={(date) => date && setSelectedWeek(date)}
+                            initialFocus
+                            className={cn('p-3 pointer-events-auto')}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setSelectedWeek(prev => {
+                          const newDate = new Date(prev);
+                          newDate.setDate(newDate.getDate() + 7);
+                          return newDate;
+                        })}
+                      >
+                        Next →
                       </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={customStartDate}
-                        onSelect={setCustomStartDate}
-                        initialFocus
-                        className={cn('p-3 pointer-events-auto')}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                    </div>
+                  )}
 
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  {dateMode === 'month' && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {format(selectedMonth, 'MMM yyyy')}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={selectedMonth}
+                          onSelect={(date) => date && setSelectedMonth(date)}
+                          initialFocus
+                          className={cn('p-3 pointer-events-auto')}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  )}
 
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className={cn(!customEndDate && 'text-muted-foreground')}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {customEndDate ? format(customEndDate, 'MMM d, yyyy') : 'End date'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={customEndDate}
-                        onSelect={setCustomEndDate}
-                        initialFocus
-                        className={cn('p-3 pointer-events-auto')}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  {dateMode === 'custom' && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn(!customStartDate && 'text-muted-foreground')}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customStartDate ? format(customStartDate, 'MMM d, yyyy') : 'Start date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customStartDate}
+                            onSelect={setCustomStartDate}
+                            initialFocus
+                            className={cn('p-3 pointer-events-auto')}
+                          />
+                        </PopoverContent>
+                      </Popover>
 
-                  {dateRangeError && (
-                    <span className="text-xs text-destructive">{dateRangeError}</span>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn(!customEndDate && 'text-muted-foreground')}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customEndDate ? format(customEndDate, 'MMM d, yyyy') : 'End date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customEndDate}
+                            onSelect={setCustomEndDate}
+                            initialFocus
+                            className={cn('p-3 pointer-events-auto')}
+                          />
+                        </PopoverContent>
+                      </Popover>
+
+                      {dateRangeError && (
+                        <span className="text-xs text-destructive">{dateRangeError}</span>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
 
-              {/* Column Visibility */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Columns3 className="mr-2 h-4 w-4" />
-                    Columns
-                    <ChevronDown className="ml-2 h-3 w-3" />
+                <div className="flex flex-wrap gap-2 items-center">
+                  {/* Column Visibility */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Columns3 className="mr-2 h-4 w-4" />
+                        Columns
+                        <ChevronDown className="ml-2 h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 bg-popover">
+                      <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {COLUMN_CONFIG.map(({ key, label }) => (
+                        <DropdownMenuCheckboxItem
+                          key={key}
+                          checked={visibleColumns[key]}
+                          onCheckedChange={(checked) =>
+                            setVisibleColumns((prev) => ({ ...prev, [key]: checked }))
+                          }
+                        >
+                          {label}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Clear Filters */}
+                  {activeFilterCount > 0 && (
+                    <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                      <X className="mr-2 h-4 w-4" />
+                      Clear Filters
+                      <Badge variant="secondary" className="ml-2">
+                        {activeFilterCount}
+                      </Badge>
+                    </Button>
+                  )}
+
+                  {/* Add Entry */}
+                  <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Entry
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-popover">
-                  <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {COLUMN_CONFIG.map(({ key, label }) => (
-                    <DropdownMenuCheckboxItem
-                      key={key}
-                      checked={visibleColumns[key]}
-                      onCheckedChange={(checked) =>
-                        setVisibleColumns((prev) => ({ ...prev, [key]: checked }))
-                      }
-                    >
-                      {label}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </div>
+              </div>
 
-              {/* Clear Filters */}
-              {activeFilterCount > 0 && (
-                <Button variant="outline" size="sm" onClick={clearAllFilters}>
-                  <X className="mr-2 h-4 w-4" />
-                  Clear Filters
-                  <Badge variant="secondary" className="ml-2">
-                    {activeFilterCount}
-                  </Badge>
-                </Button>
-              )}
-
-              {/* Add Entry */}
-              <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Entry
-              </Button>
-            </div>
-
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Bulk Action Toolbar */}
+              {/* Bulk Action Toolbar */}
           {selectedIds.size > 0 && (
             <div className="flex items-center justify-between p-3 bg-muted rounded-lg border">
               <span className="text-sm font-medium">
@@ -1601,10 +1607,12 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
+            </div>
+          )}
+        </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {/* Delete Confirmation Dialog */}

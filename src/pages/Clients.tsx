@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Building2, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Building2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -50,6 +51,7 @@ export default function Clients() {
   });
   const [sortColumn, setSortColumn] = useState<string>('client_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [isTableOpen, setIsTableOpen] = useState(true);
 
   useEffect(() => {
     fetchClients();
@@ -198,28 +200,33 @@ export default function Clients() {
         </div>
 
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Clients</CardTitle>
-                <CardDescription>
-                  {filteredClients.length} client{filteredClients.length !== 1 ? 's' : ''}
-                </CardDescription>
-              </div>
-              <div className="w-64">
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search clients..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8"
-                  />
+          <Collapsible open={isTableOpen} onOpenChange={setIsTableOpen}>
+            <CardHeader className="cursor-pointer" onClick={() => setIsTableOpen(!isTableOpen)}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ChevronDown className={cn("h-5 w-5 transition-transform", !isTableOpen && "-rotate-90")} />
+                  <div>
+                    <CardTitle>Clients</CardTitle>
+                    <CardDescription>
+                      {filteredClients.length} client{filteredClients.length !== 1 ? 's' : ''}
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="w-64" onClick={(e) => e.stopPropagation()}>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search clients..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>
             {loading ? (
               <div className="text-center py-8 text-muted-foreground">Loading...</div>
             ) : filteredClients.length === 0 ? (
@@ -312,7 +319,9 @@ export default function Clients() {
                 </TableBody>
               </Table>
             )}
-          </CardContent>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
 
         {/* Create/Edit Dialog */}
