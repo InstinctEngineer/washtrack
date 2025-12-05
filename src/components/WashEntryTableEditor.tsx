@@ -74,7 +74,7 @@ const COLUMN_CONFIG: { key: ColumnKey; label: string; filterable: boolean }[] = 
   { key: 'vehicle', label: 'Vehicle', filterable: true },
   { key: 'client', label: 'Client', filterable: true },
   { key: 'type', label: 'Type', filterable: true },
-  { key: 'rate', label: 'Rate', filterable: false },
+  { key: 'rate', label: 'Rate', filterable: true },
   { key: 'location', label: 'Location', filterable: true },
   { key: 'employee', label: 'Employee', filterable: true },
 ];
