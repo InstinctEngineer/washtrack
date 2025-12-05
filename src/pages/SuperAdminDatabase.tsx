@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
@@ -9,9 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Database, Edit, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Database, Edit, Plus, Trash2, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 const TABLES = [
   'users',
@@ -34,6 +35,8 @@ export default function SuperAdminDatabase() {
   const [editDialog, setEditDialog] = useState(false);
   const [editingRow, setEditingRow] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Only super_admin can access
   if (userRole !== 'super_admin') {
@@ -42,6 +45,8 @@ export default function SuperAdminDatabase() {
 
   const fetchTableData = async (tableName: string) => {
     setLoading(true);
+    setSortColumn(null);
+    setSortDirection('asc');
     try {
       const { data, error } = await supabase
         .from(tableName as any)
@@ -135,6 +140,44 @@ export default function SuperAdminDatabase() {
     setEditDialog(true);
   };
 
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedTableData = useMemo(() => {
+    if (!sortColumn) return tableData;
+
+    return [...tableData].sort((a, b) => {
+      const aValue = a[sortColumn];
+      const bValue = b[sortColumn];
+
+      if (aValue == null && bValue == null) return 0;
+      if (aValue == null) return sortDirection === 'asc' ? 1 : -1;
+      if (bValue == null) return sortDirection === 'asc' ? -1 : 1;
+
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+
+      if (sortDirection === 'asc') {
+        return aStr.localeCompare(bStr);
+      } else {
+        return bStr.localeCompare(aStr);
+      }
+    });
+  }, [tableData, sortColumn, sortDirection]);
+
+  const getSortIcon = (col: string) => {
+    if (sortColumn !== col) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
   return (
     <Layout>
       <div className="container mx-auto p-6 space-y-6">
@@ -196,15 +239,22 @@ export default function SuperAdminDatabase() {
                             <TableHeader>
                               <TableRow>
                                 {columns.map(col => (
-                                  <TableHead key={col} className="whitespace-nowrap">
-                                    {col}
+                                  <TableHead 
+                                    key={col} 
+                                    className="whitespace-nowrap cursor-pointer select-none hover:bg-muted/50"
+                                    onClick={() => handleSort(col)}
+                                  >
+                                    <div className="flex items-center">
+                                      {col}
+                                      {getSortIcon(col)}
+                                    </div>
                                   </TableHead>
                                 ))}
                                 <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {tableData.map((row, idx) => (
+                              {sortedTableData.map((row, idx) => (
                                 <TableRow key={row.id || idx}>
                                   {columns.map(col => (
                                     <TableCell key={col} className="whitespace-nowrap">

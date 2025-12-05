@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronRight, Filter, X, Download, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronRight, Filter, X, Download, ArrowRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -135,6 +135,8 @@ export default function AdminSettings() {
     changedAt: '',
   });
   const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
+  const [historySortColumn, setHistorySortColumn] = useState<HistoryColumnKey>('changedAt');
+  const [historySortDirection, setHistorySortDirection] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetchData();
@@ -281,6 +283,56 @@ export default function AdminSettings() {
       return true;
     });
   }, [auditTrail, historyColumnFilters, historyColumnSearches]);
+
+  // Sorting handlers
+  const handleHistorySort = (column: HistoryColumnKey) => {
+    if (historySortColumn === column) {
+      setHistorySortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setHistorySortColumn(column);
+      setHistorySortDirection('asc');
+    }
+  };
+
+  // Sort entries
+  const sortedAuditTrail = useMemo(() => {
+    return [...filteredAuditTrail].sort((a, b) => {
+      const getValue = (audit: AuditTrailItem, key: HistoryColumnKey): string => {
+        switch (key) {
+          case 'changedBy': return audit.user?.name || 'System';
+          case 'oldValue': return audit.old_value || '';
+          case 'newValue': return audit.new_value;
+          case 'reason': return audit.change_reason || '';
+          case 'changedAt': return audit.changed_at;
+          default: return '';
+        }
+      };
+
+      const aValue = getValue(a, historySortColumn);
+      const bValue = getValue(b, historySortColumn);
+
+      // Handle date column
+      if (historySortColumn === 'changedAt' || historySortColumn === 'oldValue' || historySortColumn === 'newValue') {
+        const aDate = aValue ? new Date(aValue).getTime() : 0;
+        const bDate = bValue ? new Date(bValue).getTime() : 0;
+        return historySortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+      }
+
+      // String comparison for other columns
+      if (historySortDirection === 'asc') {
+        return aValue.localeCompare(bValue);
+      } else {
+        return bValue.localeCompare(aValue);
+      }
+    });
+  }, [filteredAuditTrail, historySortColumn, historySortDirection]);
+
+  const getHistorySortIcon = (column: HistoryColumnKey) => {
+    if (historySortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    return historySortDirection === 'asc' 
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
@@ -692,14 +744,19 @@ export default function AdminSettings() {
                       <TableRow>
                         <TableHead className="w-[40px]">
                           <Checkbox
-                            checked={filteredAuditTrail.length > 0 && selectedHistoryIds.size === filteredAuditTrail.length}
+                            checked={sortedAuditTrail.length > 0 && selectedHistoryIds.size === sortedAuditTrail.length}
                             onCheckedChange={toggleSelectAll}
                           />
                         </TableHead>
                         {HISTORY_COLUMN_CONFIG.map(col => (
-                          <TableHead key={col.key}>
+                          <TableHead 
+                            key={col.key}
+                            className="cursor-pointer select-none hover:bg-muted/50"
+                            onClick={() => handleHistorySort(col.key)}
+                          >
                             <div className="flex items-center gap-1">
                               {col.label}
+                              {getHistorySortIcon(col.key)}
                               {col.filterable && (
                                 <ColumnFilterDropdown
                                   columnKey={col.key}
@@ -733,14 +790,14 @@ export default function AdminSettings() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredAuditTrail.length === 0 ? (
+                      {sortedAuditTrail.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center text-muted-foreground">
                             No changes recorded
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredAuditTrail.map((audit) => (
+                        sortedAuditTrail.map((audit) => (
                           <TableRow key={audit.id}>
                             <TableCell>
                               <Checkbox

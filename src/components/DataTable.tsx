@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -9,12 +9,14 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Column<T> {
   key: string;
   label: string;
   render?: (item: T) => React.ReactNode;
+  sortable?: boolean;
 }
 
 interface DataTableProps<T> {
@@ -34,6 +36,17 @@ export function DataTable<T extends { id: string }>({
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (columnKey: string) => {
+    if (sortColumn === columnKey) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(columnKey);
+      setSortDirection('asc');
+    }
+  };
 
   const filteredData = searchKey && searchTerm
     ? data.filter((item) =>
@@ -41,10 +54,40 @@ export function DataTable<T extends { id: string }>({
       )
     : data;
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const sortedData = useMemo(() => {
+    if (!sortColumn) return filteredData;
+
+    return [...filteredData].sort((a, b) => {
+      const aValue = a[sortColumn as keyof T];
+      const bValue = b[sortColumn as keyof T];
+
+      if (aValue == null && bValue == null) return 0;
+      if (aValue == null) return sortDirection === 'asc' ? 1 : -1;
+      if (bValue == null) return sortDirection === 'asc' ? -1 : 1;
+
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+
+      if (sortDirection === 'asc') {
+        return aStr.localeCompare(bStr);
+      } else {
+        return bStr.localeCompare(aStr);
+      }
+    });
+  }, [filteredData, sortColumn, sortDirection]);
+
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentData = filteredData.slice(startIndex, endIndex);
+  const currentData = sortedData.slice(startIndex, endIndex);
+
+  const getSortIcon = (columnKey: string, sortable?: boolean) => {
+    if (sortable === false) return null;
+    if (sortColumn !== columnKey) return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-4 w-4 ml-1" />
+      : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
 
   return (
     <div className="space-y-4">
@@ -66,7 +109,7 @@ export function DataTable<T extends { id: string }>({
       )}
 
       <div className="text-sm text-muted-foreground">
-        Showing {startIndex + 1}-{Math.min(endIndex, filteredData.length)} of {filteredData.length}
+        Showing {startIndex + 1}-{Math.min(endIndex, sortedData.length)} of {sortedData.length}
       </div>
 
       <div className="rounded-md border">
@@ -74,7 +117,18 @@ export function DataTable<T extends { id: string }>({
           <TableHeader>
             <TableRow>
               {columns.map((column) => (
-                <TableHead key={column.key}>{column.label}</TableHead>
+                <TableHead 
+                  key={column.key}
+                  className={cn(
+                    column.sortable !== false && "cursor-pointer select-none hover:bg-muted/50"
+                  )}
+                  onClick={() => column.sortable !== false && handleSort(column.key)}
+                >
+                  <div className="flex items-center">
+                    {column.label}
+                    {getSortIcon(column.key, column.sortable)}
+                  </div>
+                </TableHead>
               ))}
               {actions && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
