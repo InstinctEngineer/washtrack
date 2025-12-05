@@ -9,8 +9,11 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
 
 interface Column<T> {
   key: string;
@@ -35,9 +38,15 @@ export function DataTable<T extends { id: string }>({
   actions,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(itemsPerPage);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handlePageSizeChange = (value: string) => {
+    setRowsPerPage(Number(value));
+    setCurrentPage(1);
+  };
 
   const handleSort = (columnKey: string) => {
     if (sortColumn === columnKey) {
@@ -76,9 +85,9 @@ export function DataTable<T extends { id: string }>({
     });
   }, [filteredData, sortColumn, sortDirection]);
 
-  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
+  const totalPages = Math.ceil(sortedData.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
   const currentData = sortedData.slice(startIndex, endIndex);
 
   const getSortIcon = (columnKey: string, sortable?: boolean) => {
@@ -108,8 +117,21 @@ export function DataTable<T extends { id: string }>({
         </div>
       )}
 
-      <div className="text-sm text-muted-foreground">
-        Showing {startIndex + 1}-{Math.min(endIndex, sortedData.length)} of {sortedData.length}
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span>Showing {startIndex + 1}-{Math.min(endIndex, sortedData.length)} of {sortedData.length}</span>
+        <Select value={rowsPerPage.toString()} onValueChange={handlePageSizeChange}>
+          <SelectTrigger className="h-7 w-20 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZE_OPTIONS.map(size => (
+              <SelectItem key={size} value={size.toString()} className="text-xs">
+                {size}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span>per page</span>
       </div>
 
       <div className="rounded-md border">
@@ -158,7 +180,7 @@ export function DataTable<T extends { id: string }>({
         </Table>
       </div>
 
-      {totalPages > 1 && (
+      {sortedData.length > 0 && (
         <div className="flex items-center justify-between">
           <Button
             variant="outline"
