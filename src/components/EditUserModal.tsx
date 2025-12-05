@@ -57,6 +57,7 @@ export const EditUserModal = ({
   const [formData, setFormData] = useState({
     name: user.name,
     email: user.email,
+    employee_id: user.employee_id,
     locations: [] as { location_id: string; is_primary: boolean }[],
     role: userRole as UserRole,
     manager_id: user.manager_id || "",
@@ -205,19 +206,26 @@ export const EditUserModal = ({
 
       // Update users table (keep primary location for backward compatibility)
       const primaryLocation = data.locations.find(loc => loc.is_primary);
+      const updateData: any = {
+        name: data.name,
+        email: data.email,
+        location_id: primaryLocation?.location_id || null,
+        manager_id:
+          data.role === "finance" || data.role === "admin" || data.role === "super_admin"
+            ? null
+            : data.manager_id || null,
+        is_active: data.is_active,
+        role: data.role, // Keep in sync for backward compatibility
+      };
+
+      // Only allow super_admin to update employee_id
+      if (currentUserRole === 'super_admin' && data.employee_id !== user.employee_id) {
+        updateData.employee_id = data.employee_id;
+      }
+
       const { error: userError } = await supabase
         .from("users")
-        .update({
-          name: data.name,
-          email: data.email,
-          location_id: primaryLocation?.location_id || null,
-          manager_id:
-            data.role === "finance" || data.role === "admin" || data.role === "super_admin"
-              ? null
-              : data.manager_id || null,
-          is_active: data.is_active,
-          role: data.role, // Keep in sync for backward compatibility
-        })
+        .update(updateData)
         .eq("id", user.id);
 
       if (userError) throw userError;
@@ -315,12 +323,17 @@ export const EditUserModal = ({
               <Label htmlFor="employee_id">Employee ID</Label>
               <Input
                 id="employee_id"
-                value={user.employee_id}
-                disabled
-                className="bg-muted"
+                value={formData.employee_id}
+                onChange={(e) =>
+                  setFormData({ ...formData, employee_id: e.target.value })
+                }
+                disabled={currentUserRole !== 'super_admin'}
+                className={currentUserRole !== 'super_admin' ? "bg-muted" : ""}
               />
               <p className="text-xs text-muted-foreground">
-                Employee ID cannot be changed after creation
+                {currentUserRole === 'super_admin' 
+                  ? "Only Super Admins can edit Employee ID"
+                  : "Employee ID cannot be changed (Super Admin only)"}
               </p>
             </div>
 

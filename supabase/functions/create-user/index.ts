@@ -7,6 +7,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Generate employee ID in format YYMMXXX (e.g., 2512001)
+async function generateEmployeeId(supabaseAdmin: any): Promise<string> {
+  const now = new Date();
+  const year = now.getFullYear().toString().slice(-2); // Last 2 digits of year
+  const month = (now.getMonth() + 1).toString().padStart(2, '0'); // Month with leading zero
+  const prefix = `${year}${month}`;
+  
+  console.log(`Generating employee ID with prefix: ${prefix}`);
+  
+  // Query for the highest existing employee ID with this prefix
+  const { data: existingUsers, error } = await supabaseAdmin
+    .from('users')
+    .select('employee_id')
+    .like('employee_id', `${prefix}%`)
+    .order('employee_id', { ascending: false })
+    .limit(1);
+  
+  if (error) {
+    console.error('Error querying existing employee IDs:', error);
+    throw new Error('Failed to generate employee ID');
+  }
+  
+  let nextNumber = 0;
+  
+  if (existingUsers && existingUsers.length > 0) {
+    const lastId = existingUsers[0].employee_id;
+    // Extract the last 3 digits and increment
+    const lastNumber = parseInt(lastId.slice(-3), 10);
+    nextNumber = lastNumber + 1;
+    
+    if (nextNumber > 999) {
+      throw new Error('Maximum employee IDs for this month reached (999)');
+    }
+  }
+  
+  const employeeId = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+  console.log(`Generated employee ID: ${employeeId}`);
+  
+  return employeeId;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -77,12 +118,8 @@ serve(async (req) => {
     // Parse request body
     const requestBody = await req.json();
 
-    // Validate input using Zod
+    // Validate input using Zod (employee_id is now auto-generated, not required)
     const createUserSchema = z.object({
-      employee_id: z.string()
-        .min(1, 'Employee ID required')
-        .max(50, 'Employee ID too long')
-        .regex(/^[a-zA-Z0-9_-]+$/, 'Invalid employee ID format'),
       name: z.string()
         .min(1, 'Name required')
         .max(100, 'Name too long')
@@ -100,9 +137,12 @@ serve(async (req) => {
     });
 
     const validatedData = createUserSchema.parse(requestBody);
-    const { employee_id, name, email, location_id, role, manager_id, password } = validatedData;
+    const { name, email, location_id, role, manager_id, password } = validatedData;
 
-    console.log('Creating user with email:', email);
+    // Generate employee ID
+    const employee_id = await generateEmployeeId(supabaseAdmin);
+
+    console.log('Creating user with email:', email, 'and employee_id:', employee_id);
 
     // Create auth user using admin client (bypasses signup restrictions)
     const { data: authData, error: authCreateError } = await supabaseAdmin.auth.admin.createUser({
@@ -185,7 +225,8 @@ serve(async (req) => {
         success: true,
         user: {
           id: authData.user.id,
-          email: authData.user.email
+          email: authData.user.email,
+          employee_id: employee_id
         }
       }), 
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
