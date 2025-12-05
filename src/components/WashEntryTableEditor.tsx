@@ -1194,18 +1194,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
               <TableHeader>
                 {/* Header Row with Filter Icons */}
                 <TableRow>
-                  <TableHead className="w-[50px]">
-                    <Checkbox
-                      checked={isAllSelected}
-                      ref={(el) => {
-                        if (el) {
-                          (el as HTMLButtonElement & { indeterminate: boolean }).indeterminate = isSomeSelected;
-                        }
-                      }}
-                      onCheckedChange={handleSelectAll}
-                      aria-label="Select all"
-                    />
-                  </TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                   {COLUMN_CONFIG.map(
                     ({ key, label, filterable, editable }) =>
                       visibleColumns[key] && (
@@ -1319,7 +1308,18 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
 
                 {/* Search Row */}
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="py-1"></TableHead>
+                  <TableHead className="py-1">
+                    <Checkbox
+                      checked={isAllSelected}
+                      ref={(el) => {
+                        if (el) {
+                          (el as HTMLButtonElement & { indeterminate: boolean }).indeterminate = isSomeSelected;
+                        }
+                      }}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
                   {COLUMN_CONFIG.map(
                     ({ key }) =>
                       visibleColumns[key] && (
