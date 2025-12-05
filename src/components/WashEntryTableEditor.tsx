@@ -77,7 +77,7 @@ const COLUMN_CONFIG: { key: ColumnKey; label: string; filterable: boolean; edita
   { key: 'client', label: 'Client', filterable: true },
   { key: 'type', label: 'Type', filterable: true },
   { key: 'rate', label: 'Rate', filterable: true, editable: true },
-  { key: 'location', label: 'Location', filterable: true },
+  { key: 'location', label: 'Location', filterable: true, editable: true },
   { key: 'employee', label: 'Employee', filterable: true },
   { key: 'comment', label: 'Comment', filterable: true, editable: true },
 ];
@@ -182,6 +182,85 @@ function ColumnFilterDropdown({
         </ScrollArea>
       </PopoverContent>
     </Popover>
+  );
+}
+
+// Editable Location Cell Component with Dropdown
+function EditableLocationCell({
+  value,
+  entryId,
+  locationId,
+  locations,
+  isEditing,
+  onStartEdit,
+  onSave,
+  onCancel,
+  isDeleted,
+}: {
+  value: string;
+  entryId: string;
+  locationId: string;
+  locations: Location[];
+  isEditing: boolean;
+  onStartEdit: () => void;
+  onSave: (locationId: string) => void;
+  onCancel: () => void;
+  isDeleted?: boolean;
+}) {
+  const selectRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (isEditing && selectRef.current) {
+      selectRef.current.focus();
+    }
+  }, [isEditing]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onSave(e.target.value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onCancel();
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <select
+        ref={selectRef}
+        value={locationId}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onBlur={onCancel}
+        className="h-7 text-xs w-full min-w-[120px] rounded border border-input bg-background px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        {locations.map((loc) => (
+          <option key={loc.id} value={loc.id}>
+            {loc.name}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        'group cursor-pointer rounded px-1 py-0.5 -mx-1 transition-colors',
+        !isDeleted && 'hover:bg-muted',
+        isDeleted && 'line-through'
+      )}
+      onDoubleClick={isDeleted ? undefined : onStartEdit}
+      title={isDeleted ? undefined : 'Double-click to edit'}
+    >
+      <span className="flex items-center gap-1">
+        {value || <span className="text-muted-foreground italic">N/A</span>}
+        {!isDeleted && (
+          <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+        )}
+      </span>
+    </div>
   );
 }
 
@@ -694,6 +773,15 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
         dbField = 'comment';
         dbValue = value || null;
         break;
+      case 'location':
+        dbField = 'actual_location_id';
+        dbValue = value; // This is the location UUID from the dropdown
+        // Validate that it's a valid location ID
+        if (!locations.find(l => l.id === value)) {
+          toast({ title: 'Invalid location', variant: 'destructive' });
+          return;
+        }
+        break;
       default:
         return; // Non-editable field
     }
@@ -817,7 +905,24 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     const value = getColumnValue(entry, key);
     const isEditing = editingCell?.id === entry.id && editingCell?.field === key;
 
-    // For editable columns, show editable cell
+    // For location column, use dropdown editor
+    if (key === 'location' && config?.editable && !isDeleted) {
+      return (
+        <EditableLocationCell
+          value={value}
+          entryId={entry.id}
+          locationId={entry.actual_location_id}
+          locations={locations}
+          isEditing={isEditing}
+          onStartEdit={() => setEditingCell({ id: entry.id, field: key })}
+          onSave={(locationId) => handleInlineEdit(entry.id, key, locationId)}
+          onCancel={() => setEditingCell(null)}
+          isDeleted={isDeleted}
+        />
+      );
+    }
+
+    // For other editable columns, show text editable cell
     if (config?.editable && !isDeleted) {
       return (
         <EditableCell
