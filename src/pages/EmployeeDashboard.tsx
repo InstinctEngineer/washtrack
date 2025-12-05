@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { WashEntryWithDetails } from '@/types/database';
 import { toast } from '@/hooks/use-toast';
-import { format, startOfWeek, endOfWeek, addDays, isToday } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays, addWeeks, isToday, isSameWeek } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { CutoffBanner } from '@/components/CutoffBanner';
@@ -201,21 +201,63 @@ export default function EmployeeDashboard() {
         {/* Week Summary - Collapsible */}
         <Collapsible open={weekSummaryOpen} onOpenChange={setWeekSummaryOpen}>
           <Card>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-bold">This Week</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold">{entries.length}</span>
-                    <span className="text-muted-foreground">vehicles</span>
-                    {weekSummaryOpen ? (
-                      <ChevronUp className="h-5 w-5 ml-2" />
-                    ) : (
-                      <ChevronDown className="h-5 w-5 ml-2" />
-                    )}
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentWeek(prev => addWeeks(prev, -1));
+                    }}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-center">
+                    <CardTitle className="text-lg font-bold">
+                      {isSameWeek(currentWeek, new Date(), { weekStartsOn: 1 }) 
+                        ? 'This Week' 
+                        : format(weekStart, 'MMM d') + ' - ' + format(addDays(weekStart, 6), 'MMM d')}
+                    </CardTitle>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentWeek(prev => addWeeks(prev, 1));
+                    }}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
-              </CardHeader>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold">{entries.length}</span>
+                  <span className="text-muted-foreground">vehicles</span>
+                </div>
+              </div>
+              {!isSameWeek(currentWeek, new Date(), { weekStartsOn: 1 }) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentWeek(new Date())}
+                  className="mt-2 h-7 text-xs w-fit"
+                >
+                  Return to This Week
+                </Button>
+              )}
+            </CardHeader>
+            <CollapsibleTrigger asChild>
+              <div className="px-6 pb-2 cursor-pointer hover:bg-accent/50 transition-colors rounded-b-lg flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                {weekSummaryOpen ? (
+                  <>Hide Details <ChevronUp className="h-4 w-4" /></>
+                ) : (
+                  <>Show Details <ChevronDown className="h-4 w-4" /></>
+                )}
+              </div>
             </CollapsibleTrigger>
             
             <CollapsibleContent>
