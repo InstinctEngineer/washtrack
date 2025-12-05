@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -12,6 +12,8 @@ interface LiveReportPreviewProps {
 }
 
 const ROWS_PER_PAGE = 20;
+const DEFAULT_COL_WIDTH = 100;
+const MIN_COL_WIDTH = 50;
 
 // Convert column index to Excel-style letter (A, B, C, ... Z, AA, AB...)
 const getColumnLetter = (index: number): string => {
@@ -33,6 +35,37 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
   const [isLoading, setIsLoading] = useState(false);
   const [reportType, setReportType] = useState<'detail' | 'aggregated' | 'mixed'>('detail');
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // Column resize state
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [resizing, setResizing] = useState<{ colId: string; startX: number; startWidth: number } | null>(null);
+
+  const getColumnWidth = useCallback((colId: string) => columnWidths[colId] || DEFAULT_COL_WIDTH, [columnWidths]);
+
+  // Handle resize events
+  useEffect(() => {
+    if (!resizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizing.startX;
+      const newWidth = Math.max(MIN_COL_WIDTH, resizing.startWidth + delta);
+      setColumnWidths(prev => ({ ...prev, [resizing.colId]: newWidth }));
+    };
+
+    const handleMouseUp = () => setResizing(null);
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizing]);
+
+  const handleResizeStart = (e: React.MouseEvent, colId: string) => {
+    e.preventDefault();
+    setResizing({ colId, startX: e.clientX, startWidth: getColumnWidth(colId) });
+  };
 
   useEffect(() => {
     if (config.columns.length === 0) {
@@ -182,7 +215,7 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
       </div>
 
       {/* Excel-style Grid */}
-      <div className="flex-1 overflow-auto">
+      <div className={cn("flex-1 overflow-auto", resizing && "select-none cursor-col-resize")}>
         {config.columns.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
             <FileSpreadsheet className="h-10 w-10 mb-2 opacity-20" />
@@ -200,16 +233,25 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
             <p className="text-xs">No data matches filters</p>
           </div>
         ) : (
-          <div className="font-mono text-[11px] min-w-max">
+          <div className="font-mono text-[11px]">
             {/* Column Letters Row */}
             <div className="flex sticky top-0 z-10 bg-gray-100 border-b border-gray-300">
               <div className="w-8 min-w-[32px] bg-gray-100 border-r border-gray-300" />
-              {config.columns.map((_, idx) => (
+              {config.columns.map((colId, idx) => (
                 <div
                   key={idx}
-                  className="min-w-[90px] flex-1 bg-gray-100 border-r border-gray-300 text-center py-0.5 font-semibold text-gray-500"
+                  className="relative bg-gray-100 border-r border-gray-300 text-center py-0.5 font-semibold text-gray-500"
+                  style={{ width: getColumnWidth(colId), minWidth: MIN_COL_WIDTH }}
                 >
                   {getColumnLetter(idx)}
+                  {/* Resize handle */}
+                  <div
+                    className={cn(
+                      "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-blue-400/50 transition-colors",
+                      resizing?.colId === colId && "bg-blue-500"
+                    )}
+                    onMouseDown={(e) => handleResizeStart(e, colId)}
+                  />
                 </div>
               ))}
             </div>
@@ -224,7 +266,8 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
                 return (
                   <div
                     key={colId}
-                    className="min-w-[90px] flex-1 bg-gray-200 border-r border-gray-300 px-1 py-0.5 font-semibold text-gray-800 truncate"
+                    className="bg-gray-200 border-r border-gray-300 px-1 py-0.5 font-semibold text-gray-800 truncate"
+                    style={{ width: getColumnWidth(colId), minWidth: MIN_COL_WIDTH }}
                     title={col?.label}
                   >
                     {col?.label}
@@ -238,6 +281,7 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
               const absoluteIndex = startIndex + idx;
               const rowStyle = getRowStyle(row, absoluteIndex);
               const rowNumber = absoluteIndex + 2; // +2 because row 1 is header
+              const isEvenRow = idx % 2 === 0;
 
               return (
                 <div
@@ -248,7 +292,9 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
                     rowStyle === 'summary-header' && "bg-gray-100 font-semibold italic",
                     rowStyle === 'separator' && "bg-gray-50",
                     rowStyle === 'summary-row' && "bg-amber-50",
-                    rowStyle === 'normal' && "bg-white hover:bg-blue-50/30"
+                    // Zebra striping for normal rows
+                    rowStyle === 'normal' && (isEvenRow ? "bg-white" : "bg-gray-50/80"),
+                    rowStyle === 'normal' && "hover:bg-blue-50/50"
                   )}
                 >
                   <div className="w-8 min-w-[32px] bg-gray-100 border-r border-gray-300 text-right pr-1 py-0.5 text-gray-500">
@@ -262,9 +308,10 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
                       <div
                         key={colId}
                         className={cn(
-                          "min-w-[90px] flex-1 border-r border-gray-200 px-1 py-0.5 truncate",
+                          "border-r border-gray-200 px-1 py-0.5 truncate",
                           rowStyle === 'total' && "border-gray-300"
                         )}
+                        style={{ width: getColumnWidth(colId), minWidth: MIN_COL_WIDTH }}
                         title={displayValue}
                       >
                         {displayValue}
