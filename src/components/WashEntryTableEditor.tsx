@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format, differenceInDays } from 'date-fns';
-import { CalendarIcon, Trash2, Plus, Filter, X, Columns3, ChevronDown, ArrowRight, RotateCcw, Download } from 'lucide-react';
+import { CalendarIcon, Trash2, Plus, Filter, X, Columns3, ChevronDown, ArrowRight, RotateCcw, Download, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VehicleSearchInput } from './VehicleSearchInput';
@@ -44,6 +44,8 @@ interface WashEntry {
   deleted_at?: string | null;
   deleted_by?: string | null;
   deletion_reason?: string | null;
+  comment?: string | null;
+  rate_override?: number | null;
   vehicle?: {
     vehicle_number: string;
     vehicle_type?: {
@@ -67,16 +69,17 @@ interface Location {
   name: string;
 }
 
-type ColumnKey = 'date' | 'vehicle' | 'client' | 'type' | 'rate' | 'location' | 'employee';
+type ColumnKey = 'date' | 'vehicle' | 'client' | 'type' | 'rate' | 'location' | 'employee' | 'comment';
 
-const COLUMN_CONFIG: { key: ColumnKey; label: string; filterable: boolean }[] = [
-  { key: 'date', label: 'Date', filterable: true },
+const COLUMN_CONFIG: { key: ColumnKey; label: string; filterable: boolean; editable?: boolean }[] = [
+  { key: 'date', label: 'Date', filterable: true, editable: true },
   { key: 'vehicle', label: 'Vehicle', filterable: true },
   { key: 'client', label: 'Client', filterable: true },
   { key: 'type', label: 'Type', filterable: true },
-  { key: 'rate', label: 'Rate', filterable: true },
+  { key: 'rate', label: 'Rate', filterable: true, editable: true },
   { key: 'location', label: 'Location', filterable: true },
   { key: 'employee', label: 'Employee', filterable: true },
+  { key: 'comment', label: 'Comment', filterable: true, editable: true },
 ];
 
 // Helper to get column value from entry
@@ -91,11 +94,17 @@ const getColumnValue = (entry: WashEntry, key: ColumnKey): string => {
     case 'type':
       return entry.vehicle?.vehicle_type?.type_name || '';
     case 'rate':
+      // Show rate_override if set, otherwise vehicle type rate
+      if (entry.rate_override != null) {
+        return entry.rate_override.toFixed(2);
+      }
       return entry.vehicle?.vehicle_type?.rate_per_wash?.toFixed(2) || '0.00';
     case 'location':
       return entry.location?.name || '';
     case 'employee':
       return entry.employee?.name || '';
+    case 'comment':
+      return entry.comment || '';
     default:
       return '';
   }
@@ -176,6 +185,88 @@ function ColumnFilterDropdown({
   );
 }
 
+// Editable Cell Component
+function EditableCell({
+  value,
+  entryId,
+  field,
+  isEditing,
+  onStartEdit,
+  onSave,
+  onCancel,
+  type = 'text',
+  isDeleted,
+}: {
+  value: string;
+  entryId: string;
+  field: string;
+  isEditing: boolean;
+  onStartEdit: () => void;
+  onSave: (value: string) => void;
+  onCancel: () => void;
+  type?: 'text' | 'number' | 'date';
+  isDeleted?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [editValue, setEditValue] = useState(value);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  useEffect(() => {
+    setEditValue(value);
+  }, [value]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      onSave(editValue);
+    } else if (e.key === 'Escape') {
+      setEditValue(value);
+      onCancel();
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <Input
+        ref={inputRef}
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {
+          onSave(editValue);
+        }}
+        type={type === 'number' ? 'number' : 'text'}
+        step={type === 'number' ? '0.01' : undefined}
+        className="h-7 text-xs w-full min-w-[80px]"
+      />
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        'group cursor-pointer rounded px-1 py-0.5 -mx-1 transition-colors',
+        !isDeleted && 'hover:bg-muted',
+        isDeleted && 'line-through'
+      )}
+      onDoubleClick={isDeleted ? undefined : onStartEdit}
+      title={isDeleted ? undefined : 'Double-click to edit'}
+    >
+      <span className="flex items-center gap-1">
+        {value || <span className="text-muted-foreground italic">Empty</span>}
+        {!isDeleted && (
+          <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+        )}
+      </span>
+    </div>
+  );
+}
+
 export function WashEntryTableEditor({ userId }: { userId: string }) {
   const [entries, setEntries] = useState<WashEntry[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -193,6 +284,9 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
 
+  // Inline editing state
+  const [editingCell, setEditingCell] = useState<{ id: string; field: ColumnKey } | null>(null);
+
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>({
     date: true,
@@ -202,6 +296,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     rate: true,
     location: true,
     employee: true,
+    comment: true,
   });
 
   // Per-column text search
@@ -213,6 +308,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     rate: '',
     location: '',
     employee: '',
+    comment: '',
   });
 
   // Per-column dropdown filters (selected values)
@@ -224,6 +320,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     rate: [],
     location: [],
     employee: [],
+    comment: [],
   });
 
   // Row selection state
@@ -342,6 +439,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
       rate: [],
       location: [],
       employee: [],
+      comment: [],
     };
 
     entries.forEach((entry) => {
@@ -429,6 +527,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
       rate: '',
       location: '',
       employee: '',
+      comment: '',
     });
     setColumnFilters({
       date: [],
@@ -438,6 +537,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
       rate: [],
       location: [],
       employee: [],
+      comment: [],
     });
   };
 
@@ -554,6 +654,79 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     }
   };
 
+  // Inline edit save handler
+  const handleInlineEdit = async (entryId: string, field: ColumnKey, value: string) => {
+    setEditingCell(null);
+    
+    // Find the entry to get the original value
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    // Determine the database field and value
+    let dbField: string;
+    let dbValue: any;
+
+    switch (field) {
+      case 'date':
+        dbField = 'wash_date';
+        // Parse the date from various formats
+        try {
+          const parsedDate = new Date(value);
+          if (isNaN(parsedDate.getTime())) {
+            toast({ title: 'Invalid date', variant: 'destructive' });
+            return;
+          }
+          dbValue = format(parsedDate, 'yyyy-MM-dd');
+        } catch {
+          toast({ title: 'Invalid date format', variant: 'destructive' });
+          return;
+        }
+        break;
+      case 'rate':
+        dbField = 'rate_override';
+        dbValue = value ? parseFloat(value) : null;
+        if (value && isNaN(dbValue)) {
+          toast({ title: 'Invalid rate', variant: 'destructive' });
+          return;
+        }
+        break;
+      case 'comment':
+        dbField = 'comment';
+        dbValue = value || null;
+        break;
+      default:
+        return; // Non-editable field
+    }
+
+    // Check if value actually changed
+    const originalValue = getColumnValue(entry, field);
+    if (value === originalValue) return;
+
+    try {
+      const { error } = await supabase
+        .from('wash_entries')
+        .update({ [dbField]: dbValue })
+        .eq('id', entryId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Updated',
+        description: `${COLUMN_CONFIG.find(c => c.key === field)?.label} updated successfully`,
+      });
+
+      // Refresh data to get updated values
+      fetchData();
+    } catch (error) {
+      console.error('Error updating entry:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update entry',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Export functionality
   const handleExport = (entriesToExport: WashEntry[]) => {
     const exportData = entriesToExport.map(entry => ({
@@ -561,9 +734,10 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
       'Vehicle': entry.vehicle?.vehicle_number || 'N/A',
       'Client': entry.vehicle?.client?.client_name || 'No Client',
       'Type': entry.vehicle?.vehicle_type?.type_name || 'N/A',
-      'Rate': entry.vehicle?.vehicle_type?.rate_per_wash || 0,
+      'Rate': entry.rate_override ?? entry.vehicle?.vehicle_type?.rate_per_wash ?? 0,
       'Location': entry.location?.name || 'N/A',
       'Employee': entry.employee?.name || 'N/A',
+      'Comment': entry.comment || '',
     }));
 
     exportToExcel(exportData, `wash_entries_${format(new Date(), 'yyyy-MM-dd')}`, 'Wash Entries', {
@@ -636,6 +810,58 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   }
 
   const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length;
+
+  // Render cell content based on whether it's editable
+  const renderCell = (entry: WashEntry, key: ColumnKey, isDeleted: boolean) => {
+    const config = COLUMN_CONFIG.find(c => c.key === key);
+    const value = getColumnValue(entry, key);
+    const isEditing = editingCell?.id === entry.id && editingCell?.field === key;
+
+    // For editable columns, show editable cell
+    if (config?.editable && !isDeleted) {
+      return (
+        <EditableCell
+          value={value}
+          entryId={entry.id}
+          field={key}
+          isEditing={isEditing}
+          onStartEdit={() => setEditingCell({ id: entry.id, field: key })}
+          onSave={(newValue) => handleInlineEdit(entry.id, key, newValue)}
+          onCancel={() => setEditingCell(null)}
+          type={key === 'rate' ? 'number' : 'text'}
+          isDeleted={isDeleted}
+        />
+      );
+    }
+
+    // For rate column, show $ prefix
+    if (key === 'rate') {
+      return (
+        <span className={cn(isDeleted && 'line-through')}>
+          ${value}
+          {entry.rate_override != null && (
+            <span className="text-xs text-muted-foreground ml-1">(override)</span>
+          )}
+        </span>
+      );
+    }
+
+    // For client column, show italic if empty
+    if (key === 'client' && !value) {
+      return (
+        <span className={cn('text-muted-foreground italic', isDeleted && 'line-through')}>
+          No Client
+        </span>
+      );
+    }
+
+    // Default display
+    return (
+      <span className={cn(isDeleted && 'line-through')}>
+        {value || 'N/A'}
+      </span>
+    );
+  };
 
   return (
     <>
@@ -876,11 +1102,16 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                     />
                   </TableHead>
                   {COLUMN_CONFIG.map(
-                    ({ key, label, filterable }) =>
+                    ({ key, label, filterable, editable }) =>
                       visibleColumns[key] && (
                         <TableHead key={key}>
                           <div className="flex items-center gap-1">
                             <span>{label}</span>
+                            {editable && (
+                              <span title="Editable">
+                                <Pencil className="h-3 w-3 text-muted-foreground" />
+                              </span>
+                            )}
                             {filterable && (
                               <ColumnFilterDropdown
                                 columnKey={key}
@@ -1048,42 +1279,13 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                             />
                           )}
                         </TableCell>
-                        {visibleColumns.date && (
-                          <TableCell className={cn(isDeleted && 'line-through')}>
-                            {format(new Date(entry.wash_date), 'MMM d, yyyy')}
-                          </TableCell>
-                        )}
-                        {visibleColumns.vehicle && (
-                          <TableCell className={cn(isDeleted && 'line-through')}>
-                            {entry.vehicle?.vehicle_number || 'N/A'}
-                          </TableCell>
-                        )}
-                        {visibleColumns.client && (
-                          <TableCell className={cn(isDeleted && 'line-through')}>
-                            {entry.vehicle?.client?.client_name || (
-                              <span className="text-muted-foreground italic">No Client</span>
-                            )}
-                          </TableCell>
-                        )}
-                        {visibleColumns.type && (
-                          <TableCell className={cn(isDeleted && 'line-through')}>
-                            {entry.vehicle?.vehicle_type?.type_name || 'N/A'}
-                          </TableCell>
-                        )}
-                        {visibleColumns.rate && (
-                          <TableCell className={cn(isDeleted && 'line-through')}>
-                            ${entry.vehicle?.vehicle_type?.rate_per_wash?.toFixed(2) || '0.00'}
-                          </TableCell>
-                        )}
-                        {visibleColumns.location && (
-                          <TableCell className={cn(isDeleted && 'line-through')}>
-                            {entry.location?.name || 'N/A'}
-                          </TableCell>
-                        )}
-                        {visibleColumns.employee && (
-                          <TableCell className={cn(isDeleted && 'line-through')}>
-                            {entry.employee?.name || 'N/A'}
-                          </TableCell>
+                        {COLUMN_CONFIG.map(
+                          ({ key }) =>
+                            visibleColumns[key] && (
+                              <TableCell key={key}>
+                                {renderCell(entry, key, isDeleted)}
+                              </TableCell>
+                            )
                         )}
                         <TableCell>
                           {isDeleted ? (
