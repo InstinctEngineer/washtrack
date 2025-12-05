@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { z } from 'zod';
 import { getUserHighestRole, getDashboardPath } from '@/lib/roleUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import esAndDLogo from '@/assets/es-d-logo.png';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -68,14 +69,28 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-accent/50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto h-12 w-12 rounded-lg bg-primary flex items-center justify-center mb-4">
-            <span className="text-primary-foreground font-bold text-xl">WT</span>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1e3a5f] via-[#2d5a87] to-[#2d8cc4] p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0">
+        <CardHeader className="space-y-4 text-center pb-2">
+          <div className="flex flex-col items-center gap-4">
+            <img 
+              src={esAndDLogo} 
+              alt="ES&D Services Inc." 
+              className="h-16 w-auto object-contain"
+            />
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-lg bg-gradient-to-br from-[#1e3a5f] to-[#2d8cc4] flex items-center justify-center shadow-md">
+                <span className="text-white font-bold text-lg">WT</span>
+              </div>
+              <div className="flex flex-col leading-tight text-left">
+                <span className="font-bold text-xl bg-gradient-to-r from-[#1e3a5f] to-[#2d8cc4] bg-clip-text text-transparent">
+                  WashTrack
+                </span>
+                <span className="text-xs text-muted-foreground">for ES&D Service</span>
+              </div>
+            </div>
           </div>
-          <CardTitle className="text-2xl">WashTrack</CardTitle>
-          <CardDescription>
+          <CardDescription className="text-base">
             Sign in to your account to continue
           </CardDescription>
         </CardHeader>

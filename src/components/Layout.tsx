@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
+import esAndDLogo from '@/assets/es-d-logo.png';
 import { UserRole } from '@/types/database';
 
 interface LayoutProps {
@@ -128,7 +129,7 @@ export const Layout = ({ children }: LayoutProps) => {
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#1e3a5f] to-[#2d8cc4] flex items-center justify-center shadow-md">
                 <span className="text-white font-bold text-sm">WT</span>
               </div>
@@ -138,6 +139,12 @@ export const Layout = ({ children }: LayoutProps) => {
                 </span>
                 <span className="text-[10px] text-muted-foreground -mt-0.5">for ES&D Service</span>
               </div>
+              <div className="hidden md:block h-8 w-px bg-border mx-1" />
+              <img 
+                src={esAndDLogo} 
+                alt="ES&D Services Inc." 
+                className="hidden md:block h-8 w-auto object-contain"
+              />
             </Link>
           </div>
 
