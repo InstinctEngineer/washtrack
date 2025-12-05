@@ -73,21 +73,19 @@ export default function Login() {
       <Card className="w-full max-w-md shadow-2xl border-0">
         <CardHeader className="space-y-4 text-center pb-2">
           <div className="flex flex-col items-center gap-4">
-            <img 
-              src={esAndDLogo} 
-              alt="ES&D Services Inc." 
-              className="h-16 w-auto object-contain"
-            />
             <div className="flex items-center gap-3">
               <div className="h-11 w-11 rounded-lg bg-gradient-to-br from-[#1e3a5f] to-[#2d8cc4] flex items-center justify-center shadow-md">
                 <span className="text-white font-bold text-lg">WT</span>
               </div>
-              <div className="flex flex-col leading-tight text-left">
-                <span className="font-bold text-xl bg-gradient-to-r from-[#1e3a5f] to-[#2d8cc4] bg-clip-text text-transparent">
-                  WashTrack
-                </span>
-                <span className="text-xs text-muted-foreground">for ES&D Service</span>
-              </div>
+              <span className="font-bold text-xl bg-gradient-to-r from-[#1e3a5f] to-[#2d8cc4] bg-clip-text text-transparent">
+                WashTrack
+              </span>
+              <span className="text-sm text-muted-foreground">for</span>
+              <img 
+                src={esAndDLogo} 
+                alt="ES&D Services Inc." 
+                className="h-8 w-auto object-contain"
+              />
             </div>
           </div>
           <CardDescription className="text-base">
