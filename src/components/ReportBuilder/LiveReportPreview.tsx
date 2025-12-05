@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Download, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ReportConfig, UNIFIED_COLUMNS } from '@/lib/reportBuilder';
 import { cn } from '@/lib/utils';
@@ -11,7 +12,7 @@ interface LiveReportPreviewProps {
   isExporting: boolean;
 }
 
-const ROWS_PER_PAGE = 50;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
 const DEFAULT_COL_WIDTH = 100;
 const MIN_COL_WIDTH = 50;
 
@@ -35,6 +36,7 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
   const [isLoading, setIsLoading] = useState(false);
   const [reportType, setReportType] = useState<'detail' | 'aggregated' | 'mixed'>('detail');
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
   
   // Column resize state
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
@@ -152,10 +154,15 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
   }, [previewData, config.columns]);
 
   // Pagination
-  const totalPages = Math.ceil(displayData.length / ROWS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
-  const endIndex = startIndex + ROWS_PER_PAGE;
+  const totalPages = Math.ceil(displayData.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
   const paginatedData = displayData.slice(startIndex, endIndex);
+
+  const handlePageSizeChange = (value: string) => {
+    setRowsPerPage(Number(value));
+    setCurrentPage(1);
+  };
 
   const hasAggregateFields = config.columns.some(col =>
     UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
@@ -326,11 +333,25 @@ export function LiveReportPreview({ config, onExport, isExporting }: LiveReportP
       </div>
 
       {/* Pagination - Excel-style footer */}
-      {displayData.length > ROWS_PER_PAGE && (
+      {displayData.length > 0 && (
         <div className="px-2 py-1.5 border-t bg-gray-50 flex items-center justify-between text-[10px] text-gray-600">
-          <span>
-            Rows {startIndex + 1}-{Math.min(endIndex, displayData.length)} of {displayData.length}
-          </span>
+          <div className="flex items-center gap-2">
+            <span>
+              Rows {startIndex + 1}-{Math.min(endIndex, displayData.length)} of {displayData.length}
+            </span>
+            <Select value={rowsPerPage.toString()} onValueChange={handlePageSizeChange}>
+              <SelectTrigger className="h-5 w-16 text-[10px] px-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map(size => (
+                  <SelectItem key={size} value={size.toString()} className="text-xs">
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center gap-0.5">
             <Button
               variant="ghost"
