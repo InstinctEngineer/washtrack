@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { VehicleWithDetails } from "@/types/database";
+import { VehicleWithDetails, Location } from "@/types/database";
 import { format, isSameDay } from "date-fns";
 import { Check, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { AddVehicleDialog } from "@/components/AddVehicleDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface VehicleGridSelectorProps {
   selectedDate: Date;
@@ -38,6 +39,10 @@ export function VehicleGridSelector({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [pendingAutoClickVehicleId, setPendingAutoClickVehicleId] = useState<string | null>(null);
 
+  // Location filter state
+  const [locations, setLocations] = useState<Pick<Location, 'id' | 'name'>[]>([]);
+  const [selectedLocationFilter, setSelectedLocationFilter] = useState<string>('all');
+
   // Fetch vehicles for the location
   useEffect(() => {
     fetchVehicles();
@@ -47,6 +52,29 @@ export function VehicleGridSelector({
   useEffect(() => {
     fetchExistingWashEntries();
   }, [selectedDate, locationIds]);
+
+  // Fetch location details for filter dropdown
+  useEffect(() => {
+    const fetchLocations = async () => {
+      if (!locationIds || locationIds.length <= 1) return;
+      
+      const { data, error } = await supabase
+        .from("locations")
+        .select("id, name")
+        .in("id", locationIds)
+        .order("name");
+        
+      if (!error && data) {
+        setLocations(data);
+      }
+    };
+    fetchLocations();
+  }, [locationIds]);
+
+  // Reset filter when locationIds change
+  useEffect(() => {
+    setSelectedLocationFilter('all');
+  }, [locationIds]);
 
   const fetchVehicles = async () => {
     if (!locationIds || locationIds.length === 0) return;
@@ -295,10 +323,20 @@ export function VehicleGridSelector({
     }
   }, [pendingAutoClickVehicleId, vehicles]);
 
+  // Filter vehicles based on selected location
+  const filteredVehicles = selectedLocationFilter === 'all' 
+    ? vehicles 
+    : vehicles.filter(v => v.home_location_id === selectedLocationFilter);
+
   const selectedCount = selectedVehicles.size;
   const existingCount = existingWashEntries.size;
   const newSelectionsCount = Array.from(selectedVehicles).filter((id) => !existingWashEntries.has(id)).length;
   const hasChanges = newSelectionsCount > 0 || selectedCount !== existingCount;
+  
+  // Count for filtered view
+  const filteredSelectedCount = [...selectedVehicles].filter(id => 
+    filteredVehicles.some(v => v.id === id)
+  ).length;
 
   if (loading) {
     return (
@@ -316,21 +354,39 @@ export function VehicleGridSelector({
       <div className="sticky top-0 z-10 bg-gradient-to-br from-slate-50/95 to-white/95 backdrop-blur-sm py-4 border-b shadow-sm">
         <div className="text-center space-y-2">
           <div className="text-xl md:text-2xl font-bold text-foreground">
-            Today: <span className="text-blue-600">{selectedCount}</span> / {vehicles.length}
+            Today: <span className="text-blue-600">{filteredSelectedCount}</span> / {filteredVehicles.length}
           </div>
           <div className="w-full max-w-lg mx-auto h-2 bg-slate-200 rounded-full overflow-hidden shadow-inner">
             <div
               className="h-full transition-all duration-500 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
-              style={{ width: `${vehicles.length > 0 ? (selectedCount / vehicles.length) * 100 : 0}%` }}
+              style={{ width: `${filteredVehicles.length > 0 ? (filteredSelectedCount / filteredVehicles.length) * 100 : 0}%` }}
             />
           </div>
-          {vehicles.length > 0 && selectedCount > 0 && (
+          {filteredVehicles.length > 0 && filteredSelectedCount > 0 && (
             <div className="text-xs font-medium text-slate-600">
-              {Math.round((selectedCount / vehicles.length) * 100)}% Complete
+              {Math.round((filteredSelectedCount / filteredVehicles.length) * 100)}% Complete
             </div>
           )}
         </div>
       </div>
+
+      {/* Location Filter - Only show for multi-location users */}
+      {locationIds.length > 1 && (
+        <div className="flex items-center gap-2 px-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Filter by Location:</span>
+          <Select value={selectedLocationFilter} onValueChange={setSelectedLocationFilter}>
+            <SelectTrigger className="w-[200px] bg-background">
+              <SelectValue placeholder="All Locations" />
+            </SelectTrigger>
+            <SelectContent className="bg-background">
+              <SelectItem value="all">All Locations</SelectItem>
+              {locations.map((loc) => (
+                <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Submit Button */}
       <div className="flex justify-end items-center px-2 pb-4">
@@ -352,14 +408,14 @@ export function VehicleGridSelector({
       </div>
 
       {/* Vehicle Grid - Spreadsheet Style */}
-      {vehicles.length === 0 ? (
+      {filteredVehicles.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          <p>No vehicles found for your location.</p>
+          <p>{vehicles.length === 0 ? "No vehicles found for your location." : "No vehicles at this location."}</p>
         </div>
       ) : (
         <div className="bg-slate-50 rounded-lg p-2">
           <div className="grid grid-cols-3 gap-1 max-w-2xl mx-auto">
-            {vehicles.map((vehicle) => {
+            {filteredVehicles.map((vehicle) => {
               const isSelected = selectedVehicles.has(vehicle.id);
               const existingEntry = existingWashEntries.get(vehicle.id);
               const isOwnedByOther = existingEntry && existingEntry.employee_id !== employeeId;
