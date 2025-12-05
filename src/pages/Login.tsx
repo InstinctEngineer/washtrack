@@ -84,7 +84,7 @@ export default function Login() {
               <img 
                 src={esAndDLogo} 
                 alt="ES&D Services Inc." 
-                className="h-8 w-auto object-contain"
+                className="h-12 w-auto object-contain"
               />
             </div>
           </div>
