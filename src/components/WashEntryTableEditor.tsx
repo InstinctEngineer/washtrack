@@ -8,9 +8,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { CalendarIcon, Trash2, Plus, Filter, X, Columns3, ChevronDown } from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
+import { CalendarIcon, Trash2, Plus, Filter, X, Columns3, ChevronDown, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VehicleSearchInput } from './VehicleSearchInput';
 import {
   DropdownMenu,
@@ -173,6 +174,11 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   });
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // Date range mode state
+  const [dateMode, setDateMode] = useState<'month' | 'custom'>('month');
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
+
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>({
     date: true,
@@ -206,15 +212,42 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     employee: [],
   });
 
+  // Validate custom date range
+  const isCustomRangeValid = useMemo(() => {
+    if (dateMode !== 'custom') return true;
+    if (!customStartDate || !customEndDate) return false;
+    if (customEndDate < customStartDate) return false;
+    if (differenceInDays(customEndDate, customStartDate) > 365) return false;
+    return true;
+  }, [dateMode, customStartDate, customEndDate]);
+
+  const dateRangeError = useMemo(() => {
+    if (dateMode !== 'custom') return null;
+    if (!customStartDate || !customEndDate) return 'Select both start and end dates';
+    if (customEndDate < customStartDate) return 'End date must be after start date';
+    if (differenceInDays(customEndDate, customStartDate) > 365) return 'Maximum range is 365 days';
+    return null;
+  }, [dateMode, customStartDate, customEndDate]);
+
   useEffect(() => {
-    fetchData();
-  }, [selectedMonth]);
+    if (dateMode === 'month' || (dateMode === 'custom' && isCustomRangeValid && customStartDate && customEndDate)) {
+      fetchData();
+    }
+  }, [selectedMonth, dateMode, customStartDate, customEndDate]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const startOfMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
-      const endOfMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0);
+      let startDate: Date;
+      let endDate: Date;
+
+      if (dateMode === 'month') {
+        startDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
+        endDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0);
+      } else {
+        startDate = customStartDate!;
+        endDate = customEndDate!;
+      }
 
       const { data: entriesData, error: entriesError } = await supabase
         .from('wash_entries')
@@ -224,8 +257,8 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
           location:locations!wash_entries_actual_location_id_fkey(name),
           employee:users!wash_entries_employee_id_fkey(name)
         `)
-        .gte('wash_date', startOfMonth.toISOString().split('T')[0])
-        .lte('wash_date', endOfMonth.toISOString().split('T')[0])
+        .gte('wash_date', startDate.toISOString().split('T')[0])
+        .lte('wash_date', endDate.toISOString().split('T')[0])
         .order('wash_date', { ascending: false });
 
       if (entriesError) throw entriesError;
@@ -250,6 +283,26 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Get display text for the current date range
+  const dateRangeDisplay = useMemo(() => {
+    if (dateMode === 'month') {
+      return format(selectedMonth, 'MMMM yyyy');
+    }
+    if (customStartDate && customEndDate) {
+      return `${format(customStartDate, 'MMM d, yyyy')} - ${format(customEndDate, 'MMM d, yyyy')}`;
+    }
+    return 'Select date range';
+  }, [dateMode, selectedMonth, customStartDate, customEndDate]);
+
+  // Handle switching to custom mode - pre-populate with current month
+  const handleDateModeChange = (mode: string) => {
+    if (mode === 'custom' && !customStartDate && !customEndDate) {
+      setCustomStartDate(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1));
+      setCustomEndDate(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0));
+    }
+    setDateMode(mode as 'month' | 'custom');
   };
 
   // Get unique values for each column
@@ -415,33 +468,90 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <CardTitle>Wash Entry Management</CardTitle>
-            <CardDescription>
-              Viewing {filteredEntries.length} of {entries.length} entries for{' '}
-              {format(selectedMonth, 'MMMM yyyy')}
-            </CardDescription>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <CardTitle>Wash Entry Management</CardTitle>
+              <CardDescription>
+                Viewing {filteredEntries.length} of {entries.length} entries for {dateRangeDisplay}
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+
+          {/* Date Range Controls */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
+            <Tabs value={dateMode} onValueChange={handleDateModeChange} className="w-auto">
+              <TabsList className="h-8">
+                <TabsTrigger value="month" className="text-xs px-3">Month</TabsTrigger>
+                <TabsTrigger value="custom" className="text-xs px-3">Custom Range</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {dateMode === 'month' ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(selectedMonth, 'MMM yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedMonth}
+                    onSelect={(date) => date && setSelectedMonth(date)}
+                    initialFocus
+                    className={cn('p-3 pointer-events-auto')}
+                  />
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn(!customStartDate && 'text-muted-foreground')}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customStartDate ? format(customStartDate, 'MMM d, yyyy') : 'Start date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customStartDate}
+                      onSelect={setCustomStartDate}
+                      initialFocus
+                      className={cn('p-3 pointer-events-auto')}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn(!customEndDate && 'text-muted-foreground')}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customEndDate ? format(customEndDate, 'MMM d, yyyy') : 'End date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customEndDate}
+                      onSelect={setCustomEndDate}
+                      initialFocus
+                      className={cn('p-3 pointer-events-auto')}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                {dateRangeError && (
+                  <span className="text-xs text-destructive">{dateRangeError}</span>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {/* Month Picker */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(selectedMonth, 'MMM yyyy')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-popover" align="end">
-                <Calendar
-                  mode="single"
-                  selected={selectedMonth}
-                  onSelect={(date) => date && setSelectedMonth(date)}
-                  initialFocus
-                  className={cn('p-3 pointer-events-auto')}
-                />
-              </PopoverContent>
-            </Popover>
+        </div>
 
             {/* Column Visibility */}
             <DropdownMenu>
