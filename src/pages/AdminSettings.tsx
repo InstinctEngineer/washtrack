@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,14 +7,22 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Calendar, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Calendar, Clock, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronRight, Filter, X, Download, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { getCurrentCutoff, getLastSunday, getDaysUntilNextCutoff, getCutoffStatusColor, extendCutoffByDays, updateCutoffDate } from '@/lib/cutoff';
 import { SystemSettingsAudit } from '@/types/database';
+import { exportToExcel } from '@/lib/excelExporter';
 
 type AuditTrailItem = SystemSettingsAudit & { 
   user?: { 
@@ -22,6 +30,77 @@ type AuditTrailItem = SystemSettingsAudit & {
     name: string; 
   } 
 };
+
+type HistoryColumnKey = 'changedBy' | 'oldValue' | 'newValue' | 'reason' | 'changedAt';
+
+const HISTORY_COLUMN_CONFIG: { key: HistoryColumnKey; label: string; filterable: boolean }[] = [
+  { key: 'changedBy', label: 'Changed By', filterable: true },
+  { key: 'oldValue', label: 'Old Value', filterable: false },
+  { key: 'newValue', label: 'New Value', filterable: false },
+  { key: 'reason', label: 'Reason', filterable: true },
+  { key: 'changedAt', label: 'Changed At', filterable: false },
+];
+
+// Column filter dropdown component
+function ColumnFilterDropdown({ 
+  columnKey, 
+  label, 
+  uniqueValues, 
+  selectedValues, 
+  onSelectionChange 
+}: { 
+  columnKey: string;
+  label: string;
+  uniqueValues: string[];
+  selectedValues: string[];
+  onSelectionChange: (values: string[]) => void;
+}) {
+  const hasFilters = selectedValues.length > 0;
+  
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className={cn("h-6 px-1", hasFilters && "text-primary")}>
+          <Filter className="h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <ScrollArea className="h-64">
+          <div className="p-2">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-medium">{label}</span>
+              {hasFilters && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-5 px-1 text-xs"
+                  onClick={() => onSelectionChange([])}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            {uniqueValues.map((value) => (
+              <DropdownMenuCheckboxItem
+                key={value}
+                checked={selectedValues.includes(value)}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    onSelectionChange([...selectedValues, value]);
+                  } else {
+                    onSelectionChange(selectedValues.filter(v => v !== value));
+                  }
+                }}
+              >
+                {value || '(empty)'}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </div>
+        </ScrollArea>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export default function AdminSettings() {
   const { user } = useAuth();
@@ -35,9 +114,38 @@ export default function AdminSettings() {
   const [activeUsers, setActiveUsers] = useState(0);
   const [activeVehicles, setActiveVehicles] = useState(0);
 
+  // History section state
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [historyDateMode, setHistoryDateMode] = useState<'recent' | 'month' | 'custom'>('recent');
+  const [historySelectedMonth, setHistorySelectedMonth] = useState(new Date());
+  const [historyCustomStartDate, setHistoryCustomStartDate] = useState<Date | undefined>();
+  const [historyCustomEndDate, setHistoryCustomEndDate] = useState<Date | undefined>();
+  const [historyColumnFilters, setHistoryColumnFilters] = useState<Record<HistoryColumnKey, string[]>>({
+    changedBy: [],
+    oldValue: [],
+    newValue: [],
+    reason: [],
+    changedAt: [],
+  });
+  const [historyColumnSearches, setHistoryColumnSearches] = useState<Record<HistoryColumnKey, string>>({
+    changedBy: '',
+    oldValue: '',
+    newValue: '',
+    reason: '',
+    changedAt: '',
+  });
+  const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Refetch history when date mode changes (when expanded)
+  useEffect(() => {
+    if (isHistoryExpanded) {
+      fetchHistoryData();
+    }
+  }, [isHistoryExpanded, historyDateMode, historySelectedMonth, historyCustomStartDate, historyCustomEndDate]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -46,31 +154,8 @@ export default function AdminSettings() {
       const cutoff = await getCurrentCutoff();
       setCutoffDate(cutoff);
 
-      // Fetch audit trail
-      const { data: auditData, error: auditError } = await supabase
-        .from('system_settings_audit')
-        .select('*')
-        .eq('setting_key', 'entry_cutoff_date')
-        .order('changed_at', { ascending: false })
-        .limit(20);
-
-      if (auditError) throw auditError;
-
-      // Fetch user names for audit trail
-      if (auditData && auditData.length > 0) {
-        const userIds = auditData.map(a => a.changed_by).filter(Boolean);
-        const { data: usersData } = await supabase
-          .from('users')
-          .select('id, name')
-          .in('id', userIds);
-
-        const usersMap = new Map(usersData?.map(u => [u.id, u]) || []);
-        const enrichedAudit = auditData.map(audit => ({
-          ...audit,
-          user: audit.changed_by ? usersMap.get(audit.changed_by) : undefined,
-        }));
-        setAuditTrail(enrichedAudit);
-      }
+      // Fetch initial audit trail (20 most recent)
+      await fetchHistoryData();
 
       // Fetch system stats
       const { count: usersCount } = await supabase
@@ -96,6 +181,175 @@ export default function AdminSettings() {
       setLoading(false);
     }
   };
+
+  const fetchHistoryData = async () => {
+    try {
+      let query = supabase
+        .from('system_settings_audit')
+        .select('*')
+        .eq('setting_key', 'entry_cutoff_date')
+        .order('changed_at', { ascending: false });
+
+      if (historyDateMode === 'recent') {
+        query = query.limit(20);
+      } else if (historyDateMode === 'month') {
+        const monthStart = startOfMonth(historySelectedMonth);
+        const monthEnd = endOfMonth(historySelectedMonth);
+        query = query
+          .gte('changed_at', monthStart.toISOString())
+          .lte('changed_at', monthEnd.toISOString());
+      } else if (historyDateMode === 'custom' && historyCustomStartDate && historyCustomEndDate) {
+        const startDate = new Date(historyCustomStartDate);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(historyCustomEndDate);
+        endDate.setHours(23, 59, 59, 999);
+        query = query
+          .gte('changed_at', startDate.toISOString())
+          .lte('changed_at', endDate.toISOString());
+      }
+
+      const { data: auditData, error: auditError } = await query;
+
+      if (auditError) throw auditError;
+
+      // Fetch user names for audit trail
+      if (auditData && auditData.length > 0) {
+        const userIds = auditData.map(a => a.changed_by).filter(Boolean);
+        const { data: usersData } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', userIds);
+
+        const usersMap = new Map(usersData?.map(u => [u.id, u]) || []);
+        const enrichedAudit = auditData.map(audit => ({
+          ...audit,
+          user: audit.changed_by ? usersMap.get(audit.changed_by) : undefined,
+        }));
+        setAuditTrail(enrichedAudit);
+      } else {
+        setAuditTrail([]);
+      }
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    }
+  };
+
+  // Get unique values for filter dropdowns
+  const uniqueFilterValues = useMemo(() => {
+    const values: Record<HistoryColumnKey, string[]> = {
+      changedBy: [],
+      oldValue: [],
+      newValue: [],
+      reason: [],
+      changedAt: [],
+    };
+
+    auditTrail.forEach(audit => {
+      const changedBy = audit.user?.name || 'System';
+      const reason = audit.change_reason || '';
+      
+      if (!values.changedBy.includes(changedBy)) values.changedBy.push(changedBy);
+      if (reason && !values.reason.includes(reason)) values.reason.push(reason);
+    });
+
+    values.changedBy.sort();
+    values.reason.sort();
+
+    return values;
+  }, [auditTrail]);
+
+  // Filter audit trail
+  const filteredAuditTrail = useMemo(() => {
+    return auditTrail.filter(audit => {
+      const changedBy = audit.user?.name || 'System';
+      const oldValue = audit.old_value ? format(new Date(audit.old_value), 'PPP p') : 'N/A';
+      const newValue = format(new Date(audit.new_value), 'PPP p');
+      const reason = audit.change_reason || '';
+      const changedAt = format(new Date(audit.changed_at), 'PPP p');
+
+      // Check dropdown filters
+      if (historyColumnFilters.changedBy.length > 0 && !historyColumnFilters.changedBy.includes(changedBy)) return false;
+      if (historyColumnFilters.reason.length > 0 && !historyColumnFilters.reason.includes(reason)) return false;
+
+      // Check text searches
+      if (historyColumnSearches.changedBy && !changedBy.toLowerCase().includes(historyColumnSearches.changedBy.toLowerCase())) return false;
+      if (historyColumnSearches.oldValue && !oldValue.toLowerCase().includes(historyColumnSearches.oldValue.toLowerCase())) return false;
+      if (historyColumnSearches.newValue && !newValue.toLowerCase().includes(historyColumnSearches.newValue.toLowerCase())) return false;
+      if (historyColumnSearches.reason && !reason.toLowerCase().includes(historyColumnSearches.reason.toLowerCase())) return false;
+      if (historyColumnSearches.changedAt && !changedAt.toLowerCase().includes(historyColumnSearches.changedAt.toLowerCase())) return false;
+
+      return true;
+    });
+  }, [auditTrail, historyColumnFilters, historyColumnSearches]);
+
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    Object.values(historyColumnFilters).forEach(arr => { if (arr.length > 0) count++; });
+    Object.values(historyColumnSearches).forEach(str => { if (str) count++; });
+    return count;
+  }, [historyColumnFilters, historyColumnSearches]);
+
+  const clearAllFilters = () => {
+    setHistoryColumnFilters({
+      changedBy: [],
+      oldValue: [],
+      newValue: [],
+      reason: [],
+      changedAt: [],
+    });
+    setHistoryColumnSearches({
+      changedBy: '',
+      oldValue: '',
+      newValue: '',
+      reason: '',
+      changedAt: '',
+    });
+  };
+
+  // Selection handlers
+  const toggleSelectAll = () => {
+    if (selectedHistoryIds.size === filteredAuditTrail.length) {
+      setSelectedHistoryIds(new Set());
+    } else {
+      setSelectedHistoryIds(new Set(filteredAuditTrail.map(a => a.id)));
+    }
+  };
+
+  const toggleSelectRow = (id: string) => {
+    const newSelected = new Set(selectedHistoryIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedHistoryIds(newSelected);
+  };
+
+  // Export handlers
+  const handleExport = (exportAll: boolean) => {
+    const dataToExport = exportAll 
+      ? filteredAuditTrail 
+      : filteredAuditTrail.filter(a => selectedHistoryIds.has(a.id));
+
+    const exportData = dataToExport.map(audit => ({
+      'Changed By': audit.user?.name || 'System',
+      'Old Value': audit.old_value ? format(new Date(audit.old_value), 'PPP p') : 'N/A',
+      'New Value': format(new Date(audit.new_value), 'PPP p'),
+      'Reason': audit.change_reason || '-',
+      'Changed At': format(new Date(audit.changed_at), 'PPP p'),
+    }));
+
+    exportToExcel(exportData, `cutoff-change-history-${format(new Date(), 'yyyy-MM-dd')}`, 'Change History');
+    toast({
+      title: 'Export Complete',
+      description: `Exported ${dataToExport.length} records`,
+    });
+  };
+
+  // Custom range validation
+  const isCustomRangeValid = historyCustomStartDate && historyCustomEndDate && 
+    differenceInDays(historyCustomEndDate, historyCustomStartDate) <= 365;
 
   const handleExtendCutoff = async () => {
     if (!user || !cutoffDate) return;
@@ -300,54 +554,222 @@ export default function AdminSettings() {
           </CardContent>
         </Card>
 
-        {/* Audit Trail */}
+        {/* Collapsible Change History */}
         <Card>
-          <CardHeader>
-            <CardTitle>Change History</CardTitle>
-            <CardDescription>Recent cutoff date changes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Changed By</TableHead>
-                    <TableHead>Old Value</TableHead>
-                    <TableHead>New Value</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Changed At</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {auditTrail.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
-                        No changes recorded yet
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    auditTrail.map((audit) => (
-                      <TableRow key={audit.id}>
-                        <TableCell>{audit.user?.name || 'System'}</TableCell>
-                        <TableCell>
-                          {audit.old_value ? format(new Date(audit.old_value), 'PPP p') : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(audit.new_value), 'PPP p')}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {audit.change_reason || '-'}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(audit.changed_at), 'PPP p')}
-                        </TableCell>
-                      </TableRow>
-                    ))
+          <Collapsible open={isHistoryExpanded} onOpenChange={setIsHistoryExpanded}>
+            <CardHeader className="pb-3">
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    {isHistoryExpanded ? (
+                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <div>
+                      <CardTitle>Change History</CardTitle>
+                      <CardDescription className="mt-1">
+                        {historyDateMode === 'recent' 
+                          ? `${auditTrail.length} most recent entries`
+                          : historyDateMode === 'month'
+                          ? `${format(historySelectedMonth, 'MMMM yyyy')}`
+                          : historyCustomStartDate && historyCustomEndDate
+                          ? `${format(historyCustomStartDate, 'MMM d')} - ${format(historyCustomEndDate, 'MMM d, yyyy')}`
+                          : 'Custom range'
+                        }
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant="secondary">{auditTrail.length} entries</Badge>
+                </div>
+              </CollapsibleTrigger>
+            </CardHeader>
+
+            <CollapsibleContent>
+              <CardContent className="pt-0 space-y-4">
+                {/* Controls toolbar */}
+                <div className="flex flex-wrap items-center gap-4 pb-2 border-b">
+                  {/* Date mode tabs */}
+                  <Tabs value={historyDateMode} onValueChange={(v) => setHistoryDateMode(v as any)}>
+                    <TabsList>
+                      <TabsTrigger value="recent">Recent (20)</TabsTrigger>
+                      <TabsTrigger value="month">Month</TabsTrigger>
+                      <TabsTrigger value="custom">Custom Range</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+
+                  {/* Month picker */}
+                  {historyDateMode === 'month' && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {format(historySelectedMonth, 'MMMM yyyy')}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={historySelectedMonth}
+                          onSelect={(date) => date && setHistorySelectedMonth(date)}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
+
+                  {/* Custom range pickers */}
+                  {historyDateMode === 'custom' && (
+                    <div className="flex items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            {historyCustomStartDate ? format(historyCustomStartDate, 'MMM d, yyyy') : 'Start date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={historyCustomStartDate}
+                            onSelect={setHistoryCustomStartDate}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            {historyCustomEndDate ? format(historyCustomEndDate, 'MMM d, yyyy') : 'End date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={historyCustomEndDate}
+                            onSelect={setHistoryCustomEndDate}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {historyCustomStartDate && historyCustomEndDate && !isCustomRangeValid && (
+                        <span className="text-sm text-destructive">Max 365 days</span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex-1" />
+
+                  {/* Clear filters */}
+                  {activeFilterCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                      <X className="mr-1 h-4 w-4" />
+                      Clear Filters
+                      <Badge variant="secondary" className="ml-1">{activeFilterCount}</Badge>
+                    </Button>
+                  )}
+
+                  {/* Export buttons */}
+                  {selectedHistoryIds.size > 0 && (
+                    <Button variant="outline" size="sm" onClick={() => handleExport(false)}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Export Selected ({selectedHistoryIds.size})
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => handleExport(true)}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export All
+                  </Button>
+                </div>
+
+                {/* Table */}
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[40px]">
+                          <Checkbox
+                            checked={filteredAuditTrail.length > 0 && selectedHistoryIds.size === filteredAuditTrail.length}
+                            onCheckedChange={toggleSelectAll}
+                          />
+                        </TableHead>
+                        {HISTORY_COLUMN_CONFIG.map(col => (
+                          <TableHead key={col.key}>
+                            <div className="flex items-center gap-1">
+                              {col.label}
+                              {col.filterable && (
+                                <ColumnFilterDropdown
+                                  columnKey={col.key}
+                                  label={col.label}
+                                  uniqueValues={uniqueFilterValues[col.key]}
+                                  selectedValues={historyColumnFilters[col.key]}
+                                  onSelectionChange={(values) => 
+                                    setHistoryColumnFilters(prev => ({ ...prev, [col.key]: values }))
+                                  }
+                                />
+                              )}
+                            </div>
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                      {/* Search row */}
+                      <TableRow>
+                        <TableHead />
+                        {HISTORY_COLUMN_CONFIG.map(col => (
+                          <TableHead key={`search-${col.key}`} className="py-1">
+                            <Input
+                              placeholder={`Search...`}
+                              className="h-7 text-xs"
+                              value={historyColumnSearches[col.key]}
+                              onChange={(e) => 
+                                setHistoryColumnSearches(prev => ({ ...prev, [col.key]: e.target.value }))
+                              }
+                            />
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAuditTrail.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            No changes recorded
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredAuditTrail.map((audit) => (
+                          <TableRow key={audit.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedHistoryIds.has(audit.id)}
+                                onCheckedChange={() => toggleSelectRow(audit.id)}
+                              />
+                            </TableCell>
+                            <TableCell>{audit.user?.name || 'System'}</TableCell>
+                            <TableCell>
+                              {audit.old_value ? format(new Date(audit.old_value), 'PPP p') : 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(audit.new_value), 'PPP p')}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {audit.change_reason || '-'}
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(audit.changed_at), 'PPP p')}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
       </div>
 
