@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -18,13 +19,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, ChevronRight, CalendarIcon, Filter, X, Columns3, Download, ArrowRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronLeft, CalendarIcon, Filter, X, Columns3, Download, ArrowRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/excelExporter';
 import { toast } from '@/hooks/use-toast';
+
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
 
 interface AuditLogEntry {
   id: string;
@@ -205,6 +208,15 @@ export function AuditLogTable() {
   // Sorting state
   const [sortColumn, setSortColumn] = useState<AuditColumnKey>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+
+  const handlePageSizeChange = (value: string) => {
+    setRowsPerPage(Number(value));
+    setCurrentPage(1);
+  };
 
   // Validate custom date range
   const isCustomRangeValid = useMemo(() => {
@@ -442,6 +454,17 @@ export function AuditLogTable() {
       }
     });
   }, [filteredEntries, sortColumn, sortDirection]);
+
+  // Pagination
+  const totalPages = Math.ceil(sortedEntries.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedEntries = sortedEntries.slice(startIndex, endIndex);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredEntries.length]);
 
   const getSortIcon = (column: AuditColumnKey) => {
     if (sortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
@@ -1200,7 +1223,7 @@ export function AuditLogTable() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedEntries.map((entry) => (
+                  {paginatedEntries.map((entry) => (
                     <Collapsible key={entry.id} open={expandedRows.has(entry.id)} asChild>
                       <>
                         <TableRow className="cursor-pointer hover:bg-muted/50">
@@ -1267,8 +1290,48 @@ export function AuditLogTable() {
           </div>
         )}
 
-        <div className="text-sm text-muted-foreground">
-          Showing {filteredEntries.length} of {auditLogs.length} entries (max 1000 per date range)
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Showing {startIndex + 1}-{Math.min(endIndex, sortedEntries.length)} of {sortedEntries.length}</span>
+            <Select value={rowsPerPage.toString()} onValueChange={handlePageSizeChange}>
+              <SelectTrigger className="h-7 w-20 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map(size => (
+                  <SelectItem key={size} value={size.toString()} className="text-xs">
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span>per page</span>
+          </div>
+          {totalPages > 0 && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground px-2">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
