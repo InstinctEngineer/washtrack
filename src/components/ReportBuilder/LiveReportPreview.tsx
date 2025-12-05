@@ -11,7 +11,7 @@ interface LiveReportPreviewProps {
   isExporting: boolean;
 }
 
-const ROWS_PER_PAGE = 20;
+const ROWS_PER_PAGE = 50;
 const DEFAULT_COL_WIDTH = 100;
 const MIN_COL_WIDTH = 50;
 
