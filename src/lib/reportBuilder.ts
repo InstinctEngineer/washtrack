@@ -591,6 +591,95 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
   });
 }
 
+// Build query for combined client + employee aggregate report
+async function buildCombinedAggregateQuery(config: ReportConfig) {
+  let query = supabase
+    .from('wash_entries')
+    .select(`
+      id,
+      wash_date,
+      rate_at_time_of_wash,
+      employee:users!wash_entries_employee_id_fkey(id, name),
+      vehicle:vehicles!inner(
+        client_id,
+        client:clients(client_name)
+      ),
+      actual_location:locations(name)
+    `);
+
+  // Apply date filter
+  for (const filter of config.filters) {
+    if (filter.field === 'wash_date' && filter.operator === 'between') {
+      const [startDate, endDate] = resolveDateRange(filter.value);
+      query = query.gte('wash_date', startDate).lte('wash_date', endDate);
+    }
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  // Group by both client AND employee
+  const combinedMap = new Map<string, any>();
+  
+  data?.forEach((entry: any) => {
+    const clientName = entry.vehicle?.client?.client_name || 'No Client';
+    const employeeName = entry.employee?.name || 'No Employee';
+    const key = `${clientName}|${employeeName}`;
+    
+    if (!combinedMap.has(key)) {
+      combinedMap.set(key, {
+        client_name: clientName,
+        employee_name: employeeName,
+        total_washes: 0,
+        total_revenue: 0,
+        locations: new Set<string>(),
+      });
+    }
+    
+    const row = combinedMap.get(key);
+    row.total_washes += 1;
+    row.total_revenue += parseFloat(entry.rate_at_time_of_wash || 0);
+    if (entry.actual_location?.name) {
+      row.locations.add(entry.actual_location.name);
+    }
+  });
+
+  // Transform to array with requested columns
+  const results = Array.from(combinedMap.values()).map(item => {
+    const row: any = {};
+    config.columns.forEach((col) => {
+      switch (col) {
+        case 'client_name':
+          row['client_name'] = item.client_name;
+          break;
+        case 'employee_name':
+          row['employee_name'] = item.employee_name;
+          break;
+        case 'total_washes':
+          row['total_washes'] = item.total_washes;
+          break;
+        case 'total_revenue':
+          row['total_revenue'] = item.total_revenue.toFixed(2);
+          break;
+        case 'avg_wash_value':
+          row['avg_wash_value'] = (item.total_revenue / item.total_washes).toFixed(2);
+          break;
+        case 'locations_serviced':
+          row['locations_serviced'] = Array.from(item.locations).join(', ');
+          break;
+      }
+    });
+    return row;
+  });
+
+  // Sort by client name, then employee name
+  return results.sort((a, b) => {
+    const clientCompare = (a['client_name'] || '').localeCompare(b['client_name'] || '');
+    if (clientCompare !== 0) return clientCompare;
+    return (a['employee_name'] || '').localeCompare(b['employee_name'] || '');
+  });
+}
+
 // Unified query builder that intelligently routes based on selected columns
 async function buildUnifiedQuery(config: ReportConfig) {
   // Check if any aggregate columns are selected
@@ -624,17 +713,23 @@ async function buildUnifiedQuery(config: ReportConfig) {
       UNIFIED_COLUMNS.find(c => c.id === col)?.isAggregate
     );
     
+    // Determine which grouping fields to include
+    const groupingFields: string[] = [];
+    if (hasClientFields) groupingFields.push('client_name');
+    if (hasEmployeeFields) groupingFields.push('employee_name');
+
     const aggregateConfig = { 
       ...config, 
-      columns: hasClientFields 
-        ? ['client_name', ...aggregateColumns]
-        : hasEmployeeFields 
-          ? ['employee_name', ...aggregateColumns]
-          : aggregateColumns
+      columns: [...groupingFields, ...aggregateColumns]
     };
     
     let aggregateData: any[] = [];
-    if (hasClientAggregates && hasClientFields) {
+    
+    // Choose the right query based on which grouping fields are selected
+    if (hasClientFields && hasEmployeeFields) {
+      // BOTH client and employee selected - use combined query
+      aggregateData = await buildCombinedAggregateQuery(aggregateConfig);
+    } else if (hasClientAggregates && hasClientFields) {
       aggregateData = await buildClientBillingQuery(aggregateConfig);
     } else if (hasEmployeeAggregates && hasEmployeeFields) {
       aggregateData = await buildEmployeePerformanceQuery(aggregateConfig);
