@@ -68,7 +68,7 @@ export const Layout = ({ children }: LayoutProps) => {
 
     if (hasRoleOrHigher(userRole, 'finance' as UserRole)) {
       navItems.push({ 
-        label: 'Finance Dashboard', 
+        label: 'Reports & Tables', 
         icon: DollarSign, 
         path: '/finance/dashboard',
         section: 'Dashboards'
