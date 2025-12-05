@@ -53,14 +53,10 @@ const App = () => (
               }
             />
 
-            {/* Manager Routes */}
+            {/* Manager Routes - temporarily redirect to employee dashboard */}
             <Route
               path="/manager/dashboard"
-              element={
-                <ProtectedRoute allowedRoles={['manager', 'finance', 'admin']}>
-                  <ManagerDashboard />
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/employee/dashboard" replace />}
             />
 
             {/* Finance Routes */}

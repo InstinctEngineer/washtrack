@@ -58,14 +58,15 @@ export const Layout = ({ children }: LayoutProps) => {
       });
     }
 
-    if (hasRoleOrHigher(userRole, 'manager' as UserRole)) {
-      navItems.push({ 
-        label: 'Manager Dashboard', 
-        icon: Briefcase, 
-        path: '/manager/dashboard',
-        section: 'Dashboards'
-      });
-    }
+    // Manager Dashboard temporarily hidden - uncomment when ready
+    // if (hasRoleOrHigher(userRole, 'manager' as UserRole)) {
+    //   navItems.push({ 
+    //     label: 'Manager Dashboard', 
+    //     icon: Briefcase, 
+    //     path: '/manager/dashboard',
+    //     section: 'Dashboards'
+    //   });
+    // }
 
     if (hasRoleOrHigher(userRole, 'finance' as UserRole)) {
       navItems.push({ 

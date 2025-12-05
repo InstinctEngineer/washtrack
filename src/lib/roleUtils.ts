@@ -67,7 +67,7 @@ export function hasRoleOrHigher(userRole: UserRole, requiredRole: UserRole): boo
 export function getDashboardPath(role: UserRole): string {
   const roleRoutes: Record<UserRole, string> = {
     employee: '/employee/dashboard',
-    manager: '/manager/dashboard',
+    manager: '/employee/dashboard', // Temporarily redirect to employee dashboard
     finance: '/finance/dashboard',
     admin: '/admin/dashboard',
     super_admin: '/admin/dashboard',
