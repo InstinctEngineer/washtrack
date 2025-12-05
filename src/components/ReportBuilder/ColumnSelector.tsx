@@ -18,7 +18,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { GripVertical, Info, ChevronDown, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { GripVertical, Info, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { UNIFIED_COLUMNS } from '@/lib/reportBuilder';
@@ -128,15 +129,73 @@ export function ColumnSelector({ selectedColumns, onColumnsChange }: ColumnSelec
   );
   const isMixedMode = hasAggregateFields && hasDetailFields;
 
-  // Count selected advanced columns
+  // Count selected columns
   const selectedAdvancedCount = selectedColumns.filter(col => 
     UNIFIED_COLUMNS.find(c => c.id === col)?.isAdvanced
   ).length;
+  const selectedMainCount = selectedColumns.filter(col => 
+    !UNIFIED_COLUMNS.find(c => c.id === col)?.isAdvanced
+  ).length;
+
+  // Check if all main/advanced are selected
+  const allMainSelected = mainColumns.every(col => selectedColumns.includes(col.id));
+  const someMainSelected = mainColumns.some(col => selectedColumns.includes(col.id));
+  const allAdvancedSelected = advancedColumns.every(col => selectedColumns.includes(col.id));
+  const someAdvancedSelected = advancedColumns.some(col => selectedColumns.includes(col.id));
+
+  const handleSelectAllMain = () => {
+    if (allMainSelected) {
+      // Deselect all main columns
+      onColumnsChange(selectedColumns.filter(col => 
+        UNIFIED_COLUMNS.find(c => c.id === col)?.isAdvanced
+      ));
+    } else {
+      // Select all main columns
+      const mainIds = mainColumns.map(c => c.id);
+      const advancedSelected = selectedColumns.filter(col => 
+        UNIFIED_COLUMNS.find(c => c.id === col)?.isAdvanced
+      );
+      onColumnsChange([...mainIds, ...advancedSelected]);
+    }
+  };
+
+  const handleSelectAllAdvanced = () => {
+    if (allAdvancedSelected) {
+      // Deselect all advanced columns
+      onColumnsChange(selectedColumns.filter(col => 
+        !UNIFIED_COLUMNS.find(c => c.id === col)?.isAdvanced
+      ));
+    } else {
+      // Select all advanced columns
+      const advancedIds = advancedColumns.map(c => c.id);
+      const mainSelected = selectedColumns.filter(col => 
+        !UNIFIED_COLUMNS.find(c => c.id === col)?.isAdvanced
+      );
+      onColumnsChange([...mainSelected, ...advancedIds]);
+    }
+  };
+
+  const handleClearAll = () => {
+    onColumnsChange([]);
+  };
 
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold mb-2">Column Selection</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold">Column Selection</h3>
+          {selectedColumns.length > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleClearAll}
+              className="h-7 text-xs text-muted-foreground hover:text-destructive"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Clear All ({selectedColumns.length})
+            </Button>
+          )}
+        </div>
         
         {isMixedMode && (
           <Alert className="mb-3">
@@ -182,9 +241,26 @@ export function ColumnSelector({ selectedColumns, onColumnsChange }: ColumnSelec
       </div>
 
       <div>
-        <Label className="text-xs text-muted-foreground mb-2 block">
-          Available Fields
-        </Label>
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-xs text-muted-foreground">
+            Available Fields
+          </Label>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="select-all-main"
+              checked={allMainSelected}
+              ref={(el) => {
+                if (el) {
+                  (el as any).indeterminate = someMainSelected && !allMainSelected;
+                }
+              }}
+              onCheckedChange={handleSelectAllMain}
+            />
+            <Label htmlFor="select-all-main" className="text-xs cursor-pointer">
+              Select All
+            </Label>
+          </div>
+        </div>
         <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
           {Object.entries(mainCategorizedColumns).map(([category, columns]) => (
             <div key={category}>
@@ -219,20 +295,39 @@ export function ColumnSelector({ selectedColumns, onColumnsChange }: ColumnSelec
       {/* Advanced Fields Collapsible */}
       {advancedColumns.length > 0 && (
         <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="border-t pt-3">
-          <CollapsibleTrigger className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground w-full py-1">
-            {showAdvanced ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            <span>Advanced Fields</span>
-            <span className="text-xs font-normal">
-              ({advancedColumns.length} columns)
-              {selectedAdvancedCount > 0 && (
-                <span className="ml-1 text-primary">• {selectedAdvancedCount} selected</span>
+          <div className="flex items-center justify-between">
+            <CollapsibleTrigger className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground py-1">
+              {showAdvanced ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
               )}
-            </span>
-          </CollapsibleTrigger>
+              <span>Advanced Fields</span>
+              <span className="text-xs font-normal">
+                ({advancedColumns.length} columns)
+                {selectedAdvancedCount > 0 && (
+                  <span className="ml-1 text-primary">• {selectedAdvancedCount} selected</span>
+                )}
+              </span>
+            </CollapsibleTrigger>
+            {showAdvanced && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="select-all-advanced"
+                  checked={allAdvancedSelected}
+                  ref={(el) => {
+                    if (el) {
+                      (el as any).indeterminate = someAdvancedSelected && !allAdvancedSelected;
+                    }
+                  }}
+                  onCheckedChange={handleSelectAllAdvanced}
+                />
+                <Label htmlFor="select-all-advanced" className="text-xs cursor-pointer">
+                  Select All
+                </Label>
+              </div>
+            )}
+          </div>
           <CollapsibleContent>
             <div className="space-y-3 mt-3 pl-2 border-l-2 border-muted max-h-[250px] overflow-y-auto pr-2">
               {Object.entries(advancedCategorizedColumns).map(([category, columns]) => (
