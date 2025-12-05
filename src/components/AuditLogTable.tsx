@@ -502,53 +502,55 @@ export function AuditLogTable() {
         <>
           <div className="border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead className="w-32">Table</TableHead>
-                    <TableHead className="w-24">Action</TableHead>
-                    <TableHead className="w-48">Employee</TableHead>
-                    <TableHead className="w-32">Vehicle</TableHead>
-                    <TableHead className="w-32">Date</TableHead>
-                    <TableHead className="w-28">Time</TableHead>
+                  <TableRow className="bg-muted/50">
+                    <TableHead style={{ width: '48px', minWidth: '48px' }}></TableHead>
+                    <TableHead style={{ width: '120px', minWidth: '120px' }}>Table</TableHead>
+                    <TableHead style={{ width: '90px', minWidth: '90px' }}>Action</TableHead>
+                    <TableHead style={{ width: '180px', minWidth: '180px' }}>Employee</TableHead>
+                    <TableHead style={{ width: '120px', minWidth: '120px' }}>Vehicle</TableHead>
+                    <TableHead style={{ width: '100px', minWidth: '100px' }}>Date</TableHead>
+                    <TableHead style={{ width: '100px', minWidth: '100px' }}>Time</TableHead>
                   </TableRow>
                 </TableHeader>
-              <TableBody>
-                {auditLogs.map((entry) => (
-                  <Collapsible key={entry.id} open={expandedRows.has(entry.id)}>
-                    <CollapsibleTrigger asChild>
-                      <TableRow
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => toggleRow(entry.id)}
-                      >
-                        <TableCell className="w-12 py-4">
-                          {expandedRows.has(entry.id) ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </TableCell>
-                        <TableCell className="w-32 py-4">{getTableBadge(entry.table_name)}</TableCell>
-                        <TableCell className="w-24 py-4">{getActionBadge(entry.action)}</TableCell>
-                        <TableCell className="w-48 py-4">
-                          {entry.changed_by_user?.name || 'Unknown'} ({entry.changed_by_user?.employee_id || 'N/A'})
-                        </TableCell>
-                        <TableCell className="w-32 py-4">{getVehicleNumber(entry)}</TableCell>
-                        <TableCell className="w-32 py-4">{format(new Date(entry.changed_at), 'MMM d')}</TableCell>
-                        <TableCell className="w-28 py-4">{format(new Date(entry.changed_at), 'h:mm a')}</TableCell>
-                      </TableRow>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent asChild>
-                      <TableRow>
-                        <TableCell colSpan={7} className="bg-muted/30 p-6">
-                          {renderDataComparison(entry)}
-                        </TableCell>
-                      </TableRow>
-                    </CollapsibleContent>
-                  </Collapsible>
-                ))}
-              </TableBody>
+                <TableBody>
+                  {auditLogs.map((entry) => (
+                    <Collapsible key={entry.id} open={expandedRows.has(entry.id)} asChild>
+                      <>
+                        <CollapsibleTrigger asChild>
+                          <TableRow
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => toggleRow(entry.id)}
+                          >
+                            <TableCell style={{ width: '48px', minWidth: '48px' }} className="py-4">
+                              {expandedRows.has(entry.id) ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </TableCell>
+                            <TableCell style={{ width: '120px', minWidth: '120px' }} className="py-4">{getTableBadge(entry.table_name)}</TableCell>
+                            <TableCell style={{ width: '90px', minWidth: '90px' }} className="py-4">{getActionBadge(entry.action)}</TableCell>
+                            <TableCell style={{ width: '180px', minWidth: '180px' }} className="py-4">
+                              {entry.changed_by_user?.name || 'Unknown'} ({entry.changed_by_user?.employee_id || 'N/A'})
+                            </TableCell>
+                            <TableCell style={{ width: '120px', minWidth: '120px' }} className="py-4">{getVehicleNumber(entry)}</TableCell>
+                            <TableCell style={{ width: '100px', minWidth: '100px' }} className="py-4">{format(new Date(entry.changed_at), 'MMM d')}</TableCell>
+                            <TableCell style={{ width: '100px', minWidth: '100px' }} className="py-4">{format(new Date(entry.changed_at), 'h:mm a')}</TableCell>
+                          </TableRow>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent asChild>
+                          <TableRow>
+                            <TableCell colSpan={7} className="bg-muted/30 p-6">
+                              {renderDataComparison(entry)}
+                            </TableCell>
+                          </TableRow>
+                        </CollapsibleContent>
+                      </>
+                    </Collapsible>
+                  ))}
+                </TableBody>
               </Table>
             </div>
           </div>
