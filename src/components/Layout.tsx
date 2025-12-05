@@ -140,7 +140,7 @@ export const Layout = ({ children }: LayoutProps) => {
               <img 
                 src={esAndDLogo} 
                 alt="ES&D Services Inc." 
-                className="hidden sm:block h-7 w-auto object-contain"
+                className="hidden sm:block h-10 w-auto object-contain"
               />
             </Link>
           </div>
