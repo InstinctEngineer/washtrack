@@ -6,8 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format, differenceInDays } from 'date-fns';
@@ -231,8 +229,8 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   // Row selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Show deleted entries toggle
-  const [showDeleted, setShowDeleted] = useState(false);
+  // Status filter: 'active' | 'deleted' | 'all'
+  const [statusFilter, setStatusFilter] = useState<'active' | 'deleted' | 'all'>('active');
 
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -259,7 +257,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     if (dateMode === 'month' || (dateMode === 'custom' && isCustomRangeValid && customStartDate && customEndDate)) {
       fetchData();
     }
-  }, [selectedMonth, dateMode, customStartDate, customEndDate, showDeleted]);
+  }, [selectedMonth, dateMode, customStartDate, customEndDate]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -275,7 +273,8 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
         endDate = customEndDate!;
       }
 
-      let query = supabase
+      // Always fetch all entries (status filter applied client-side)
+      const { data: entriesData, error: entriesError } = await supabase
         .from('wash_entries')
         .select(`
           *,
@@ -286,13 +285,6 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
         .gte('wash_date', startDate.toISOString().split('T')[0])
         .lte('wash_date', endDate.toISOString().split('T')[0])
         .order('wash_date', { ascending: false });
-
-      // Filter by deleted status
-      if (!showDeleted) {
-        query = query.is('deleted_at', null);
-      }
-
-      const { data: entriesData, error: entriesError } = await query;
 
       if (entriesError) throw entriesError;
 
@@ -369,9 +361,16 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     return values;
   }, [entries]);
 
-  // Filter entries based on all filters
+  // Filter entries based on all filters and status
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
+      // Apply status filter first
+      const isDeleted = !!entry.deleted_at;
+      if (statusFilter === 'active' && isDeleted) return false;
+      if (statusFilter === 'deleted' && !isDeleted) return false;
+      // 'all' shows everything
+
+      // Apply column filters
       return COLUMN_CONFIG.every(({ key }) => {
         const value = getColumnValue(entry, key).toLowerCase();
         const searchTerm = columnSearches[key].toLowerCase();
@@ -390,11 +389,24 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
         return true;
       });
     });
-  }, [entries, columnSearches, columnFilters]);
+  }, [entries, columnSearches, columnFilters, statusFilter]);
 
-  // Separate active and deleted entries
+  // Separate active and deleted entries (for selection logic)
   const activeEntries = useMemo(() => filteredEntries.filter(e => !e.deleted_at), [filteredEntries]);
   const deletedEntries = useMemo(() => filteredEntries.filter(e => e.deleted_at), [filteredEntries]);
+
+  // Check if any column has active filters (for badge display)
+  const hasActiveFilters = useMemo(() => {
+    return COLUMN_CONFIG.some(({ key }) => columnFilters[key].length > 0);
+  }, [columnFilters]);
+
+  // Remove a single filter value from a column
+  const removeFilterValue = (columnKey: ColumnKey, value: string) => {
+    setColumnFilters((prev) => ({
+      ...prev,
+      [columnKey]: prev[columnKey].filter((v) => v !== value),
+    }));
+  };
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
@@ -635,8 +647,10 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                 <CardTitle>Wash Entry Management</CardTitle>
                 <CardDescription>
                   Viewing {filteredEntries.length} of {entries.length} entries for {dateRangeDisplay}
-                  {showDeleted && deletedEntries.length > 0 && (
-                    <span className="text-destructive ml-2">({deletedEntries.length} deleted)</span>
+                  {statusFilter !== 'active' && (
+                    <span className="text-muted-foreground ml-2">
+                      ({statusFilter === 'deleted' ? 'showing deleted only' : 'showing all'})
+                    </span>
                   )}
                 </CardDescription>
               </div>
@@ -761,17 +775,6 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
               </Button>
             </div>
 
-            {/* Show Deleted Toggle */}
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="show-deleted"
-                checked={showDeleted}
-                onCheckedChange={setShowDeleted}
-              />
-              <Label htmlFor="show-deleted" className="text-sm text-muted-foreground">
-                Show deleted entries
-              </Label>
-            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -893,8 +896,90 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                         </TableHead>
                       )
                   )}
-                  <TableHead className="w-[80px]">Actions</TableHead>
+                  {/* Actions column with Status Filter */}
+                  <TableHead className="w-[120px]">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn('h-auto p-1 gap-1', statusFilter !== 'active' && 'text-primary')}
+                        >
+                          <span>Actions</span>
+                          <Filter className="h-3 w-3" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-40 p-0 bg-popover border" align="end">
+                        <div className="p-2 border-b">
+                          <p className="text-sm font-medium">Status Filter</p>
+                        </div>
+                        <div className="p-2 space-y-1">
+                          {[
+                            { value: 'active', label: 'Active Only' },
+                            { value: 'deleted', label: 'Deleted Only' },
+                            { value: 'all', label: 'All Entries' },
+                          ].map((option) => (
+                            <div
+                              key={option.value}
+                              className={cn(
+                                'flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-muted',
+                                statusFilter === option.value && 'bg-muted'
+                              )}
+                              onClick={() => setStatusFilter(option.value as 'active' | 'deleted' | 'all')}
+                            >
+                              <div
+                                className={cn(
+                                  'h-4 w-4 rounded-full border flex items-center justify-center',
+                                  statusFilter === option.value && 'border-primary'
+                                )}
+                              >
+                                {statusFilter === option.value && (
+                                  <div className="h-2 w-2 rounded-full bg-primary" />
+                                )}
+                              </div>
+                              <span className="text-sm">{option.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </TableHead>
                 </TableRow>
+
+                {/* Active Filter Badges Row */}
+                {hasActiveFilters && (
+                  <TableRow className="bg-muted/20 hover:bg-muted/20">
+                    <TableHead className="py-1"></TableHead>
+                    {COLUMN_CONFIG.map(
+                      ({ key }) =>
+                        visibleColumns[key] && (
+                          <TableHead key={`badges-${key}`} className="py-1 px-2">
+                            {columnFilters[key].length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {columnFilters[key].slice(0, 3).map((value) => (
+                                  <Badge
+                                    key={value}
+                                    variant="secondary"
+                                    className="text-xs px-1.5 py-0 h-5 gap-1 cursor-pointer hover:bg-destructive/20"
+                                    onClick={() => removeFilterValue(key, value)}
+                                  >
+                                    <span className="truncate max-w-[60px]">{value}</span>
+                                    <X className="h-2.5 w-2.5" />
+                                  </Badge>
+                                ))}
+                                {columnFilters[key].length > 3 && (
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
+                                    +{columnFilters[key].length - 3}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </TableHead>
+                        )
+                    )}
+                    <TableHead className="py-1"></TableHead>
+                  </TableRow>
+                )}
 
                 {/* Search Row */}
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
