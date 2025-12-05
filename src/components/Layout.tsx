@@ -130,7 +130,7 @@ export const Layout = ({ children }: LayoutProps) => {
               <Menu className="h-5 w-5" />
             </Button>
             <Link to="/" className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#1e3a5f] to-[#2d8cc4] flex items-center justify-center shadow-md">
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#1e3a5f] to-[#2d8cc4] flex items-center justify-center shadow-md transition-transform hover:scale-110">
                 <span className="text-white font-bold text-sm">WT</span>
               </div>
               <span className="hidden sm:inline font-bold text-lg bg-gradient-to-r from-[#1e3a5f] to-[#2d8cc4] bg-clip-text text-transparent">
@@ -140,7 +140,7 @@ export const Layout = ({ children }: LayoutProps) => {
               <img 
                 src={esAndDLogo} 
                 alt="ES&D Services Inc." 
-                className="hidden sm:block h-10 w-auto object-contain"
+                className="hidden sm:block h-10 w-auto object-contain transition-transform hover:scale-110"
               />
             </Link>
           </div>

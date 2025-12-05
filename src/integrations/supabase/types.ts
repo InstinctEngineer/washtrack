@@ -53,6 +53,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "audit_log_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       client_contacts: {
@@ -155,6 +162,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "client_locations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "client_locations_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
@@ -206,6 +220,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "client_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       client_vehicle_rates: {
@@ -252,6 +273,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_vehicle_rates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
           {
@@ -390,8 +418,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clients_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "clients_deleted_by_fkey"
             columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -400,7 +449,7 @@ export type Database = {
             foreignKeyName: "clients_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
         ]
@@ -520,6 +569,13 @@ export type Database = {
             columns: ["manager_user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_manager_user_id_fkey"
+            columns: ["manager_user_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
         ]
@@ -658,6 +714,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "system_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       system_settings_audit: {
@@ -694,6 +757,13 @@ export type Database = {
             columns: ["changed_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_settings_audit_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
         ]
@@ -733,6 +803,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_locations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
         ]
@@ -916,6 +993,13 @@ export type Database = {
             columns: ["manager_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1113,6 +1197,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "vehicles_assigned_driver_id_fkey"
+            columns: ["assigned_driver_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "vehicles_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
@@ -1138,6 +1229,13 @@ export type Database = {
             columns: ["last_wash_employee_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_last_wash_employee_id_fkey"
+            columns: ["last_wash_employee_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
           {
@@ -1361,6 +1459,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "wash_entries_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "wash_entries_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
@@ -1375,8 +1480,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "wash_entries_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "wash_entries_employee_id_fkey"
             columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_entries_quality_checked_by_fkey"
+            columns: ["quality_checked_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -1385,7 +1511,7 @@ export type Database = {
             foreignKeyName: "wash_entries_quality_checked_by_fkey"
             columns: ["quality_checked_by"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
           {
@@ -1399,12 +1525,163 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      users_safe_view: {
+        Row: {
+          assigned_clients: string[] | null
+          available_days: string[] | null
+          average_wash_time_minutes: number | null
+          certifications: string[] | null
+          client_access_level: string | null
+          created_at: string | null
+          default_shift: string | null
+          email: string | null
+          employee_id: string | null
+          hire_date: string | null
+          id: string | null
+          is_active: boolean | null
+          last_training_date: string | null
+          location_id: string | null
+          manager_id: string | null
+          max_daily_washes: number | null
+          name: string | null
+          notes: string | null
+          on_vacation: boolean | null
+          performance_rating: number | null
+          preferred_language: string | null
+          profile_photo_url: string | null
+          quality_score_average: number | null
+          role: string | null
+          tags: string[] | null
+          termination_date: string | null
+          total_washes_completed: number | null
+          training_completed: string[] | null
+          vacation_until: string | null
+        }
+        Insert: {
+          assigned_clients?: string[] | null
+          available_days?: string[] | null
+          average_wash_time_minutes?: number | null
+          certifications?: string[] | null
+          client_access_level?: string | null
+          created_at?: string | null
+          default_shift?: string | null
+          email?: string | null
+          employee_id?: string | null
+          hire_date?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          last_training_date?: string | null
+          location_id?: string | null
+          manager_id?: string | null
+          max_daily_washes?: number | null
+          name?: string | null
+          notes?: string | null
+          on_vacation?: boolean | null
+          performance_rating?: number | null
+          preferred_language?: string | null
+          profile_photo_url?: string | null
+          quality_score_average?: number | null
+          role?: string | null
+          tags?: string[] | null
+          termination_date?: string | null
+          total_washes_completed?: number | null
+          training_completed?: string[] | null
+          vacation_until?: string | null
+        }
+        Update: {
+          assigned_clients?: string[] | null
+          available_days?: string[] | null
+          average_wash_time_minutes?: number | null
+          certifications?: string[] | null
+          client_access_level?: string | null
+          created_at?: string | null
+          default_shift?: string | null
+          email?: string | null
+          employee_id?: string | null
+          hire_date?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          last_training_date?: string | null
+          location_id?: string | null
+          manager_id?: string | null
+          max_daily_washes?: number | null
+          name?: string | null
+          notes?: string | null
+          on_vacation?: boolean | null
+          performance_rating?: number | null
+          preferred_language?: string | null
+          profile_photo_url?: string | null
+          quality_score_average?: number | null
+          role?: string | null
+          tags?: string[] | null
+          termination_date?: string | null
+          total_washes_completed?: number | null
+          training_completed?: string[] | null
+          vacation_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       auto_update_cutoff_date: { Args: never; Returns: undefined }
       get_last_sunday: { Args: never; Returns: string }
       get_next_saturday: { Args: never; Returns: string }
+      get_users_for_managers: {
+        Args: never
+        Returns: {
+          assigned_clients: string[]
+          available_days: string[]
+          average_wash_time_minutes: number
+          certifications: string[]
+          client_access_level: string
+          created_at: string
+          default_shift: string
+          email: string
+          employee_id: string
+          hire_date: string
+          id: string
+          is_active: boolean
+          last_training_date: string
+          location_id: string
+          manager_id: string
+          max_daily_washes: number
+          name: string
+          notes: string
+          on_vacation: boolean
+          performance_rating: number
+          preferred_language: string
+          profile_photo_url: string
+          quality_score_average: number
+          role: string
+          tags: string[]
+          termination_date: string
+          total_washes_completed: number
+          training_completed: string[]
+          vacation_until: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
