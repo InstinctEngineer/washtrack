@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format, differenceInDays } from 'date-fns';
-import { CalendarIcon, Trash2, Plus, Filter, X, Columns3, ChevronDown, ArrowRight, RotateCcw, Download, Pencil } from 'lucide-react';
+import { CalendarIcon, Trash2, Plus, Filter, X, Columns3, ChevronDown, ArrowRight, RotateCcw, Download, Pencil, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VehicleSearchInput } from './VehicleSearchInput';
@@ -412,6 +412,10 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [entriesToDelete, setEntriesToDelete] = useState<WashEntry[]>([]);
 
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<ColumnKey>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // Validate custom date range
   const isCustomRangeValid = useMemo(() => {
     if (dateMode !== 'custom') return true;
@@ -571,6 +575,52 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   // Separate active and deleted entries (for selection logic)
   const activeEntries = useMemo(() => filteredEntries.filter(e => !e.deleted_at), [filteredEntries]);
   const deletedEntries = useMemo(() => filteredEntries.filter(e => e.deleted_at), [filteredEntries]);
+
+  // Sorting handlers
+  const handleSort = (column: ColumnKey) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort entries
+  const sortedEntries = useMemo(() => {
+    return [...filteredEntries].sort((a, b) => {
+      const aValue = getColumnValue(a, sortColumn);
+      const bValue = getColumnValue(b, sortColumn);
+
+      // Handle rate column numerically
+      if (sortColumn === 'rate') {
+        const aNum = parseFloat(aValue) || 0;
+        const bNum = parseFloat(bValue) || 0;
+        return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+
+      // Handle date column
+      if (sortColumn === 'date') {
+        const aDate = new Date(a.wash_date).getTime();
+        const bDate = new Date(b.wash_date).getTime();
+        return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+      }
+
+      // String comparison for other columns
+      if (sortDirection === 'asc') {
+        return aValue.localeCompare(bValue);
+      } else {
+        return bValue.localeCompare(aValue);
+      }
+    });
+  }, [filteredEntries, sortColumn, sortDirection]);
+
+  const getSortIcon = (column: ColumnKey) => {
+    if (sortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
 
   // Check if any column has active filters (for badge display)
   const hasActiveFilters = useMemo(() => {
@@ -1198,9 +1248,14 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                   {COLUMN_CONFIG.map(
                     ({ key, label, filterable, editable }) =>
                       visibleColumns[key] && (
-                        <TableHead key={key}>
+                        <TableHead 
+                          key={key}
+                          className="cursor-pointer select-none hover:bg-muted/50"
+                          onClick={() => handleSort(key)}
+                        >
                           <div className="flex items-center gap-1">
                             <span>{label}</span>
+                            {getSortIcon(key)}
                             {editable && (
                               <span title="Editable">
                                 <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -1353,7 +1408,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEntries.length === 0 ? (
+                {sortedEntries.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={visibleColumnCount + 2}
@@ -1365,7 +1420,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredEntries.map((entry) => {
+                  sortedEntries.map((entry) => {
                     const isDeleted = !!entry.deleted_at;
                     return (
                       <TableRow 

@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, ChevronRight, CalendarIcon, Filter, X, Columns3, Download, ArrowRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, CalendarIcon, Filter, X, Columns3, Download, ArrowRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -201,6 +201,10 @@ export function AuditLogTable() {
 
   // Row selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<AuditColumnKey>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Validate custom date range
   const isCustomRangeValid = useMemo(() => {
@@ -406,6 +410,45 @@ export function AuditLogTable() {
       });
     });
   }, [auditLogs, columnSearches, columnFilters, vehicleMap]);
+
+  // Sorting handlers
+  const handleSort = (column: AuditColumnKey) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort entries
+  const sortedEntries = useMemo(() => {
+    return [...filteredEntries].sort((a, b) => {
+      const aValue = getColumnValue(a, sortColumn);
+      const bValue = getColumnValue(b, sortColumn);
+
+      // Handle date/time column
+      if (sortColumn === 'date' || sortColumn === 'time') {
+        const aDate = new Date(a.changed_at).getTime();
+        const bDate = new Date(b.changed_at).getTime();
+        return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+      }
+
+      // String comparison for other columns
+      if (sortDirection === 'asc') {
+        return aValue.localeCompare(bValue);
+      } else {
+        return bValue.localeCompare(aValue);
+      }
+    });
+  }, [filteredEntries, sortColumn, sortDirection]);
+
+  const getSortIcon = (column: AuditColumnKey) => {
+    if (sortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
@@ -963,7 +1006,7 @@ export function AuditLogTable() {
           <div className="text-sm text-destructive">{dateRangeError}</div>
         )}
 
-        {filteredEntries.length === 0 ? (
+        {sortedEntries.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">No audit entries found</div>
         ) : (
           <div className="border rounded-lg overflow-hidden">
@@ -987,9 +1030,14 @@ export function AuditLogTable() {
                     </TableHead>
                     <TableHead style={{ width: '40px', minWidth: '40px' }}></TableHead>
                     {visibleColumns.table && (
-                      <TableHead style={{ width: '120px', minWidth: '120px' }}>
+                      <TableHead 
+                        style={{ width: '120px', minWidth: '120px' }}
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('table')}
+                      >
                         <div className="flex items-center gap-1">
                           Table
+                          {getSortIcon('table')}
                           <ColumnFilterDropdown
                             label="Table"
                             uniqueValues={uniqueValues.table}
@@ -1000,9 +1048,14 @@ export function AuditLogTable() {
                       </TableHead>
                     )}
                     {visibleColumns.action && (
-                      <TableHead style={{ width: '90px', minWidth: '90px' }}>
+                      <TableHead 
+                        style={{ width: '90px', minWidth: '90px' }}
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('action')}
+                      >
                         <div className="flex items-center gap-1">
                           Action
+                          {getSortIcon('action')}
                           <ColumnFilterDropdown
                             label="Action"
                             uniqueValues={uniqueValues.action}
@@ -1013,9 +1066,14 @@ export function AuditLogTable() {
                       </TableHead>
                     )}
                     {visibleColumns.employee && (
-                      <TableHead style={{ width: '180px', minWidth: '180px' }}>
+                      <TableHead 
+                        style={{ width: '180px', minWidth: '180px' }}
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('employee')}
+                      >
                         <div className="flex items-center gap-1">
                           Employee
+                          {getSortIcon('employee')}
                           <ColumnFilterDropdown
                             label="Employee"
                             uniqueValues={uniqueValues.employee}
@@ -1026,9 +1084,14 @@ export function AuditLogTable() {
                       </TableHead>
                     )}
                     {visibleColumns.vehicle && (
-                      <TableHead style={{ width: '120px', minWidth: '120px' }}>
+                      <TableHead 
+                        style={{ width: '120px', minWidth: '120px' }}
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('vehicle')}
+                      >
                         <div className="flex items-center gap-1">
                           Vehicle
+                          {getSortIcon('vehicle')}
                           <ColumnFilterDropdown
                             label="Vehicle"
                             uniqueValues={uniqueValues.vehicle}
@@ -1039,9 +1102,14 @@ export function AuditLogTable() {
                       </TableHead>
                     )}
                     {visibleColumns.date && (
-                      <TableHead style={{ width: '100px', minWidth: '100px' }}>
+                      <TableHead 
+                        style={{ width: '100px', minWidth: '100px' }}
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('date')}
+                      >
                         <div className="flex items-center gap-1">
                           Date
+                          {getSortIcon('date')}
                           <ColumnFilterDropdown
                             label="Date"
                             uniqueValues={uniqueValues.date}
@@ -1052,7 +1120,16 @@ export function AuditLogTable() {
                       </TableHead>
                     )}
                     {visibleColumns.time && (
-                      <TableHead style={{ width: '100px', minWidth: '100px' }}>Time</TableHead>
+                      <TableHead 
+                        style={{ width: '100px', minWidth: '100px' }}
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('time')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Time
+                          {getSortIcon('time')}
+                        </div>
+                      </TableHead>
                     )}
                   </TableRow>
 
@@ -1123,7 +1200,7 @@ export function AuditLogTable() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEntries.map((entry) => (
+                  {sortedEntries.map((entry) => (
                     <Collapsible key={entry.id} open={expandedRows.has(entry.id)} asChild>
                       <>
                         <TableRow className="cursor-pointer hover:bg-muted/50">
