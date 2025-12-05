@@ -213,6 +213,9 @@ export function AuditLogTable() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
+  // Collapsible state
+  const [isTableOpen, setIsTableOpen] = useState(true);
+
   const handlePageSizeChange = (value: string) => {
     setRowsPerPage(Number(value));
     setCurrentPage(1);
@@ -891,32 +894,37 @@ export function AuditLogTable() {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <CardTitle>Audit Log</CardTitle>
-            <CardDescription>
-              {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'} • {dateRangeDisplay}
-            </CardDescription>
-          </div>
-
-          {/* Selection toolbar */}
-          {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-              <span className="text-sm font-medium">{selectedIds.size} selected</span>
-              <Button variant="outline" size="sm" onClick={handleExportSelected}>
-                <Download className="h-4 w-4 mr-1" />
-                Export Selected
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-                <X className="h-4 w-4" />
-              </Button>
+      <Collapsible open={isTableOpen} onOpenChange={setIsTableOpen}>
+        <CardHeader className="cursor-pointer" onClick={() => setIsTableOpen(!isTableOpen)}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <ChevronDown className={cn("h-5 w-5 transition-transform", !isTableOpen && "-rotate-90")} />
+              <div>
+                <CardTitle>Audit Log</CardTitle>
+                <CardDescription>
+                  {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'} • {dateRangeDisplay}
+                </CardDescription>
+              </div>
             </div>
-          )}
-        </div>
-      </CardHeader>
 
-      <CardContent className="space-y-4">
+            {/* Selection toolbar */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg" onClick={(e) => e.stopPropagation()}>
+                <span className="text-sm font-medium">{selectedIds.size} selected</span>
+                <Button variant="outline" size="sm" onClick={handleExportSelected}>
+                  <Download className="h-4 w-4 mr-1" />
+                  Export Selected
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           {/* Date range controls */}
@@ -1334,6 +1342,8 @@ export function AuditLogTable() {
           )}
         </div>
       </CardContent>
+      </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 }

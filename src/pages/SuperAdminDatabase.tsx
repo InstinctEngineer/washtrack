@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Database, Edit, Plus, Trash2, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Database, Edit, Plus, Trash2, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -37,6 +38,7 @@ export default function SuperAdminDatabase() {
   const [formData, setFormData] = useState<any>({});
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [isTableOpen, setIsTableOpen] = useState(true);
 
   // Only super_admin can access
   if (userRole !== 'super_admin') {
@@ -196,10 +198,15 @@ export default function SuperAdminDatabase() {
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Tables</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <Collapsible open={isTableOpen} onOpenChange={setIsTableOpen}>
+            <CardHeader className="cursor-pointer" onClick={() => setIsTableOpen(!isTableOpen)}>
+              <div className="flex items-center gap-2">
+                <ChevronDown className={cn("h-5 w-5 transition-transform", !isTableOpen && "-rotate-90")} />
+                <CardTitle>Tables</CardTitle>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>
             <Tabs value={selectedTable} onValueChange={setSelectedTable}>
               <ScrollArea className="w-full">
                 <TabsList className="inline-flex w-max">
@@ -293,7 +300,9 @@ export default function SuperAdminDatabase() {
                 </TabsContent>
               ))}
             </Tabs>
-          </CardContent>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
 
         {/* Edit/Add Dialog */}
