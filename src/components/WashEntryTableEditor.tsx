@@ -1,16 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { CalendarIcon, Trash2, Plus } from 'lucide-react';
+import { CalendarIcon, Trash2, Plus, Filter, X, Columns3, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VehicleSearchInput } from './VehicleSearchInput';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface WashEntry {
   id: string;
@@ -41,6 +52,115 @@ interface Location {
   name: string;
 }
 
+type ColumnKey = 'date' | 'vehicle' | 'client' | 'type' | 'rate' | 'location' | 'employee';
+
+const COLUMN_CONFIG: { key: ColumnKey; label: string; filterable: boolean }[] = [
+  { key: 'date', label: 'Date', filterable: true },
+  { key: 'vehicle', label: 'Vehicle', filterable: true },
+  { key: 'client', label: 'Client', filterable: true },
+  { key: 'type', label: 'Type', filterable: true },
+  { key: 'rate', label: 'Rate', filterable: false },
+  { key: 'location', label: 'Location', filterable: true },
+  { key: 'employee', label: 'Employee', filterable: true },
+];
+
+// Helper to get column value from entry
+const getColumnValue = (entry: WashEntry, key: ColumnKey): string => {
+  switch (key) {
+    case 'date':
+      return format(new Date(entry.wash_date), 'MMM d, yyyy');
+    case 'vehicle':
+      return entry.vehicle?.vehicle_number || '';
+    case 'client':
+      return entry.vehicle?.client?.client_name || '';
+    case 'type':
+      return entry.vehicle?.vehicle_type?.type_name || '';
+    case 'rate':
+      return entry.vehicle?.vehicle_type?.rate_per_wash?.toFixed(2) || '0.00';
+    case 'location':
+      return entry.location?.name || '';
+    case 'employee':
+      return entry.employee?.name || '';
+    default:
+      return '';
+  }
+};
+
+// Column Filter Dropdown Component
+function ColumnFilterDropdown({
+  columnKey,
+  label,
+  uniqueValues,
+  selectedValues,
+  onSelectionChange,
+}: {
+  columnKey: ColumnKey;
+  label: string;
+  uniqueValues: string[];
+  selectedValues: string[];
+  onSelectionChange: (values: string[]) => void;
+}) {
+  const isFiltered = selectedValues.length > 0;
+
+  const handleToggle = (value: string) => {
+    if (selectedValues.includes(value)) {
+      onSelectionChange(selectedValues.filter((v) => v !== value));
+    } else {
+      onSelectionChange([...selectedValues, value]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onSelectionChange([]);
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn('h-6 w-6 p-0', isFiltered && 'text-primary')}
+        >
+          <Filter className="h-3 w-3" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-0 bg-popover border" align="start">
+        <div className="p-2 border-b">
+          <p className="text-sm font-medium">Filter {label}</p>
+        </div>
+        <div className="p-2 border-b">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-xs"
+            onClick={handleSelectAll}
+          >
+            {selectedValues.length === 0 ? 'All Selected' : 'Clear Filter'}
+          </Button>
+        </div>
+        <ScrollArea className="h-[200px]">
+          <div className="p-2 space-y-1">
+            {uniqueValues.map((value) => (
+              <div
+                key={value}
+                className="flex items-center space-x-2 p-1 hover:bg-muted rounded cursor-pointer"
+                onClick={() => handleToggle(value)}
+              >
+                <Checkbox
+                  checked={selectedValues.length === 0 || selectedValues.includes(value)}
+                  className="pointer-events-none"
+                />
+                <span className="text-sm truncate">{value || '(Empty)'}</span>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function WashEntryTableEditor({ userId }: { userId: string }) {
   const [entries, setEntries] = useState<WashEntry[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -53,6 +173,39 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   });
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // Column visibility state
+  const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>({
+    date: true,
+    vehicle: true,
+    client: true,
+    type: true,
+    rate: true,
+    location: true,
+    employee: true,
+  });
+
+  // Per-column text search
+  const [columnSearches, setColumnSearches] = useState<Record<ColumnKey, string>>({
+    date: '',
+    vehicle: '',
+    client: '',
+    type: '',
+    rate: '',
+    location: '',
+    employee: '',
+  });
+
+  // Per-column dropdown filters (selected values)
+  const [columnFilters, setColumnFilters] = useState<Record<ColumnKey, string[]>>({
+    date: [],
+    vehicle: [],
+    client: [],
+    type: [],
+    rate: [],
+    location: [],
+    employee: [],
+  });
+
   useEffect(() => {
     fetchData();
   }, [selectedMonth]);
@@ -60,11 +213,9 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Get start and end of selected month
       const startOfMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
       const endOfMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0);
 
-      // Fetch wash entries for the month
       const { data: entriesData, error: entriesError } = await supabase
         .from('wash_entries')
         .select(`
@@ -79,7 +230,6 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
 
       if (entriesError) throw entriesError;
 
-      // Fetch locations
       const { data: locationsData, error: locationsError } = await supabase
         .from('locations')
         .select('id, name')
@@ -100,6 +250,91 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Get unique values for each column
+  const uniqueValues = useMemo(() => {
+    const values: Record<ColumnKey, string[]> = {
+      date: [],
+      vehicle: [],
+      client: [],
+      type: [],
+      rate: [],
+      location: [],
+      employee: [],
+    };
+
+    entries.forEach((entry) => {
+      COLUMN_CONFIG.forEach(({ key }) => {
+        const value = getColumnValue(entry, key);
+        if (value && !values[key].includes(value)) {
+          values[key].push(value);
+        }
+      });
+    });
+
+    // Sort each array
+    Object.keys(values).forEach((key) => {
+      values[key as ColumnKey].sort();
+    });
+
+    return values;
+  }, [entries]);
+
+  // Filter entries based on all filters
+  const filteredEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      return COLUMN_CONFIG.every(({ key }) => {
+        const value = getColumnValue(entry, key).toLowerCase();
+        const searchTerm = columnSearches[key].toLowerCase();
+        const filterValues = columnFilters[key];
+
+        // Check text search
+        if (searchTerm && !value.includes(searchTerm)) {
+          return false;
+        }
+
+        // Check dropdown filter
+        if (filterValues.length > 0 && !filterValues.includes(getColumnValue(entry, key))) {
+          return false;
+        }
+
+        return true;
+      });
+    });
+  }, [entries, columnSearches, columnFilters]);
+
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    Object.values(columnSearches).forEach((v) => {
+      if (v) count++;
+    });
+    Object.values(columnFilters).forEach((v) => {
+      if (v.length > 0) count++;
+    });
+    return count;
+  }, [columnSearches, columnFilters]);
+
+  const clearAllFilters = () => {
+    setColumnSearches({
+      date: '',
+      vehicle: '',
+      client: '',
+      type: '',
+      rate: '',
+      location: '',
+      employee: '',
+    });
+    setColumnFilters({
+      date: [],
+      vehicle: [],
+      client: [],
+      type: [],
+      rate: [],
+      location: [],
+      employee: [],
+    });
   };
 
   const handleAddEntry = async () => {
@@ -146,10 +381,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
 
   const handleDeleteEntry = async (entryId: string) => {
     try {
-      const { error } = await supabase
-        .from('wash_entries')
-        .delete()
-        .eq('id', entryId);
+      const { error } = await supabase.from('wash_entries').delete().eq('id', entryId);
 
       if (error) throw error;
 
@@ -183,32 +415,73 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <CardTitle>Wash Entry Management</CardTitle>
             <CardDescription>
-              Viewing entries for {format(selectedMonth, 'MMMM yyyy')}
+              Viewing {filteredEntries.length} of {entries.length} entries for{' '}
+              {format(selectedMonth, 'MMMM yyyy')}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {/* Month Picker */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" size="sm">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {format(selectedMonth, 'MMM yyyy')}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
+              <PopoverContent className="w-auto p-0 bg-popover" align="end">
                 <Calendar
                   mode="single"
                   selected={selectedMonth}
                   onSelect={(date) => date && setSelectedMonth(date)}
                   initialFocus
-                  className={cn("p-3 pointer-events-auto")}
+                  className={cn('p-3 pointer-events-auto')}
                 />
               </PopoverContent>
             </Popover>
-            <Button onClick={() => setShowAddForm(!showAddForm)}>
+
+            {/* Column Visibility */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Columns3 className="mr-2 h-4 w-4" />
+                  Columns
+                  <ChevronDown className="ml-2 h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-popover">
+                <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {COLUMN_CONFIG.map(({ key, label }) => (
+                  <DropdownMenuCheckboxItem
+                    key={key}
+                    checked={visibleColumns[key]}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns((prev) => ({ ...prev, [key]: checked }))
+                    }
+                  >
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Clear Filters */}
+            {activeFilterCount > 0 && (
+              <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                <X className="mr-2 h-4 w-4" />
+                Clear Filters
+                <Badge variant="secondary" className="ml-2">
+                  {activeFilterCount}
+                </Badge>
+              </Button>
+            )}
+
+            {/* Add Entry */}
+            <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Entry
             </Button>
@@ -229,13 +502,13 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                       {format(newEntry.wash_date, 'PPP')}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto p-0 bg-popover" align="start">
                     <Calendar
                       mode="single"
                       selected={newEntry.wash_date}
                       onSelect={(date) => date && setNewEntry({ ...newEntry, wash_date: date })}
                       initialFocus
-                      className={cn("p-3 pointer-events-auto")}
+                      className={cn('p-3 pointer-events-auto')}
                     />
                   </PopoverContent>
                 </Popover>
@@ -243,7 +516,9 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
               <div>
                 <label className="text-sm font-medium mb-2 block">Vehicle</label>
                 <VehicleSearchInput
-                  onSelect={(vehicleNumber, vehicleId) => setNewEntry({ ...newEntry, vehicle_id: vehicleId })}
+                  onSelect={(vehicleNumber, vehicleId) =>
+                    setNewEntry({ ...newEntry, vehicle_id: vehicleId })
+                  }
                   placeholder="Search vehicle..."
                 />
               </div>
@@ -272,43 +547,111 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
           </div>
         )}
 
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
+              {/* Header Row with Filter Icons */}
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Vehicle</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Rate</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Employee</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
+                {COLUMN_CONFIG.map(
+                  ({ key, label, filterable }) =>
+                    visibleColumns[key] && (
+                      <TableHead key={key}>
+                        <div className="flex items-center gap-1">
+                          <span>{label}</span>
+                          {filterable && (
+                            <ColumnFilterDropdown
+                              columnKey={key}
+                              label={label}
+                              uniqueValues={uniqueValues[key]}
+                              selectedValues={columnFilters[key]}
+                              onSelectionChange={(values) =>
+                                setColumnFilters((prev) => ({ ...prev, [key]: values }))
+                              }
+                            />
+                          )}
+                        </div>
+                      </TableHead>
+                    )
+                )}
+                <TableHead className="w-[80px]">Actions</TableHead>
+              </TableRow>
+
+              {/* Search Row */}
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
+                {COLUMN_CONFIG.map(
+                  ({ key }) =>
+                    visibleColumns[key] && (
+                      <TableHead key={`search-${key}`} className="py-1 px-2">
+                        <div className="relative">
+                          <Input
+                            placeholder={`Filter...`}
+                            value={columnSearches[key]}
+                            onChange={(e) =>
+                              setColumnSearches((prev) => ({ ...prev, [key]: e.target.value }))
+                            }
+                            className="h-7 text-xs pr-6"
+                          />
+                          {columnSearches[key] && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-7 w-6 p-0"
+                              onClick={() =>
+                                setColumnSearches((prev) => ({ ...prev, [key]: '' }))
+                              }
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableHead>
+                    )
+                )}
+                <TableHead className="py-1"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entries.length === 0 ? (
+              {filteredEntries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    No wash entries found for this month
+                  <TableCell
+                    colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}
+                    className="text-center text-muted-foreground h-24"
+                  >
+                    {entries.length === 0
+                      ? 'No wash entries found for this month'
+                      : 'No entries match your filters'}
                   </TableCell>
                 </TableRow>
               ) : (
-                entries.map((entry) => (
+                filteredEntries.map((entry) => (
                   <TableRow key={entry.id}>
-                    <TableCell>{format(new Date(entry.wash_date), 'MMM d, yyyy')}</TableCell>
-                    <TableCell>{entry.vehicle?.vehicle_number || 'N/A'}</TableCell>
-                    <TableCell>
-                      {entry.vehicle?.client?.client_name || (
-                        <span className="text-muted-foreground italic">No Client</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{entry.vehicle?.vehicle_type?.type_name || 'N/A'}</TableCell>
-                    <TableCell>
-                      ${entry.vehicle?.vehicle_type?.rate_per_wash?.toFixed(2) || '0.00'}
-                    </TableCell>
-                    <TableCell>{entry.location?.name || 'N/A'}</TableCell>
-                    <TableCell>{entry.employee?.name || 'N/A'}</TableCell>
+                    {visibleColumns.date && (
+                      <TableCell>{format(new Date(entry.wash_date), 'MMM d, yyyy')}</TableCell>
+                    )}
+                    {visibleColumns.vehicle && (
+                      <TableCell>{entry.vehicle?.vehicle_number || 'N/A'}</TableCell>
+                    )}
+                    {visibleColumns.client && (
+                      <TableCell>
+                        {entry.vehicle?.client?.client_name || (
+                          <span className="text-muted-foreground italic">No Client</span>
+                        )}
+                      </TableCell>
+                    )}
+                    {visibleColumns.type && (
+                      <TableCell>{entry.vehicle?.vehicle_type?.type_name || 'N/A'}</TableCell>
+                    )}
+                    {visibleColumns.rate && (
+                      <TableCell>
+                        ${entry.vehicle?.vehicle_type?.rate_per_wash?.toFixed(2) || '0.00'}
+                      </TableCell>
+                    )}
+                    {visibleColumns.location && (
+                      <TableCell>{entry.location?.name || 'N/A'}</TableCell>
+                    )}
+                    {visibleColumns.employee && (
+                      <TableCell>{entry.employee?.name || 'N/A'}</TableCell>
+                    )}
                     <TableCell>
                       <Button
                         variant="ghost"
