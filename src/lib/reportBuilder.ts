@@ -486,12 +486,7 @@ async function buildUnifiedQuery(config: ReportConfig) {
       separator[col] = '';
     });
     
-    // Add section headers - use ALL columns for consistent Excel layout
-    const detailHeader: any = {};
-    config.columns.forEach(col => {
-      detailHeader[col] = col === config.columns[0] ? '--- DETAIL ROWS ---' : '';
-    });
-    
+    // Add summary section header - use ALL columns for consistent Excel layout
     const summaryHeader: any = {};
     config.columns.forEach(col => {
       summaryHeader[col] = col === config.columns[0] ? '--- SUMMARY ---' : '';
@@ -517,7 +512,6 @@ async function buildUnifiedQuery(config: ReportConfig) {
     });
     
     return [
-      detailHeader,
       ...expandedDetailData,
       separator,
       summaryHeader,
