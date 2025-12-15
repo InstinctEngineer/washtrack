@@ -53,6 +53,7 @@ export const CreateUserModal = ({
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    password: "",
     locations: [] as { location_id: string; is_primary: boolean }[],
     role: "employee" as UserRole,
     manager_id: "",
@@ -89,13 +90,33 @@ export const CreateUserModal = ({
   });
 
   const generatePassword = () => {
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lower = "abcdefghijklmnopqrstuvwxyz";
+    const numbers = "0123456789";
+    const special = "!@#$%^&*";
+    const all = upper + lower + numbers + special;
+    
+    // Ensure at least one of each required type
+    let password = 
+      upper.charAt(Math.floor(Math.random() * upper.length)) +
+      lower.charAt(Math.floor(Math.random() * lower.length)) +
+      numbers.charAt(Math.floor(Math.random() * numbers.length));
+    
+    // Fill the rest randomly
+    for (let i = 0; i < 9; i++) {
+      password += all.charAt(Math.floor(Math.random() * all.length));
     }
-    return password;
+    
+    // Shuffle the password
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
+
+  const validatePassword = (password: string) => {
+    if (password.length < 8) return "Password must be at least 8 characters";
+    if (!/[A-Z]/.test(password)) return "Password must contain an uppercase letter";
+    if (!/[a-z]/.test(password)) return "Password must contain a lowercase letter";
+    if (!/[0-9]/.test(password)) return "Password must contain a number";
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,11 +128,23 @@ export const CreateUserModal = ({
       if (
         !formData.name ||
         !formData.email ||
+        !formData.password ||
         formData.locations.length === 0
       ) {
         toast({
           title: "Validation Error",
-          description: "All required fields must be filled, including at least one location.",
+          description: "All required fields must be filled, including password and at least one location.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const passwordError = validatePassword(formData.password);
+      if (passwordError) {
+        toast({
+          title: "Invalid Password",
+          description: passwordError,
           variant: "destructive",
         });
         setIsSubmitting(false);
@@ -159,7 +192,7 @@ export const CreateUserModal = ({
         return;
       }
 
-      const tempPassword = generatePassword();
+      // Use the password from the form
 
       // Get current session for authorization
       const { data: { session } } = await supabase.auth.getSession();
@@ -187,7 +220,7 @@ export const CreateUserModal = ({
             manager_id: formData.role === "finance" || formData.role === "admin" || formData.role === "super_admin"
               ? null
               : formData.manager_id || null,
-            password: tempPassword
+            password: formData.password
           }),
         }
       );
@@ -211,7 +244,7 @@ export const CreateUserModal = ({
 
       if (locationError) throw locationError;
 
-      setGeneratedPassword(tempPassword);
+      setGeneratedPassword(formData.password);
       setGeneratedEmail(formData.email);
       setGeneratedEmployeeId(result.user.employee_id);
       setShowPasswordDialog(true);
@@ -220,6 +253,7 @@ export const CreateUserModal = ({
       setFormData({
         name: "",
         email: "",
+        password: "",
         locations: [],
         role: "employee",
         manager_id: "",
@@ -287,6 +321,32 @@ export const CreateUserModal = ({
                 }
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password *</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="password"
+                  type="text"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  placeholder="Enter password or generate one"
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFormData({ ...formData, password: generatePassword() })}
+                >
+                  Generate
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Must be 8+ characters with uppercase, lowercase, and number
+              </p>
             </div>
 
             <div className="space-y-2">
