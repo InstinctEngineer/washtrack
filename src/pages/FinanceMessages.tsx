@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format, startOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { MessageSquare, ChevronLeft, ChevronRight, MapPin, User, Calendar, Search, RefreshCw } from 'lucide-react';
+import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 
 interface EmployeeComment {
   id: string;
@@ -41,10 +42,16 @@ export default function FinanceMessages() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const { markAsRead } = useUnreadMessageCount();
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekStartStr = format(weekStart, 'yyyy-MM-dd');
   const weekEnd = format(addWeeks(weekStart, 1), 'yyyy-MM-dd');
+
+  // Mark messages as read when page loads
+  useEffect(() => {
+    markAsRead();
+  }, []);
 
   useEffect(() => {
     fetchLocations();
