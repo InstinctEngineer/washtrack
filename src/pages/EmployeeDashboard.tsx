@@ -13,6 +13,7 @@ import { CutoffBanner } from '@/components/CutoffBanner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { VehicleGridSelector } from '@/components/VehicleGridSelector';
+import { EmployeeCommentSection } from '@/components/EmployeeCommentSection';
 import { cn } from '@/lib/utils';
 
 export default function EmployeeDashboard() {
@@ -197,6 +198,13 @@ export default function EmployeeDashboard() {
             />
           </CardContent>
         </Card>
+
+        {/* Employee Comment Section */}
+        <EmployeeCommentSection
+          employeeId={userProfile.id}
+          locationId={userLocations[0] || null}
+          currentWeek={currentWeek}
+        />
 
         {/* Week Summary - Collapsible */}
         <Collapsible open={weekSummaryOpen} onOpenChange={setWeekSummaryOpen}>
