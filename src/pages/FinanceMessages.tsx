@@ -116,7 +116,7 @@ export default function FinanceMessages() {
         .from('employee_comments')
         .select(`
           *,
-          employee:users!employee_comments_employee_id_fkey(id, name, email, employee_id),
+          employee:users_safe_view(id, name, email, employee_id),
           location:locations(id, name)
         `)
         .eq('week_start_date', weekStartStr)
@@ -139,7 +139,7 @@ export default function FinanceMessages() {
           .from('message_reads')
           .select(`
             *,
-            user:users!message_reads_user_id_fkey(id, name)
+            user:users_safe_view(id, name)
           `)
           .in('comment_id', commentIds);
 
@@ -178,7 +178,7 @@ export default function FinanceMessages() {
               .from('message_reads')
               .select(`
                 *,
-                user:users!message_reads_user_id_fkey(id, name)
+                user:users_safe_view(id, name)
               `)
               .in('comment_id', commentIds);
 
@@ -200,7 +200,7 @@ export default function FinanceMessages() {
           .from('message_replies')
           .select(`
             *,
-            user:users!message_replies_user_id_fkey(id, name)
+            user:users_safe_view(id, name)
           `)
           .in('comment_id', commentIds)
           .order('created_at', { ascending: true });
