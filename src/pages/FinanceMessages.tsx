@@ -429,7 +429,7 @@ export default function FinanceMessages() {
                         {/* Collapsed Header - Always Visible */}
                         <CollapsibleTrigger asChild>
                           <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50 transition-colors">
-                            <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`} />
                             
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
