@@ -28,6 +28,7 @@ import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
 import esAndDLogo from '@/assets/es-d-logo.png';
 import { UserRole } from '@/types/database';
+import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -38,6 +39,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { unreadCount } = useUnreadMessageCount();
 
   const handleSignOut = async () => {
     await signOut();
@@ -47,7 +49,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const getNavItems = () => {
     if (!userProfile || !userRole) return [];
 
-    const navItems: Array<{ label: string; icon: any; path: string; section?: string }> = [];
+    const navItems: Array<{ label: string; icon: any; path: string; section?: string; badge?: number }> = [];
 
     // Dashboard section - show all dashboards user has access to
     if (hasRoleOrHigher(userRole, 'employee' as UserRole)) {
@@ -80,7 +82,8 @@ export const Layout = ({ children }: LayoutProps) => {
         label: 'Employee Messages', 
         icon: MessageSquare, 
         path: '/finance/messages',
-        section: 'Dashboards'
+        section: 'Dashboards',
+        badge: unreadCount > 0 ? unreadCount : undefined
       });
     }
 
@@ -212,6 +215,14 @@ export const Layout = ({ children }: LayoutProps) => {
                     >
                       <item.icon className="h-4 w-4" />
                       {item.label}
+                      {item.badge && (
+                        <Badge 
+                          variant="destructive" 
+                          className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1.5"
+                        >
+                          {item.badge > 99 ? '99+' : item.badge}
+                        </Badge>
+                      )}
                     </Link>
                   );
                 })}
