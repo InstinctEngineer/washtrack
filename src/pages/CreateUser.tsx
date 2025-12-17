@@ -52,9 +52,10 @@ export default function CreateUser() {
   };
 
   const fetchManagers = async () => {
+    // Use users_safe_view to avoid exposing sensitive fields
     const { data } = await supabase
-      .from('users')
-      .select('*')
+      .from('users_safe_view')
+      .select('id, name, role, is_active')
       .in('role', ['manager', 'admin'])
       .eq('is_active', true)
       .order('name');

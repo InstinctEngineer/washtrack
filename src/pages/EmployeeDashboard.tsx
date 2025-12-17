@@ -75,7 +75,7 @@ export default function EmployeeDashboard() {
             client:clients(*),
             home_location:locations!vehicles_home_location_id_fkey(*)
           ),
-          employee:users!wash_entries_employee_id_fkey(*),
+          employee:users!wash_entries_employee_id_fkey(id, name, email, employee_id, role),
           actual_location:locations(*)
         `)
         .in('actual_location_id', userLocations)
@@ -85,7 +85,7 @@ export default function EmployeeDashboard() {
 
       if (error) throw error;
 
-      setEntries((data || []) as WashEntryWithDetails[]);
+      setEntries((data || []) as unknown as WashEntryWithDetails[]);
     } catch (error: any) {
       console.error('Error fetching wash entries:', error);
       toast({

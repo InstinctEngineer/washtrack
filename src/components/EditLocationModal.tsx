@@ -61,9 +61,10 @@ export const EditLocationModal = ({
   useEffect(() => {
     const fetchManagers = async () => {
       try {
+        // Use users_safe_view to avoid exposing sensitive fields
         const { data, error } = await supabase
-          .from('users')
-          .select('*')
+          .from('users_safe_view')
+          .select('id, name, role, is_active')
           .eq('role', 'manager')
           .eq('is_active', true)
           .order('name');
