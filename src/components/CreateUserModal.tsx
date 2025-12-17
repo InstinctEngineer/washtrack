@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Location, UserRole } from "@/types/database";
@@ -35,12 +35,20 @@ interface CreateUserModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  initialData?: {
+    name?: string;
+    email?: string;
+    locations?: { location_id: string; is_primary: boolean }[];
+    role?: UserRole;
+    manager_id?: string;
+  };
 }
 
 export const CreateUserModal = ({
   open,
   onOpenChange,
   onSuccess,
+  initialData,
 }: CreateUserModalProps) => {
   const { toast } = useToast();
   const { userRole } = useAuth();
@@ -50,14 +58,23 @@ export const CreateUserModal = ({
   const [generatedEmail, setGeneratedEmail] = useState("");
   const [generatedEmployeeId, setGeneratedEmployeeId] = useState("");
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
+  const getInitialFormData = () => ({
+    name: initialData?.name || "",
+    email: initialData?.email ? "" : "", // Don't copy email - must be unique
     password: "",
-    locations: [] as { location_id: string; is_primary: boolean }[],
-    role: "employee" as UserRole,
-    manager_id: "",
+    locations: initialData?.locations || [],
+    role: initialData?.role || "employee" as UserRole,
+    manager_id: initialData?.manager_id || "",
   });
+
+  const [formData, setFormData] = useState(getInitialFormData());
+
+  // Reset form when modal opens with new initialData
+  useEffect(() => {
+    if (open) {
+      setFormData(getInitialFormData());
+    }
+  }, [open, initialData]);
 
   // Fetch locations
   const { data: locations } = useQuery({

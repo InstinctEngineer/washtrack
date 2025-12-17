@@ -16,6 +16,12 @@ const Users = () => {
   const { user: currentUser, userRole } = useAuth();
   const { toast } = useToast();
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [copyUserData, setCopyUserData] = useState<{
+    name?: string;
+    locations?: { location_id: string; is_primary: boolean }[];
+    role?: any;
+    manager_id?: string;
+  } | undefined>(undefined);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -271,6 +277,22 @@ const Users = () => {
           roleMap={roleMap}
           isLoading={isLoading}
           onRefresh={refetch}
+          onCopyUser={(user) => {
+            // Fetch user's locations for prefilling
+            supabase
+              .from("user_locations")
+              .select("location_id, is_primary")
+              .eq("user_id", user.id)
+              .then(({ data }) => {
+                setCopyUserData({
+                  name: user.name + " (Copy)",
+                  locations: data || [],
+                  role: user.role,
+                  manager_id: user.manager_id || undefined,
+                });
+                setCreateModalOpen(true);
+              });
+          }}
           roleFilter={roleFilter}
           setRoleFilter={setRoleFilter}
           statusFilter={statusFilter}
@@ -281,8 +303,12 @@ const Users = () => {
 
         <CreateUserModal
           open={createModalOpen}
-          onOpenChange={setCreateModalOpen}
+          onOpenChange={(open) => {
+            setCreateModalOpen(open);
+            if (!open) setCopyUserData(undefined);
+          }}
           onSuccess={refetch}
+          initialData={copyUserData}
         />
       </div>
     </Layout>
