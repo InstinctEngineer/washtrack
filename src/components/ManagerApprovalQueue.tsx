@@ -63,8 +63,9 @@ export function ManagerApprovalQueue({ managerId }: { managerId: string }) {
 
       // Fetch employee data separately
       const employeeIds = [...new Set(requestsData?.map(r => r.employee_id) || [])];
+      // Use users_safe_view to avoid exposing sensitive fields
       const { data: employeesData } = await supabase
-        .from('users')
+        .from('users_safe_view')
         .select('id, name, email')
         .in('id', employeeIds);
 
