@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
-import { MessageSquare, ChevronLeft, ChevronRight, MapPin, User, Calendar, Search, RefreshCw } from 'lucide-react';
+import { MessageSquare, ChevronLeft, ChevronRight, MapPin, User, Calendar, Search, RefreshCw, Eye } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 
 interface EmployeeComment {
@@ -30,13 +31,26 @@ interface EmployeeComment {
   };
 }
 
+interface MessageRead {
+  id: string;
+  comment_id: string;
+  user_id: string;
+  read_at: string;
+  user?: {
+    id: string;
+    name: string;
+  };
+}
+
 interface Location {
   id: string;
   name: string;
 }
 
 export default function FinanceMessages() {
+  const { user } = useAuth();
   const [comments, setComments] = useState<EmployeeComment[]>([]);
+  const [messageReads, setMessageReads] = useState<Record<string, MessageRead[]>>({});
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -96,7 +110,72 @@ export default function FinanceMessages() {
       const { data, error } = await query;
 
       if (error) throw error;
-      setComments((data || []) as unknown as EmployeeComment[]);
+      const commentsData = (data || []) as unknown as EmployeeComment[];
+      setComments(commentsData);
+
+      // Fetch message reads for all comments
+      if (commentsData.length > 0) {
+        const commentIds = commentsData.map(c => c.id);
+        const { data: readsData, error: readsError } = await supabase
+          .from('message_reads')
+          .select(`
+            *,
+            user:users!message_reads_user_id_fkey(id, name)
+          `)
+          .in('comment_id', commentIds);
+
+        if (!readsError && readsData) {
+          // Group reads by comment_id
+          const readsByComment: Record<string, MessageRead[]> = {};
+          (readsData as unknown as MessageRead[]).forEach(read => {
+            if (!readsByComment[read.comment_id]) {
+              readsByComment[read.comment_id] = [];
+            }
+            readsByComment[read.comment_id].push(read);
+          });
+          setMessageReads(readsByComment);
+        }
+
+        // Mark current user as having read these messages
+        if (user?.id) {
+          const existingReads = new Set(
+            (readsData || [])
+              .filter((r: any) => r.user_id === user.id)
+              .map((r: any) => r.comment_id)
+          );
+
+          const unreadCommentIds = commentIds.filter(id => !existingReads.has(id));
+          
+          if (unreadCommentIds.length > 0) {
+            const readRecords = unreadCommentIds.map(comment_id => ({
+              comment_id,
+              user_id: user.id,
+            }));
+
+            await supabase.from('message_reads').insert(readRecords);
+            
+            // Refetch reads to update UI
+            const { data: updatedReads } = await supabase
+              .from('message_reads')
+              .select(`
+                *,
+                user:users!message_reads_user_id_fkey(id, name)
+              `)
+              .in('comment_id', commentIds);
+
+            if (updatedReads) {
+              const updatedReadsByComment: Record<string, MessageRead[]> = {};
+              (updatedReads as unknown as MessageRead[]).forEach(read => {
+                if (!updatedReadsByComment[read.comment_id]) {
+                  updatedReadsByComment[read.comment_id] = [];
+                }
+                updatedReadsByComment[read.comment_id].push(read);
+              });
+              setMessageReads(updatedReadsByComment);
+            }
+          }
+        }
+      }
     } catch (error: any) {
       console.error('Error fetching comments:', error);
       toast({
@@ -238,45 +317,69 @@ export default function FinanceMessages() {
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredComments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="border rounded-lg p-4 space-y-3 hover:bg-accent/30 transition-colors"
-                  >
-                    {/* Header with context */}
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {comment.employee?.name || 'Unknown'}
-                      </Badge>
-                      {comment.location && (
-                        <Badge variant="secondary" className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {comment.location.name}
+                {filteredComments.map((comment) => {
+                  const reads = messageReads[comment.id] || [];
+                  return (
+                    <div
+                      key={comment.id}
+                      className="border rounded-lg p-4 space-y-3 hover:bg-accent/30 transition-colors"
+                    >
+                      {/* Header with context */}
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {comment.employee?.name || 'Unknown'}
                         </Badge>
+                        {comment.location && (
+                          <Badge variant="secondary" className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {comment.location.name}
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="flex items-center gap-1 bg-primary/5">
+                          <Calendar className="h-3 w-3" />
+                          Week of {format(new Date(comment.week_start_date + 'T00:00:00'), 'MMM d')}
+                        </Badge>
+                      </div>
+
+                      {/* Message Content */}
+                      <p className="text-sm whitespace-pre-wrap bg-background/50 rounded p-3 border">
+                        {comment.comment_text}
+                      </p>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>
+                          Employee ID: {comment.employee?.employee_id || 'N/A'}
+                        </span>
+                        <span>
+                          Posted: {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
+                        </span>
+                      </div>
+
+                      {/* Read By Section */}
+                      {reads.length > 0 && (
+                        <div className="pt-2 border-t">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Eye className="h-3 w-3" />
+                              Read by:
+                            </span>
+                            {reads.map((read) => (
+                              <Badge 
+                                key={read.id} 
+                                variant="outline" 
+                                className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                              >
+                                {read.user?.name || 'Unknown'}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
                       )}
-                      <Badge variant="outline" className="flex items-center gap-1 bg-primary/5">
-                        <Calendar className="h-3 w-3" />
-                        Week of {format(new Date(comment.week_start_date + 'T00:00:00'), 'MMM d')}
-                      </Badge>
                     </div>
-
-                    {/* Message Content */}
-                    <p className="text-sm whitespace-pre-wrap bg-background/50 rounded p-3 border">
-                      {comment.comment_text}
-                    </p>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        Employee ID: {comment.employee?.employee_id || 'N/A'}
-                      </span>
-                      <span>
-                        Posted: {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

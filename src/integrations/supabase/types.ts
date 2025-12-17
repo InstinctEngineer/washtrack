@@ -676,6 +676,49 @@ export type Database = {
           },
         ]
       }
+      message_reads: {
+        Row: {
+          comment_id: string
+          id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          id?: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reads_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "employee_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_templates: {
         Row: {
           config: Json
