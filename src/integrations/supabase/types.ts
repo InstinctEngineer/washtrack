@@ -454,6 +454,55 @@ export type Database = {
           },
         ]
       }
+      employee_comments: {
+        Row: {
+          comment_text: string
+          created_at: string
+          employee_id: string
+          id: string
+          location_id: string | null
+          week_start_date: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          location_id?: string | null
+          week_start_date: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          location_id?: string | null
+          week_start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_comments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_comments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_comments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null
