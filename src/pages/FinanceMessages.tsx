@@ -112,11 +112,11 @@ export default function FinanceMessages() {
   const fetchComments = async () => {
     setLoading(true);
     try {
+      // Fetch comments WITHOUT user join (views don't support FK joins)
       let query = supabase
         .from('employee_comments')
         .select(`
           *,
-          employee:users_safe_view(id, name, email, employee_id),
           location:locations(id, name)
         `)
         .eq('week_start_date', weekStartStr)
@@ -129,91 +129,117 @@ export default function FinanceMessages() {
       const { data, error } = await query;
 
       if (error) throw error;
-      const commentsData = (data || []) as unknown as EmployeeComment[];
-      setComments(commentsData);
+      const rawComments = data || [];
 
-      // Fetch message reads for all comments
-      if (commentsData.length > 0) {
-        const commentIds = commentsData.map(c => c.id);
-        const { data: readsData, error: readsError } = await supabase
-          .from('message_reads')
-          .select(`
-            *,
-            user:users_safe_view(id, name)
-          `)
-          .in('comment_id', commentIds);
+      if (rawComments.length === 0) {
+        setComments([]);
+        setMessageReads({});
+        setMessageReplies({});
+        setLoading(false);
+        return;
+      }
 
-        if (!readsError && readsData) {
-          // Group reads by comment_id
-          const readsByComment: Record<string, MessageRead[]> = {};
-          (readsData as unknown as MessageRead[]).forEach(read => {
-            if (!readsByComment[read.comment_id]) {
-              readsByComment[read.comment_id] = [];
-            }
-            readsByComment[read.comment_id].push(read);
-          });
-          setMessageReads(readsByComment);
+      const commentIds = rawComments.map(c => c.id);
+
+      // Fetch reads and replies WITHOUT user joins
+      const [readsResult, repliesResult] = await Promise.all([
+        supabase.from('message_reads').select('*').in('comment_id', commentIds),
+        supabase.from('message_replies').select('*').in('comment_id', commentIds).order('created_at', { ascending: true })
+      ]);
+
+      const rawReads = readsResult.data || [];
+      const rawReplies = repliesResult.data || [];
+
+      // Collect all unique user IDs
+      const employeeIds = rawComments.map(c => c.employee_id);
+      const readUserIds = rawReads.map(r => r.user_id);
+      const replyUserIds = rawReplies.map(r => r.user_id);
+      const allUserIds = [...new Set([...employeeIds, ...readUserIds, ...replyUserIds])];
+
+      // Fetch all users in a single query from users_safe_view
+      const { data: usersData } = await supabase
+        .from('users_safe_view')
+        .select('id, name, email, employee_id')
+        .in('id', allUserIds);
+
+      // Create lookup map
+      const usersMap = new Map((usersData || []).map(u => [u.id, u]));
+
+      // Attach employee data to comments
+      const commentsWithEmployees: EmployeeComment[] = rawComments.map(comment => ({
+        ...comment,
+        employee: usersMap.get(comment.employee_id) || undefined,
+      }));
+      setComments(commentsWithEmployees);
+
+      // Attach user data to reads and group by comment_id
+      const readsByComment: Record<string, MessageRead[]> = {};
+      rawReads.forEach(read => {
+        const readWithUser: MessageRead = {
+          ...read,
+          user: usersMap.get(read.user_id) || undefined,
+        };
+        if (!readsByComment[read.comment_id]) {
+          readsByComment[read.comment_id] = [];
         }
+        readsByComment[read.comment_id].push(readWithUser);
+      });
+      setMessageReads(readsByComment);
 
-        // Mark current user as having read these messages
-        if (user?.id) {
-          const existingReads = new Set(
-            (readsData || [])
-              .filter((r: any) => r.user_id === user.id)
-              .map((r: any) => r.comment_id)
-          );
+      // Attach user data to replies and group by comment_id
+      const repliesByComment: Record<string, MessageReply[]> = {};
+      rawReplies.forEach(reply => {
+        const replyWithUser: MessageReply = {
+          ...reply,
+          user: usersMap.get(reply.user_id) || undefined,
+        };
+        if (!repliesByComment[reply.comment_id]) {
+          repliesByComment[reply.comment_id] = [];
+        }
+        repliesByComment[reply.comment_id].push(replyWithUser);
+      });
+      setMessageReplies(repliesByComment);
 
-          const unreadCommentIds = commentIds.filter(id => !existingReads.has(id));
+      // Mark current user as having read these messages
+      if (user?.id) {
+        const existingReads = new Set(
+          rawReads
+            .filter(r => r.user_id === user.id)
+            .map(r => r.comment_id)
+        );
+
+        const unreadCommentIds = commentIds.filter(id => !existingReads.has(id));
+        
+        if (unreadCommentIds.length > 0) {
+          const readRecords = unreadCommentIds.map(comment_id => ({
+            comment_id,
+            user_id: user.id,
+          }));
+
+          await supabase.from('message_reads').insert(readRecords);
           
-          if (unreadCommentIds.length > 0) {
-            const readRecords = unreadCommentIds.map(comment_id => ({
-              comment_id,
-              user_id: user.id,
-            }));
+          // Refetch reads to update UI
+          const { data: updatedReads } = await supabase
+            .from('message_reads')
+            .select('*')
+            .in('comment_id', commentIds);
 
-            await supabase.from('message_reads').insert(readRecords);
-            
-            // Refetch reads to update UI
-            const { data: updatedReads } = await supabase
-              .from('message_reads')
-              .select(`
-                *,
-                user:users_safe_view(id, name)
-              `)
-              .in('comment_id', commentIds);
-
-            if (updatedReads) {
-              const updatedReadsByComment: Record<string, MessageRead[]> = {};
-              (updatedReads as unknown as MessageRead[]).forEach(read => {
-                if (!updatedReadsByComment[read.comment_id]) {
-                  updatedReadsByComment[read.comment_id] = [];
-                }
-                updatedReadsByComment[read.comment_id].push(read);
-              });
-              setMessageReads(updatedReadsByComment);
-            }
+          if (updatedReads) {
+            // Re-fetch the current user's name for the new reads
+            const currentUser = usersMap.get(user.id);
+            const updatedReadsByComment: Record<string, MessageRead[]> = {};
+            updatedReads.forEach(read => {
+              const readWithUser: MessageRead = {
+                ...read,
+                user: usersMap.get(read.user_id) || currentUser || undefined,
+              };
+              if (!updatedReadsByComment[read.comment_id]) {
+                updatedReadsByComment[read.comment_id] = [];
+              }
+              updatedReadsByComment[read.comment_id].push(readWithUser);
+            });
+            setMessageReads(updatedReadsByComment);
           }
-        }
-
-        // Fetch replies for all comments
-        const { data: repliesData, error: repliesError } = await supabase
-          .from('message_replies')
-          .select(`
-            *,
-            user:users_safe_view(id, name)
-          `)
-          .in('comment_id', commentIds)
-          .order('created_at', { ascending: true });
-
-        if (!repliesError && repliesData) {
-          const repliesByComment: Record<string, MessageReply[]> = {};
-          (repliesData as unknown as MessageReply[]).forEach(reply => {
-            if (!repliesByComment[reply.comment_id]) {
-              repliesByComment[reply.comment_id] = [];
-            }
-            repliesByComment[reply.comment_id].push(reply);
-          });
-          setMessageReplies(repliesByComment);
         }
       }
     } catch (error: any) {
