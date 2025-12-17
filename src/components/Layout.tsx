@@ -21,7 +21,8 @@ import {
   DollarSign,
   Briefcase,
   UserCircle,
-  Building2
+  Building2,
+  MessageSquare
 } from 'lucide-react';
 import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
@@ -73,6 +74,12 @@ export const Layout = ({ children }: LayoutProps) => {
         label: 'Reports & Tables', 
         icon: DollarSign, 
         path: '/finance/dashboard',
+        section: 'Dashboards'
+      });
+      navItems.push({ 
+        label: 'Employee Messages', 
+        icon: MessageSquare, 
+        path: '/finance/messages',
         section: 'Dashboards'
       });
     }

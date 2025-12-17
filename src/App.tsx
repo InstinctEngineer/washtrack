@@ -13,6 +13,7 @@ import { ChangePassword } from "./pages/ChangePassword";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
+import FinanceMessages from "./pages/FinanceMessages";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminSettings from "./pages/AdminSettings";
 import CreateUser from "./pages/CreateUser";
@@ -65,6 +66,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['finance', 'admin']}>
                   <FinanceDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/finance/messages"
+              element={
+                <ProtectedRoute allowedRoles={['finance', 'admin']}>
+                  <FinanceMessages />
                 </ProtectedRoute>
               }
             />
