@@ -79,6 +79,12 @@ const formatDateTime = (value: any): string => {
 const formatDate = (value: any): string => {
   if (!value) return 'N/A';
   try {
+    // Handle date-only strings (YYYY-MM-DD) to avoid timezone issues
+    // Parse as local date, not UTC
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [year, month, day] = value.split('-').map(Number);
+      return format(new Date(year, month - 1, day), 'MMM d, yyyy');
+    }
     return format(new Date(value), 'MMM d, yyyy');
   } catch {
     return 'Invalid Date';
