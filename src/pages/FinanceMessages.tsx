@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
-import { MessageSquare, ChevronLeft, ChevronRight, MapPin, User, Calendar, Search, RefreshCw, Eye, Reply, Send } from 'lucide-react';
+import { MessageSquare, ChevronLeft, ChevronRight, ChevronDown, MapPin, User, Calendar, Search, RefreshCw, Eye, Reply, Send } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 
 interface EmployeeComment {
@@ -68,6 +69,7 @@ export default function FinanceMessages() {
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [submittingReply, setSubmittingReply] = useState(false);
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -393,124 +395,178 @@ export default function FinanceMessages() {
                 )}
               </div>
             ) : (
-              <div className="space-y-4">
-                {filteredComments.map((comment) => {
+              <div className="space-y-2">
+                {filteredComments.map((comment, index) => {
                   const reads = messageReads[comment.id] || [];
                   const replies = messageReplies[comment.id] || [];
                   const isReplying = replyingTo === comment.id;
+                  const isExpanded = expandedMessages.has(comment.id);
+                  const previewText = comment.comment_text.length > 80 
+                    ? comment.comment_text.substring(0, 80) + '...' 
+                    : comment.comment_text;
+                  
+                  const toggleExpanded = () => {
+                    setExpandedMessages(prev => {
+                      const newSet = new Set(prev);
+                      if (newSet.has(comment.id)) {
+                        newSet.delete(comment.id);
+                      } else {
+                        newSet.add(comment.id);
+                      }
+                      return newSet;
+                    });
+                  };
+
                   return (
-                    <div
+                    <Collapsible
                       key={comment.id}
-                      className="border rounded-lg p-4 space-y-3 hover:bg-accent/30 transition-colors"
+                      open={isExpanded}
+                      onOpenChange={toggleExpanded}
                     >
-                      {/* Header with context */}
-                      <div className="flex flex-wrap items-center gap-2 text-sm">
-                        <Badge variant="outline" className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {comment.employee?.name || 'Unknown'}
-                        </Badge>
-                        {comment.location && (
-                          <Badge variant="secondary" className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {comment.location.name}
-                          </Badge>
-                        )}
-                        <Badge variant="outline" className="flex items-center gap-1 bg-primary/5">
-                          <Calendar className="h-3 w-3" />
-                          {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
-                        </Badge>
-                      </div>
-
-                      {/* Message Content */}
-                      <p className="text-sm whitespace-pre-wrap bg-background/50 rounded p-3 border">
-                        {comment.comment_text}
-                      </p>
-
-                      {/* Footer */}
-                      <div className="text-xs text-muted-foreground">
-                        Employee ID: {comment.employee?.employee_id || 'N/A'}
-                      </div>
-
-                      {/* Existing Replies */}
-                      {replies.length > 0 && (
-                        <div className="ml-4 space-y-2 pt-2">
-                          {replies.map((reply) => (
-                            <div 
-                              key={reply.id} 
-                              className="bg-primary/10 border-l-2 border-primary rounded-lg p-3 space-y-1"
-                            >
-                              <div className="flex items-center gap-2 text-xs text-primary font-medium">
-                                <Reply className="h-3 w-3" />
-                                {reply.user?.name || 'Finance Team'}
+                      <div className={`border rounded-lg transition-colors ${
+                        index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
+                      } ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
+                        {/* Collapsed Header - Always Visible */}
+                        <CollapsibleTrigger asChild>
+                          <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50 transition-colors">
+                            <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-sm">
+                                  {comment.employee?.name || 'Unknown'}
+                                </span>
+                                {comment.location && (
+                                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                                    {comment.location.name}
+                                  </Badge>
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(comment.created_at), 'MMM d, h:mm a')}
+                                </span>
+                                {replies.length > 0 && (
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0 bg-primary/10">
+                                    {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+                                  </Badge>
+                                )}
                               </div>
-                              <p className="text-sm whitespace-pre-wrap">{reply.reply_text}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {format(new Date(reply.created_at), 'MMM d, yyyy h:mm a')}
-                              </p>
+                              
+                              {/* Preview text when collapsed */}
+                              {!isExpanded && (
+                                <p className="text-sm text-muted-foreground truncate mt-0.5">
+                                  {previewText}
+                                </p>
+                              )}
                             </div>
-                          ))}
-                        </div>
-                      )}
 
-                      {/* Reply Input */}
-                      {isReplying ? (
-                        <div className="pt-2 border-t space-y-2">
-                          <Textarea
-                            placeholder="Type your reply..."
-                            value={replyInputs[comment.id] || ''}
-                            onChange={(e) => setReplyInputs(prev => ({ ...prev, [comment.id]: e.target.value }))}
-                            className="min-h-[60px] resize-none text-sm"
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleSubmitReply(comment.id)}
-                              disabled={submittingReply || !replyInputs[comment.id]?.trim()}
-                            >
-                              <Send className="h-3 w-3 mr-1" />
-                              {submittingReply ? 'Sending...' : 'Send Reply'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setReplyingTo(null)}
-                            >
-                              Cancel
-                            </Button>
+                            {/* Read indicator */}
+                            {reads.length > 0 && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Eye className="h-3 w-3 text-green-600" />
+                                <span className="text-xs text-green-600">{reads.length}</span>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ) : (
-                        <div className="pt-2 border-t flex items-center justify-between">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setReplyingTo(comment.id)}
-                          >
-                            <Reply className="h-3 w-3 mr-1" />
-                            Reply
-                          </Button>
+                        </CollapsibleTrigger>
 
-                          {/* Read By Section */}
-                          {reads.length > 0 && (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                <Eye className="h-3 w-3" />
-                                Read by:
-                              </span>
-                              {reads.map((read) => (
-                                <Badge 
-                                  key={read.id} 
-                                  variant="outline" 
-                                  className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                                >
-                                  {read.user?.name || 'Unknown'}
-                                </Badge>
-                              ))}
+                        {/* Expanded Content */}
+                        <CollapsibleContent>
+                          <div className="px-3 pb-3 pt-0 space-y-3 border-t">
+                            {/* Full Message Content */}
+                            <p className="text-sm whitespace-pre-wrap pt-3">
+                              {comment.comment_text}
+                            </p>
+
+                            {/* Employee ID */}
+                            <div className="text-xs text-muted-foreground">
+                              Employee ID: {comment.employee?.employee_id || 'N/A'}
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+
+                            {/* Existing Replies */}
+                            {replies.length > 0 && (
+                              <div className="space-y-2">
+                                {replies.map((reply) => (
+                                  <div 
+                                    key={reply.id} 
+                                    className="bg-primary/5 border-l-2 border-primary rounded p-2 space-y-1"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-primary font-medium flex items-center gap-1">
+                                        <Reply className="h-3 w-3" />
+                                        {reply.user?.name || 'Finance Team'}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(reply.created_at), 'MMM d, h:mm a')}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm whitespace-pre-wrap">{reply.reply_text}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Reply Input */}
+                            {isReplying ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  placeholder="Type your reply..."
+                                  value={replyInputs[comment.id] || ''}
+                                  onChange={(e) => setReplyInputs(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                                  className="min-h-[60px] resize-none text-sm"
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleSubmitReply(comment.id)}
+                                    disabled={submittingReply || !replyInputs[comment.id]?.trim()}
+                                  >
+                                    <Send className="h-3 w-3 mr-1" />
+                                    {submittingReply ? 'Sending...' : 'Send'}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setReplyingTo(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between pt-2 border-t">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setReplyingTo(comment.id);
+                                  }}
+                                >
+                                  <Reply className="h-3 w-3 mr-1" />
+                                  Reply
+                                </Button>
+
+                                {/* Read By Section */}
+                                {reads.length > 0 && (
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs text-muted-foreground">Read by:</span>
+                                    {reads.map((read) => (
+                                      <Badge 
+                                        key={read.id} 
+                                        variant="outline" 
+                                        className="text-xs px-1.5 py-0 bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                                      >
+                                        {read.user?.name || 'Unknown'}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
                   );
                 })}
               </div>
