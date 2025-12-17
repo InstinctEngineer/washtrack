@@ -208,10 +208,10 @@ export default function FinanceMessages() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <MessageSquare className="h-6 w-6" />
-              Employee Messages
+              Messages
             </h1>
             <p className="text-muted-foreground">
-              View messages from employees to finance and management
+              Messages from employees to finance and management
             </p>
           </div>
           <Button variant="outline" onClick={fetchComments} disabled={loading}>
@@ -338,7 +338,7 @@ export default function FinanceMessages() {
                         )}
                         <Badge variant="outline" className="flex items-center gap-1 bg-primary/5">
                           <Calendar className="h-3 w-3" />
-                          Week of {format(new Date(comment.week_start_date + 'T00:00:00'), 'MMM d')}
+                          {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
                         </Badge>
                       </div>
 
@@ -348,13 +348,8 @@ export default function FinanceMessages() {
                       </p>
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>
-                          Employee ID: {comment.employee?.employee_id || 'N/A'}
-                        </span>
-                        <span>
-                          Posted: {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
-                        </span>
+                      <div className="text-xs text-muted-foreground">
+                        Employee ID: {comment.employee?.employee_id || 'N/A'}
                       </div>
 
                       {/* Read By Section */}

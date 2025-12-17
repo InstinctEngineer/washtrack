@@ -79,7 +79,7 @@ export const Layout = ({ children }: LayoutProps) => {
         section: 'Dashboards'
       });
       navItems.push({ 
-        label: 'Employee Messages', 
+        label: 'Messages', 
         icon: MessageSquare, 
         path: '/finance/messages',
         section: 'Dashboards',
