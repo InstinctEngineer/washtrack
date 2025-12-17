@@ -1,6 +1,7 @@
 import { WashEntryWithDetails } from '@/types/database';
 import { WashEntryCard } from './WashEntryCard';
-import { format, isToday } from 'date-fns';
+import { isToday } from 'date-fns';
+import { parseLocalDate } from '@/lib/utils';
 
 interface WashEntryListProps {
   entries: WashEntryWithDetails[];
@@ -19,7 +20,7 @@ export function WashEntryList({ entries, onDelete }: WashEntryListProps) {
   return (
     <div className="space-y-2">
       {entries.map((entry) => {
-        const canDelete = isToday(new Date(entry.wash_date));
+        const canDelete = isToday(parseLocalDate(entry.wash_date));
         return (
           <WashEntryCard
             key={entry.id}
