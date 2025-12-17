@@ -4,12 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
-import { MessageSquare, ChevronLeft, ChevronRight, MapPin, User, Calendar, Search, RefreshCw, Eye } from 'lucide-react';
+import { MessageSquare, ChevronLeft, ChevronRight, MapPin, User, Calendar, Search, RefreshCw, Eye, Reply, Send } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 
 interface EmployeeComment {
@@ -42,6 +43,18 @@ interface MessageRead {
   };
 }
 
+interface MessageReply {
+  id: string;
+  comment_id: string;
+  user_id: string;
+  reply_text: string;
+  created_at: string;
+  user?: {
+    id: string;
+    name: string;
+  };
+}
+
 interface Location {
   id: string;
   name: string;
@@ -51,6 +64,10 @@ export default function FinanceMessages() {
   const { user } = useAuth();
   const [comments, setComments] = useState<EmployeeComment[]>([]);
   const [messageReads, setMessageReads] = useState<Record<string, MessageRead[]>>({});
+  const [messageReplies, setMessageReplies] = useState<Record<string, MessageReply[]>>({});
+  const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [submittingReply, setSubmittingReply] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -175,6 +192,27 @@ export default function FinanceMessages() {
             }
           }
         }
+
+        // Fetch replies for all comments
+        const { data: repliesData, error: repliesError } = await supabase
+          .from('message_replies')
+          .select(`
+            *,
+            user:users!message_replies_user_id_fkey(id, name)
+          `)
+          .in('comment_id', commentIds)
+          .order('created_at', { ascending: true });
+
+        if (!repliesError && repliesData) {
+          const repliesByComment: Record<string, MessageReply[]> = {};
+          (repliesData as unknown as MessageReply[]).forEach(reply => {
+            if (!repliesByComment[reply.comment_id]) {
+              repliesByComment[reply.comment_id] = [];
+            }
+            repliesByComment[reply.comment_id].push(reply);
+          });
+          setMessageReplies(repliesByComment);
+        }
       }
     } catch (error: any) {
       console.error('Error fetching comments:', error);
@@ -185,6 +223,45 @@ export default function FinanceMessages() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmitReply = async (commentId: string) => {
+    const replyText = replyInputs[commentId]?.trim();
+    if (!replyText || !user?.id) return;
+
+    setSubmittingReply(true);
+    try {
+      const { error } = await supabase
+        .from('message_replies')
+        .insert({
+          comment_id: commentId,
+          user_id: user.id,
+          reply_text: replyText,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Reply Sent',
+        description: 'Your reply has been sent to the employee.',
+      });
+
+      // Clear input and close reply box
+      setReplyInputs(prev => ({ ...prev, [commentId]: '' }));
+      setReplyingTo(null);
+      
+      // Refresh comments to show new reply
+      fetchComments();
+    } catch (error: any) {
+      console.error('Error sending reply:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send reply. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingReply(false);
     }
   };
 
@@ -319,6 +396,8 @@ export default function FinanceMessages() {
               <div className="space-y-4">
                 {filteredComments.map((comment) => {
                   const reads = messageReads[comment.id] || [];
+                  const replies = messageReplies[comment.id] || [];
+                  const isReplying = replyingTo === comment.id;
                   return (
                     <div
                       key={comment.id}
@@ -352,24 +431,83 @@ export default function FinanceMessages() {
                         Employee ID: {comment.employee?.employee_id || 'N/A'}
                       </div>
 
-                      {/* Read By Section */}
-                      {reads.length > 0 && (
-                        <div className="pt-2 border-t">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Eye className="h-3 w-3" />
-                              Read by:
-                            </span>
-                            {reads.map((read) => (
-                              <Badge 
-                                key={read.id} 
-                                variant="outline" 
-                                className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                              >
-                                {read.user?.name || 'Unknown'}
-                              </Badge>
-                            ))}
+                      {/* Existing Replies */}
+                      {replies.length > 0 && (
+                        <div className="ml-4 space-y-2 pt-2">
+                          {replies.map((reply) => (
+                            <div 
+                              key={reply.id} 
+                              className="bg-primary/10 border-l-2 border-primary rounded-lg p-3 space-y-1"
+                            >
+                              <div className="flex items-center gap-2 text-xs text-primary font-medium">
+                                <Reply className="h-3 w-3" />
+                                {reply.user?.name || 'Finance Team'}
+                              </div>
+                              <p className="text-sm whitespace-pre-wrap">{reply.reply_text}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(reply.created_at), 'MMM d, yyyy h:mm a')}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Reply Input */}
+                      {isReplying ? (
+                        <div className="pt-2 border-t space-y-2">
+                          <Textarea
+                            placeholder="Type your reply..."
+                            value={replyInputs[comment.id] || ''}
+                            onChange={(e) => setReplyInputs(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                            className="min-h-[60px] resize-none text-sm"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleSubmitReply(comment.id)}
+                              disabled={submittingReply || !replyInputs[comment.id]?.trim()}
+                            >
+                              <Send className="h-3 w-3 mr-1" />
+                              {submittingReply ? 'Sending...' : 'Send Reply'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setReplyingTo(null)}
+                            >
+                              Cancel
+                            </Button>
                           </div>
+                        </div>
+                      ) : (
+                        <div className="pt-2 border-t flex items-center justify-between">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setReplyingTo(comment.id)}
+                          >
+                            <Reply className="h-3 w-3 mr-1" />
+                            Reply
+                          </Button>
+
+                          {/* Read By Section */}
+                          {reads.length > 0 && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Eye className="h-3 w-3" />
+                                Read by:
+                              </span>
+                              {reads.map((read) => (
+                                <Badge 
+                                  key={read.id} 
+                                  variant="outline" 
+                                  className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                                >
+                                  {read.user?.name || 'Unknown'}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

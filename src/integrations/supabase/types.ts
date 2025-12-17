@@ -719,6 +719,52 @@ export type Database = {
           },
         ]
       }
+      message_replies: {
+        Row: {
+          comment_id: string
+          created_at: string
+          id: string
+          reply_text: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          id?: string
+          reply_text: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          id?: string
+          reply_text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_replies_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "employee_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_replies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_replies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_templates: {
         Row: {
           config: Json
