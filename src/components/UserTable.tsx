@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Search, KeyRound, ChevronDown } from "lucide-react";
+import { Edit, Search, KeyRound, ChevronDown, Copy } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,7 @@ interface UserTableProps {
   roleMap: Map<string, string>;
   isLoading: boolean;
   onRefresh: () => void;
+  onCopyUser?: (user: User) => void;
   roleFilter: string;
   setRoleFilter: (value: string) => void;
   statusFilter: string;
@@ -66,6 +67,7 @@ export const UserTable = ({
   roleMap,
   isLoading,
   onRefresh,
+  onCopyUser,
   roleFilter,
   setRoleFilter,
   statusFilter,
@@ -313,18 +315,28 @@ export const UserTable = ({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => setEditingUser(user)}
+                          title="Edit user"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => onCopyUser?.(user)}
+                          title="Copy user"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setResetPasswordUser(user)}
+                          title="Reset password"
                         >
                           <KeyRound className="h-4 w-4" />
                         </Button>
