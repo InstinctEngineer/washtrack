@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
 import { CalendarIcon, Trash2, Plus, Filter, X, Columns3, ChevronDown, ChevronLeft, ChevronRight, ArrowRight, RotateCcw, Download, Pencil, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, parseLocalDate } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VehicleSearchInput } from './VehicleSearchInput';
 import {
@@ -90,7 +90,7 @@ const COLUMN_CONFIG: { key: ColumnKey; label: string; filterable: boolean; edita
 const getColumnValue = (entry: WashEntry, key: ColumnKey): string => {
   switch (key) {
     case 'date':
-      return format(new Date(entry.wash_date), 'MMM d, yyyy');
+      return format(parseLocalDate(entry.wash_date), 'MMM d, yyyy');
     case 'vehicle':
       return entry.vehicle?.vehicle_number || '';
     case 'client':
