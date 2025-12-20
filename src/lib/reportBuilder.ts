@@ -53,20 +53,20 @@ export const SYSTEM_TEMPLATES: Omit<ReportTemplate, 'created_by' | 'created_at' 
         'location_name',
         'vehicle_number',
         'vehicle_type',
-        'wash_date',
+        'work_date',
         'rate_at_time_of_wash',
         'total_washes',
         'total_revenue',
       ],
       filters: [
         {
-          field: 'wash_date',
+          field: 'work_date',
           operator: 'between',
           value: 'current_month', // Will be resolved to actual dates
         }
       ],
       sorting: [
-        { field: 'wash_date', direction: 'asc' }
+        { field: 'work_date', direction: 'asc' }
       ],
     },
   },
@@ -82,7 +82,7 @@ export const SYSTEM_TEMPLATES: Omit<ReportTemplate, 'created_by' | 'created_at' 
       columns: [
         'employee_name',
         'location_name',
-        'wash_date',
+        'work_date',
         'vehicle_number',
         'vehicle_type',
         'rate_at_time_of_wash',
@@ -92,13 +92,13 @@ export const SYSTEM_TEMPLATES: Omit<ReportTemplate, 'created_by' | 'created_at' 
       ],
       filters: [
         {
-          field: 'wash_date',
+          field: 'work_date',
           operator: 'between',
           value: 'current_month',
         }
       ],
       sorting: [
-        { field: 'wash_date', direction: 'asc' }
+        { field: 'work_date', direction: 'asc' }
       ],
     },
   },
@@ -106,8 +106,8 @@ export const SYSTEM_TEMPLATES: Omit<ReportTemplate, 'created_by' | 'created_at' 
 
 // Unified column definitions - only fields currently being captured in the app
 export const UNIFIED_COLUMNS = [
-  // Wash Entry Details - Main
-  { id: 'wash_date', label: 'Date', category: 'Wash Entry', isAggregate: false, isAdvanced: false },
+  // Work Entry Details - Main
+  { id: 'work_date', label: 'Date', category: 'Work Entry', isAggregate: false, isAdvanced: false },
   
   // Vehicle Information - Main
   { id: 'vehicle_number', label: 'Vehicle Number', category: 'Vehicle', isAggregate: false, isAdvanced: false },
@@ -133,14 +133,14 @@ export const UNIFIED_COLUMNS = [
 
   // ============ ADVANCED FIELDS ============
   
-  // Wash Entry Details - Advanced
-  { id: 'created_at', label: 'Entry Created', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
-  { id: 'comment', label: 'Comment/Notes', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
-  { id: 'time_started', label: 'Time Started', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
-  { id: 'time_completed', label: 'Time Completed', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
-  { id: 'wash_duration_minutes', label: 'Duration (mins)', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
-  { id: 'service_type', label: 'Service Type', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
-  { id: 'customer_po_number', label: 'PO Number', category: 'Wash Entry', isAggregate: false, isAdvanced: true },
+  // Work Entry Details - Advanced
+  { id: 'created_at', label: 'Entry Created', category: 'Work Entry', isAggregate: false, isAdvanced: true },
+  { id: 'comment', label: 'Comment/Notes', category: 'Work Entry', isAggregate: false, isAdvanced: true },
+  { id: 'time_started', label: 'Time Started', category: 'Work Entry', isAggregate: false, isAdvanced: true },
+  { id: 'time_completed', label: 'Time Completed', category: 'Work Entry', isAggregate: false, isAdvanced: true },
+  { id: 'wash_duration_minutes', label: 'Duration (mins)', category: 'Work Entry', isAggregate: false, isAdvanced: true },
+  { id: 'service_type', label: 'Service Type', category: 'Work Entry', isAggregate: false, isAdvanced: true },
+  { id: 'customer_po_number', label: 'PO Number', category: 'Work Entry', isAggregate: false, isAdvanced: true },
 
   // Vehicle Details - Advanced
   { id: 'fleet_number', label: 'Fleet Number', category: 'Vehicle', isAggregate: false, isAdvanced: true },
@@ -192,7 +192,7 @@ function resolveDateRange(value: string | [string, string]): [string, string] {
   }
 }
 
-// Build query for wash entries report
+// Build query for work entries report
 export async function buildWashEntriesQuery(config: ReportConfig) {
   // Check if we need advanced fields to optimize the query
   const needsAdvancedWashFields = config.columns.some(col => 
@@ -214,7 +214,7 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
   // Build dynamic select based on needed fields
   let selectParts = [
     'id',
-    'wash_date',
+    'work_date',
     'rate_at_time_of_wash',
   ];
   
@@ -253,26 +253,26 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
       vehicle_type:vehicle_types(type_name),
       client:clients(${clientSelect})
     ),
-    actual_location:locations!wash_entries_actual_location_id_fkey(${locationSelect}),
-    employee:users!wash_entries_employee_id_fkey(${employeeSelect})
+    location:locations!work_entries_location_id_fkey(${locationSelect}),
+    employee:users!work_entries_employee_id_fkey(${employeeSelect})
   `;
 
   let query = supabase
-    .from('wash_entries')
+    .from('work_entries')
     .select(fullSelect);
 
   // Apply filters
   for (const filter of config.filters) {
-    if (filter.field === 'wash_date' && filter.operator === 'between') {
+    if (filter.field === 'work_date' && filter.operator === 'between') {
       const [startDate, endDate] = resolveDateRange(filter.value);
-      query = query.gte('wash_date', startDate).lte('wash_date', endDate);
+      query = query.gte('work_date', startDate).lte('work_date', endDate);
     }
   }
 
   // Apply sorting
   for (const sort of config.sorting) {
-    if (sort.field === 'wash_date') {
-      query = query.order('wash_date', { ascending: sort.direction === 'asc' });
+    if (sort.field === 'work_date') {
+      query = query.order('work_date', { ascending: sort.direction === 'asc' });
     }
   }
 
@@ -290,7 +290,7 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
       );
     } else if (filter.field === 'location_id' && filter.operator === 'in' && Array.isArray(filter.value) && filter.value.length > 0) {
       filteredData = filteredData.filter((entry: any) => 
-        filter.value.includes(entry.actual_location?.id)
+        filter.value.includes(entry.location?.id)
       );
     } else if (filter.field === 'employee_id' && filter.operator === 'in' && Array.isArray(filter.value) && filter.value.length > 0) {
       filteredData = filteredData.filter((entry: any) => 
@@ -306,8 +306,8 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
     config.columns.forEach((col) => {
       switch (col) {
         // Main fields
-        case 'wash_date':
-          row['wash_date'] = entry.wash_date;
+        case 'work_date':
+          row['work_date'] = entry.work_date;
           break;
         case 'vehicle_number':
           row['vehicle_number'] = entry.vehicle?.vehicle_number || '';
@@ -322,13 +322,13 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
           row['rate_at_time_of_wash'] = entry.rate_at_time_of_wash || '';
           break;
         case 'location_name':
-          row['location_name'] = entry.actual_location?.name || '';
+          row['location_name'] = entry.location?.name || '';
           break;
         case 'employee_name':
           row['employee_name'] = entry.employee?.name || '';
           break;
         
-        // Advanced wash entry fields
+        // Advanced work entry fields
         case 'created_at':
           row['created_at'] = entry.created_at || '';
           break;
@@ -387,13 +387,13 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
         
         // Advanced location fields
         case 'location_address':
-          row['location_address'] = entry.actual_location?.address || '';
+          row['location_address'] = entry.location?.address || '';
           break;
         case 'location_city':
-          row['location_city'] = entry.actual_location?.city || '';
+          row['location_city'] = entry.location?.city || '';
           break;
         case 'location_state':
-          row['location_state'] = entry.actual_location?.state || '';
+          row['location_state'] = entry.location?.state || '';
           break;
         
         // Advanced employee fields
@@ -413,23 +413,23 @@ export async function buildWashEntriesQuery(config: ReportConfig) {
 // Build query for client billing report
 export async function buildClientBillingQuery(config: ReportConfig) {
   let query = supabase
-    .from('wash_entries')
+    .from('work_entries')
     .select(`
       id,
-      wash_date,
+      work_date,
       rate_at_time_of_wash,
       vehicle:vehicles!inner(
         client_id,
         client:clients(client_name)
       ),
-      actual_location:locations(name)
+      location:locations(name)
     `);
 
   // Apply date filter
   for (const filter of config.filters) {
-    if (filter.field === 'wash_date' && filter.operator === 'between') {
+    if (filter.field === 'work_date' && filter.operator === 'between') {
       const [startDate, endDate] = resolveDateRange(filter.value);
-      query = query.gte('wash_date', startDate).lte('wash_date', endDate);
+      query = query.gte('work_date', startDate).lte('work_date', endDate);
     }
   }
 
@@ -456,8 +456,8 @@ export async function buildClientBillingQuery(config: ReportConfig) {
     const client = clientMap.get(clientId);
     client.total_washes += 1;
     client.total_revenue += parseFloat(entry.rate_at_time_of_wash || 0);
-    if (entry.actual_location?.name) {
-      client.locations.add(entry.actual_location.name);
+    if (entry.location?.name) {
+      client.locations.add(entry.location.name);
     }
   });
 
@@ -499,20 +499,20 @@ export async function buildClientBillingQuery(config: ReportConfig) {
 // Build query for employee performance report
 export async function buildEmployeePerformanceQuery(config: ReportConfig) {
   let query = supabase
-    .from('wash_entries')
+    .from('work_entries')
     .select(`
       id,
-      wash_date,
+      work_date,
       rate_at_time_of_wash,
-      employee:users!wash_entries_employee_id_fkey(id, name, location_id),
-      actual_location:locations(name)
+      employee:users!work_entries_employee_id_fkey(id, name, location_id),
+      location:locations(name)
     `);
 
   // Apply date filter
   for (const filter of config.filters) {
-    if (filter.field === 'wash_date' && filter.operator === 'between') {
+    if (filter.field === 'work_date' && filter.operator === 'between') {
       const [startDate, endDate] = resolveDateRange(filter.value);
-      query = query.gte('wash_date', startDate).lte('wash_date', endDate);
+      query = query.gte('work_date', startDate).lte('work_date', endDate);
     }
   }
 
@@ -548,8 +548,8 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
     employee.total_washes += 1;
     employee.total_revenue += parseFloat(entry.rate_at_time_of_wash || 0);
     
-    if (entry.actual_location?.name) {
-      employee.locations.add(entry.actual_location.name);
+    if (entry.location?.name) {
+      employee.locations.add(entry.location.name);
     }
   });
 
@@ -594,24 +594,24 @@ export async function buildEmployeePerformanceQuery(config: ReportConfig) {
 // Build query for combined client + employee aggregate report
 async function buildCombinedAggregateQuery(config: ReportConfig) {
   let query = supabase
-    .from('wash_entries')
+    .from('work_entries')
     .select(`
       id,
-      wash_date,
+      work_date,
       rate_at_time_of_wash,
-      employee:users!wash_entries_employee_id_fkey(id, name),
+      employee:users!work_entries_employee_id_fkey(id, name),
       vehicle:vehicles!inner(
         client_id,
         client:clients(client_name)
       ),
-      actual_location:locations(name)
+      location:locations(name)
     `);
 
   // Apply date filter
   for (const filter of config.filters) {
-    if (filter.field === 'wash_date' && filter.operator === 'between') {
+    if (filter.field === 'work_date' && filter.operator === 'between') {
       const [startDate, endDate] = resolveDateRange(filter.value);
-      query = query.gte('wash_date', startDate).lte('wash_date', endDate);
+      query = query.gte('work_date', startDate).lte('work_date', endDate);
     }
   }
 
@@ -639,8 +639,8 @@ async function buildCombinedAggregateQuery(config: ReportConfig) {
     const row = combinedMap.get(key);
     row.total_washes += 1;
     row.total_revenue += parseFloat(entry.rate_at_time_of_wash || 0);
-    if (entry.actual_location?.name) {
-      row.locations.add(entry.actual_location.name);
+    if (entry.location?.name) {
+      row.locations.add(entry.location.name);
     }
   });
 

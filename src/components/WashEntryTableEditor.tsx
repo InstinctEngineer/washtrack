@@ -1625,7 +1625,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                 <>
                   This will delete the wash entry for vehicle{' '}
                   <strong>{entriesToDelete[0]?.vehicle?.vehicle_number || 'Unknown'}</strong> on{' '}
-                  <strong>{entriesToDelete[0] ? format(new Date(entriesToDelete[0].wash_date), 'MMM d, yyyy') : ''}</strong>.
+                  <strong>{entriesToDelete[0] ? format(new Date(entriesToDelete[0].work_date), 'MMM d, yyyy') : ''}</strong>.
                 </>
               ) : (
                 <>
