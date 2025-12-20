@@ -67,7 +67,7 @@ export default function EmployeeDashboard() {
       const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
 
       const { data, error } = await supabase
-        .from('wash_entries')
+        .from('work_entries')
         .select(`
           *,
           vehicle:vehicles(
@@ -76,12 +76,12 @@ export default function EmployeeDashboard() {
             client:clients(*),
             home_location:locations!vehicles_home_location_id_fkey(*)
           ),
-          employee:users!wash_entries_employee_id_fkey(id, name, email, employee_id, role),
-          actual_location:locations(*)
+          employee:users!work_entries_employee_id_fkey(id, name, email, employee_id, role),
+          location:locations(*)
         `)
-        .in('actual_location_id', userLocations)
-        .gte('wash_date', format(weekStart, 'yyyy-MM-dd'))
-        .lte('wash_date', format(weekEnd, 'yyyy-MM-dd'))
+        .in('location_id', userLocations)
+        .gte('work_date', format(weekStart, 'yyyy-MM-dd'))
+        .lte('work_date', format(weekEnd, 'yyyy-MM-dd'))
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -126,7 +126,7 @@ export default function EmployeeDashboard() {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const entriesByDay = weekDays.map(day => {
-    const dayEntries = entries.filter(entry => entry.wash_date === format(day, 'yyyy-MM-dd'));
+    const dayEntries = entries.filter(entry => entry.work_date === format(day, 'yyyy-MM-dd'));
     return {
       day,
       count: dayEntries.length,

@@ -19,6 +19,8 @@ export interface Location {
   manager_user_id: string | null;
   is_active: boolean;
   created_at: string;
+  location_code?: string | null;
+  tax_jurisdiction?: string | null;
 }
 
 export interface UserLocation {
@@ -64,20 +66,78 @@ export interface VehicleWithDetails extends Vehicle {
   last_seen_location?: Location;
 }
 
-export interface WashEntry {
+export interface ServiceCategory {
   id: string;
-  employee_id: string;
-  vehicle_id: string;
-  wash_date: string;
-  actual_location_id: string;
+  category_code: string;
+  category_name: string;
+  is_hourly_default: boolean;
+  is_active: boolean;
+  sort_order: number;
   created_at: string;
 }
 
-export interface WashEntryWithDetails extends WashEntry {
+export interface WashFrequency {
+  id: string;
+  frequency_code: string;
+  frequency_name: string;
+  washes_per_week: number | null;
+  rate_multiplier: number;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface LocationServiceRate {
+  id: string;
+  location_id: string;
+  client_id: string | null;
+  vehicle_type_id: string | null;
+  service_category_id: string | null;
+  frequency_id: string | null;
+  rate: number;
+  is_hourly: boolean;
+  effective_date: string;
+  expiration_date: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  notes: string | null;
+}
+
+export interface WorkEntry {
+  id: string;
+  employee_id: string;
+  vehicle_id: string | null;
+  work_date: string;
+  location_id: string;
+  created_at: string;
+  service_category_id: string | null;
+  frequency_id: string | null;
+  direct_vehicle_type_id: string | null;
+  quantity: number | null;
+  unit_rate_applied: number | null;
+  line_total: number | null;
+  is_additional_work: boolean;
+  additional_work_description: string | null;
+  hours_worked: number | null;
+  client_id?: string | null;
+  rate_at_time_of_wash?: number | null;
+  comment?: string | null;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
+  deletion_reason?: string | null;
+}
+
+export interface WorkEntryWithDetails extends WorkEntry {
   vehicle?: VehicleWithDetails;
   employee?: User;
-  actual_location?: Location;
+  location?: Location;
+  service_category?: ServiceCategory;
+  frequency?: WashFrequency;
 }
+
+export type WashEntry = WorkEntry;
+export type WashEntryWithDetails = WorkEntryWithDetails;
 
 export interface SystemSetting {
   id: string;

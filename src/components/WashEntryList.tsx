@@ -20,7 +20,7 @@ export function WashEntryList({ entries, onDelete }: WashEntryListProps) {
   return (
     <div className="space-y-2">
       {entries.map((entry) => {
-        const canDelete = isToday(parseLocalDate(entry.wash_date));
+        const canDelete = isToday(parseLocalDate(entry.work_date));
         return (
           <WashEntryCard
             key={entry.id}

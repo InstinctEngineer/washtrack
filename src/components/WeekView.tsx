@@ -32,7 +32,7 @@ export function WeekView({
 
   const getEntriesForDay = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return entries.filter(entry => entry.wash_date === dateStr);
+    return entries.filter(entry => entry.work_date === dateStr);
   };
 
   return (
