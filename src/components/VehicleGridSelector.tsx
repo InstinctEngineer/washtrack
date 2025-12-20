@@ -40,7 +40,7 @@ export function VehicleGridSelector({
   const [pendingAutoClickVehicleId, setPendingAutoClickVehicleId] = useState<string | null>(null);
 
   // Location filter state
-  const [locations, setLocations] = useState<Pick<Location, 'id' | 'name'>[]>([]);
+  const [locations, setLocations] = useState<Pick<Location, 'id' | 'name' | 'location_code'>[]>([]);
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string>('all');
 
   // Fetch vehicles for the location
@@ -60,9 +60,9 @@ export function VehicleGridSelector({
       
       const { data, error } = await supabase
         .from("locations")
-        .select("id, name")
+        .select("id, name, location_code")
         .in("id", locationIds)
-        .order("name");
+        .order("location_code");
         
       if (!error && data) {
         setLocations(data);
@@ -381,7 +381,7 @@ export function VehicleGridSelector({
             <SelectContent className="bg-background">
               <SelectItem value="all">All Locations</SelectItem>
               {locations.map((loc) => (
-                <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                <SelectItem key={loc.id} value={loc.id}>{loc.location_code || loc.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
