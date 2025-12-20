@@ -33,7 +33,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
     reportType: 'unified',
     columns: [],
     filters: [],
-    sorting: [{ field: 'wash_date', direction: 'desc' }],
+    sorting: [{ field: 'work_date', direction: 'desc' }],
   });
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
@@ -128,7 +128,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
     // Date filter
     if (dateRange.from && dateRange.to) {
       newFilters.push({
-        field: 'wash_date',
+        field: 'work_date',
         operator: 'between' as const,
         value: [format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd')]
       });
@@ -465,7 +465,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                   <div className="space-y-2">
                     <Label>Primary Sort Field</Label>
                     <Select 
-                      value={reportConfig.sorting[0]?.field || 'wash_date'}
+                      value={reportConfig.sorting[0]?.field || 'work_date'}
                       onValueChange={(value) => {
                         setReportConfig(prev => ({
                           ...prev,
@@ -494,7 +494,7 @@ export function ReportBuilderWizard({ open, onClose, onSave }: ReportBuilderWiza
                         setReportConfig(prev => ({
                           ...prev,
                           sorting: [
-                            { field: prev.sorting[0]?.field || 'wash_date', direction: value },
+                            { field: prev.sorting[0]?.field || 'work_date', direction: value },
                             ...(prev.sorting[1] ? [prev.sorting[1]] : [])
                           ]
                         }));

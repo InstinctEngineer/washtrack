@@ -167,7 +167,7 @@ export const UNIFIED_COLUMNS = [
 ];
 
 // Legacy column arrays for backward compatibility
-export const WASH_ENTRIES_COLUMNS = UNIFIED_COLUMNS.filter(c => !c.isAggregate);
+export const WORK_ENTRIES_COLUMNS = UNIFIED_COLUMNS.filter(c => !c.isAggregate);
 export const CLIENT_BILLING_COLUMNS = UNIFIED_COLUMNS.filter(c => c.category === 'Client' || c.category === 'Metrics');
 export const EMPLOYEE_PERFORMANCE_COLUMNS = UNIFIED_COLUMNS.filter(c => c.category === 'Employee' || c.category === 'Metrics' || c.id === 'location_name');
 

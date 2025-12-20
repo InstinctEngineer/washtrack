@@ -28,7 +28,7 @@ export function RunReportDialog({ open, template, onClose, onRun, onSaved }: Run
   // Set current week dates when dialog opens
   useEffect(() => {
     if (open && template) {
-      const hasDateFilter = template.config.filters.some(f => f.field === 'wash_date');
+      const hasDateFilter = template.config.filters.some(f => f.field === 'work_date');
       if (hasDateFilter) {
         const today = new Date();
         const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
@@ -40,7 +40,7 @@ export function RunReportDialog({ open, template, onClose, onRun, onSaved }: Run
 
   if (!template) return null;
 
-  const hasDateFilter = template.config.filters.some(f => f.field === 'wash_date');
+  const hasDateFilter = template.config.filters.some(f => f.field === 'work_date');
 
   const handleRun = async () => {
     setLoading(true);
@@ -53,7 +53,7 @@ export function RunReportDialog({ open, template, onClose, onRun, onSaved }: Run
       // Update date filter if user changed it
       if (dateRange.from && dateRange.to && hasDateFilter) {
         config.filters = config.filters.map(f => 
-          f.field === 'wash_date' 
+          f.field === 'work_date' 
             ? { ...f, value: [format(dateRange.from!, 'yyyy-MM-dd'), format(dateRange.to!, 'yyyy-MM-dd')] }
             : f
         );
@@ -87,7 +87,7 @@ export function RunReportDialog({ open, template, onClose, onRun, onSaved }: Run
       // Update date filter if user changed it
       if (dateRange.from && dateRange.to && hasDateFilter) {
         config.filters = config.filters.map(f => 
-          f.field === 'wash_date' 
+          f.field === 'work_date' 
             ? { ...f, value: [format(dateRange.from!, 'yyyy-MM-dd'), format(dateRange.to!, 'yyyy-MM-dd')] }
             : f
         );

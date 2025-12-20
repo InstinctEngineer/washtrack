@@ -277,7 +277,7 @@ export function AuditLogTable() {
       const { data, error } = await supabase
         .from('audit_log')
         .select('*, changed_by_user:users!changed_by(id, name, employee_id)')
-        .eq('table_name', 'wash_entries')
+        .eq('table_name', 'work_entries')
         .gte('changed_at', startDate.toISOString())
         .lte('changed_at', endDate.toISOString())
         .order('changed_at', { ascending: false })
@@ -297,7 +297,7 @@ export function AuditLogTable() {
           const entryData = entry.action === 'DELETE' ? entry.old_data : entry.new_data;
           if (entryData && typeof entryData === 'object' && !Array.isArray(entryData)) {
             if ((entryData as any).vehicle_id) vehicleIds.add((entryData as any).vehicle_id);
-            if ((entryData as any).actual_location_id) locationIds.add((entryData as any).actual_location_id);
+            if ((entryData as any).location_id) locationIds.add((entryData as any).location_id);
             if ((entryData as any).client_id) clientIds.add((entryData as any).client_id);
           }
         });
@@ -365,7 +365,7 @@ export function AuditLogTable() {
 
     switch (key) {
       case 'table':
-        return entry.table_name === 'wash_entries' ? 'Wash Entries' : entry.table_name;
+        return entry.table_name === 'work_entries' ? 'Work Entries' : entry.table_name;
       case 'action':
         return entry.action;
       case 'employee':
@@ -542,15 +542,15 @@ export function AuditLogTable() {
       const vehicleId = (data as any)?.vehicle_id;
       
       return {
-        'Table': entry.table_name === 'wash_entries' ? 'Wash Entries' : entry.table_name,
+        'Table': entry.table_name === 'work_entries' ? 'Work Entries' : entry.table_name,
         'Action': entry.action,
         'Employee Name': entry.changed_by_user?.name || 'Unknown',
         'Employee ID': entry.changed_by_user?.employee_id || 'N/A',
         'Vehicle': vehicleId ? vehicleMap.get(vehicleId) || 'Unknown' : 'N/A',
         'Date': format(new Date(entry.changed_at), 'yyyy-MM-dd'),
         'Time': format(new Date(entry.changed_at), 'h:mm a'),
-        'Wash Date': data?.wash_date || 'N/A',
-        'Location': data?.actual_location_id ? locationMap.get(data.actual_location_id) || 'N/A' : 'N/A',
+        'Work Date': data?.work_date || 'N/A',
+        'Location': data?.location_id ? locationMap.get(data.location_id) || 'N/A' : 'N/A',
         'Client': data?.client_id ? clientMap.get(data.client_id) || 'N/A' : 'N/A',
       };
     });
@@ -585,7 +585,7 @@ export function AuditLogTable() {
 
   const getTableBadge = (tableName: string) => {
     const nameMap: Record<string, string> = {
-      wash_entries: 'Wash Entries',
+      work_entries: 'Work Entries',
       vehicles: 'Vehicles',
       users: 'Users',
       locations: 'Locations',
@@ -641,14 +641,14 @@ export function AuditLogTable() {
     if (field.includes('_at') && typeof value === 'string') {
       return formatDateTime(value);
     }
-    if (field === 'wash_date' || field.includes('_date')) {
+    if (field === 'work_date' || field.includes('_date')) {
       return formatDate(value);
     }
 
     if (field === 'vehicle_id') {
       return vehicleMap.get(value) || value;
     }
-    if (field === 'actual_location_id') {
+    if (field === 'location_id') {
       return locationMap.get(value) || value;
     }
     if (field === 'client_id') {
@@ -676,8 +676,8 @@ export function AuditLogTable() {
             <h4 className="font-semibold mb-3">Overview</h4>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-muted-foreground">Wash Date:</span>{' '}
-                <span className="font-medium">{formatDate(data?.wash_date)}</span>
+                <span className="text-muted-foreground">Work Date:</span>{' '}
+                <span className="font-medium">{formatDate(data?.work_date)}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Vehicle:</span>{' '}
@@ -685,7 +685,7 @@ export function AuditLogTable() {
               </div>
               <div>
                 <span className="text-muted-foreground">Location:</span>{' '}
-                <span className="font-medium">{locationMap.get(data?.actual_location_id) || 'N/A'}</span>
+                <span className="font-medium">{locationMap.get(data?.location_id) || 'N/A'}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Client:</span>{' '}
@@ -748,8 +748,8 @@ export function AuditLogTable() {
             <h4 className="font-semibold mb-3">Deleted Entry Details</h4>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-muted-foreground">Wash Date:</span>{' '}
-                <span className="font-medium">{formatDate(data?.wash_date)}</span>
+                <span className="text-muted-foreground">Work Date:</span>{' '}
+                <span className="font-medium">{formatDate(data?.work_date)}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Vehicle:</span>{' '}
@@ -757,7 +757,7 @@ export function AuditLogTable() {
               </div>
               <div>
                 <span className="text-muted-foreground">Location:</span>{' '}
-                <span className="font-medium">{locationMap.get(data?.actual_location_id) || 'N/A'}</span>
+                <span className="font-medium">{locationMap.get(data?.location_id) || 'N/A'}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Client:</span>{' '}
@@ -819,8 +819,8 @@ export function AuditLogTable() {
             <h4 className="font-semibold mb-3">New Entry Details</h4>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-muted-foreground">Wash Date:</span>{' '}
-                <span className="font-medium">{formatDate(data?.wash_date)}</span>
+                <span className="text-muted-foreground">Work Date:</span>{' '}
+                <span className="font-medium">{formatDate(data?.work_date)}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Vehicle:</span>{' '}
@@ -828,7 +828,7 @@ export function AuditLogTable() {
               </div>
               <div>
                 <span className="text-muted-foreground">Location:</span>{' '}
-                <span className="font-medium">{locationMap.get(data?.actual_location_id) || 'N/A'}</span>
+                <span className="font-medium">{locationMap.get(data?.location_id) || 'N/A'}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Client:</span>{' '}
