@@ -63,7 +63,7 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
 
     if (dateFrom || dateTo) {
       filters.push({
-        field: 'wash_date',
+        field: 'work_date',
         operator: 'between',
         value: [dateFrom || '1900-01-01', dateTo || '2099-12-31'],
       });
@@ -97,7 +97,7 @@ export function ReportBuilderPanel({ open, onClose, onSave }: ReportBuilderPanel
       reportType: 'unified',
       columns: selectedColumns,
       filters,
-      sorting: [{ field: 'wash_date', direction: 'desc' }],
+      sorting: [{ field: 'work_date', direction: 'desc' }],
     };
   };
 

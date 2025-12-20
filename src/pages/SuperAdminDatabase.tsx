@@ -23,7 +23,10 @@ const TABLES = [
   'client_locations',
   'vehicles',
   'vehicle_types',
-  'wash_entries',
+  'work_entries',
+  'service_categories',
+  'wash_frequencies',
+  'location_service_rates',
   'system_settings'
 ];
 

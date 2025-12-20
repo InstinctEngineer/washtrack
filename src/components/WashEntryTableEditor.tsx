@@ -356,9 +356,9 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [newEntry, setNewEntry] = useState({
-    wash_date: new Date(),
+    work_date: new Date(),
     vehicle_id: '',
-    actual_location_id: '',
+    location_id: '',
   });
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -936,7 +936,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   };
 
   const handleAddEntry = async () => {
-    if (!newEntry.vehicle_id || !newEntry.actual_location_id) {
+    if (!newEntry.vehicle_id || !newEntry.location_id) {
       toast({
         title: 'Error',
         description: 'Please select a vehicle and location',
@@ -947,9 +947,9 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
 
     try {
       const { error } = await supabase.from('work_entries').insert({
-        work_date: format(newEntry.wash_date, 'yyyy-MM-dd'),
+        work_date: format(newEntry.work_date, 'yyyy-MM-dd'),
         vehicle_id: newEntry.vehicle_id,
-        location_id: newEntry.actual_location_id,
+        location_id: newEntry.location_id,
         employee_id: userId,
       });
 
@@ -957,14 +957,14 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
 
       toast({
         title: 'Success',
-        description: 'Wash entry added',
+        description: 'Work entry added',
       });
 
       setShowAddForm(false);
       setNewEntry({
-        wash_date: new Date(),
+        work_date: new Date(),
         vehicle_id: '',
-        actual_location_id: '',
+        location_id: '',
       });
       fetchData();
     } catch (error) {
@@ -1281,14 +1281,14 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                     <PopoverTrigger asChild>
                       <Button variant="outline" className="w-full justify-start">
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(newEntry.wash_date, 'PPP')}
+                        {format(newEntry.work_date, 'PPP')}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0 bg-popover" align="start">
                       <Calendar
                         mode="single"
-                        selected={newEntry.wash_date}
-                        onSelect={(date) => date && setNewEntry({ ...newEntry, wash_date: date })}
+                        selected={newEntry.work_date}
+                        onSelect={(date) => date && setNewEntry({ ...newEntry, work_date: date })}
                         initialFocus
                         className={cn('p-3 pointer-events-auto')}
                       />
@@ -1308,8 +1308,8 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
                   <label className="text-sm font-medium mb-2 block">Location</label>
                   <select
                     className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={newEntry.actual_location_id}
-                    onChange={(e) => setNewEntry({ ...newEntry, actual_location_id: e.target.value })}
+                    value={newEntry.location_id}
+                    onChange={(e) => setNewEntry({ ...newEntry, location_id: e.target.value })}
                   >
                     <option value="">Select location</option>
                     {locations.map((loc) => (
