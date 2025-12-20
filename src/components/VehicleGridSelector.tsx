@@ -113,23 +113,23 @@ export function VehicleGridSelector({
     if (!locationIds || locationIds.length === 0) return;
 
     try {
-      const { data: washEntries } = await supabase
-        .from("wash_entries")
+      const { data: workEntries } = await supabase
+        .from("work_entries")
         .select(
           `
           id, 
           vehicle_id, 
           employee_id,
-          employee:users!wash_entries_employee_id_fkey(id, name)
+          employee:users!work_entries_employee_id_fkey(id, name)
         `,
         )
         .is("deleted_at", null)
-        .in("actual_location_id", locationIds)
-        .eq("wash_date", format(selectedDate, "yyyy-MM-dd"));
+        .in("location_id", locationIds)
+        .eq("work_date", format(selectedDate, "yyyy-MM-dd"));
 
       const entriesMap = new Map<string, { id: string; employee_id: string; employee_name: string }>();
 
-      (washEntries || []).forEach((entry: any) => {
+      (workEntries || []).forEach((entry: any) => {
         entriesMap.set(entry.vehicle_id, {
           id: entry.id,
           employee_id: entry.employee_id,
@@ -143,7 +143,7 @@ export function VehicleGridSelector({
       const existingIds = new Set(entriesMap.keys());
       setSelectedVehicles(existingIds);
     } catch (error: any) {
-      console.error("Error fetching wash entries:", error);
+      console.error("Error fetching work entries:", error);
     }
   };
 
@@ -223,11 +223,11 @@ export function VehicleGridSelector({
     setSubmitting(true);
 
     try {
-      // Add new wash entries
+      // Add new work entries
       if (vehiclesToAdd.length > 0) {
         const entriesToInsert = vehiclesToAdd.map((vehicleId) => {
           const vehicle = vehicles.find((v) => v.id === vehicleId);
-          const actualLocationId =
+          const locationId =
             vehicle?.home_location_id && locationIds.includes(vehicle.home_location_id)
               ? vehicle.home_location_id
               : locationIds[0];
@@ -235,20 +235,20 @@ export function VehicleGridSelector({
           return {
             employee_id: authUser.id,
             vehicle_id: vehicleId,
-            wash_date: format(selectedDate, "yyyy-MM-dd"),
-            actual_location_id: actualLocationId,
+            work_date: format(selectedDate, "yyyy-MM-dd"),
+            location_id: locationId,
             rate_at_time_of_wash: vehicle?.vehicle_type?.rate_per_wash || 0,
           };
         });
 
-        const { error: insertError } = await supabase.from("wash_entries").insert(entriesToInsert);
+        const { error: insertError } = await supabase.from("work_entries").insert(entriesToInsert);
 
         if (insertError) throw insertError;
 
         // Update vehicle last_seen for added vehicles
         for (const vehicleId of vehiclesToAdd) {
           const vehicle = vehicles.find((v) => v.id === vehicleId);
-          const actualLocationId =
+          const locationId =
             vehicle?.home_location_id && locationIds.includes(vehicle.home_location_id)
               ? vehicle.home_location_id
               : locationIds[0];
@@ -256,28 +256,28 @@ export function VehicleGridSelector({
           await supabase
             .from("vehicles")
             .update({
-              last_seen_location_id: actualLocationId,
+              last_seen_location_id: locationId,
               last_seen_date: format(selectedDate, "yyyy-MM-dd"),
             })
             .eq("id", vehicleId);
         }
       }
 
-      // Remove wash entries (soft delete)
+      // Remove work entries (soft delete)
       if (vehiclesToRemove.length > 0) {
-        const washEntryIds = vehiclesToRemove
+        const workEntryIds = vehiclesToRemove
           .map((vehicleId) => existingWashEntries.get(vehicleId)?.id)
           .filter(Boolean) as string[];
 
-        if (washEntryIds.length > 0) {
+        if (workEntryIds.length > 0) {
           const { error: deleteError } = await supabase
-            .from("wash_entries")
+            .from("work_entries")
             .update({
               deleted_at: new Date().toISOString(),
               deleted_by: authUser.id,
               deletion_reason: "Removed by employee on same day",
             })
-            .in("id", washEntryIds);
+            .in("id", workEntryIds);
 
           if (deleteError) throw deleteError;
         }
@@ -293,7 +293,7 @@ export function VehicleGridSelector({
       await fetchExistingWashEntries();
       onWashAdded();
     } catch (error: any) {
-      console.error("Error submitting wash entries:", error);
+      console.error("Error submitting work entries:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to submit changes",

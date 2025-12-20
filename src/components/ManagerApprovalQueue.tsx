@@ -18,8 +18,8 @@ interface ApprovalRequest {
     name: string;
     email: string;
   } | null;
-  wash_entry: {
-    wash_date: string;
+  work_entry: {
+    work_date: string;
     vehicle: {
       vehicle_number: string;
       vehicle_type: {
@@ -47,8 +47,8 @@ export function ManagerApprovalQueue({ managerId }: { managerId: string }) {
         .from('manager_approval_requests')
         .select(`
           *,
-          wash_entry:wash_entries(
-            wash_date,
+          work_entry:work_entries(
+            work_date,
             vehicle:vehicles(
               vehicle_number, 
               vehicle_type:vehicle_types(type_name)
@@ -75,9 +75,10 @@ export function ManagerApprovalQueue({ managerId }: { managerId: string }) {
       const combined = requestsData?.map(req => ({
         ...req,
         employee: employeesMap.get(req.employee_id) || null,
+        work_entry: (req as any).work_entry || null,
       })) || [];
 
-      setRequests(combined as ApprovalRequest[]);
+      setRequests(combined as unknown as ApprovalRequest[]);
     } catch (error) {
       console.error('Error fetching approval requests:', error);
       toast({
@@ -93,9 +94,9 @@ export function ManagerApprovalQueue({ managerId }: { managerId: string }) {
   const handleApprove = async (requestId: string, washEntryId: string) => {
     setProcessingId(requestId);
     try {
-      // Delete wash entry (hard delete)
+      // Delete work entry (hard delete)
       const { error: washError } = await supabase
-        .from('wash_entries')
+        .from('work_entries')
         .delete()
         .eq('id', washEntryId);
 
@@ -229,15 +230,15 @@ export function ManagerApprovalQueue({ managerId }: { managerId: string }) {
                 </div>
                 <div className="text-sm text-muted-foreground">
                   Wants to remove: <span className="font-medium text-foreground">
-                    Vehicle {request.wash_entry?.vehicle?.vehicle_number || 'N/A'}
+                    Vehicle {request.work_entry?.vehicle?.vehicle_number || 'N/A'}
                   </span>
-                  {request.wash_entry?.vehicle?.vehicle_type?.type_name && (
-                    <span> ({request.wash_entry.vehicle.vehicle_type.type_name})</span>
+                  {request.work_entry?.vehicle?.vehicle_type?.type_name && (
+                    <span> ({request.work_entry.vehicle.vehicle_type.type_name})</span>
                   )}
                 </div>
-                {request.wash_entry?.wash_date && (
+                {request.work_entry?.work_date && (
                   <div className="text-sm text-muted-foreground">
-                    Wash Date: {format(new Date(request.wash_entry.wash_date), 'MMM d, yyyy')}
+                    Work Date: {format(new Date(request.work_entry.work_date), 'MMM d, yyyy')}
                   </div>
                 )}
                 {request.reason && (

@@ -41,9 +41,9 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
 
 interface WashEntry {
   id: string;
-  wash_date: string;
+  work_date: string;
   vehicle_id: string;
-  actual_location_id: string;
+  location_id: string;
   employee_id: string;
   deleted_at?: string | null;
   deleted_by?: string | null;
@@ -90,7 +90,7 @@ const COLUMN_CONFIG: { key: ColumnKey; label: string; filterable: boolean; edita
 const getColumnValue = (entry: WashEntry, key: ColumnKey): string => {
   switch (key) {
     case 'date':
-      return format(parseLocalDate(entry.wash_date), 'MMM d, yyyy');
+      return format(parseLocalDate(entry.work_date), 'MMM d, yyyy');
     case 'vehicle':
       return entry.vehicle?.vehicle_number || '';
     case 'client':
@@ -475,16 +475,16 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
 
       // Always fetch all entries (status filter applied client-side)
       const { data: entriesData, error: entriesError } = await supabase
-        .from('wash_entries')
+        .from('work_entries')
         .select(`
           *,
           vehicle:vehicles(vehicle_number, vehicle_type:vehicle_types(type_name, rate_per_wash), client:clients(client_name)),
-          location:locations!wash_entries_actual_location_id_fkey(name),
-          employee:users!wash_entries_employee_id_fkey(name)
+          location:locations(name),
+          employee:users!work_entries_employee_id_fkey(name)
         `)
-        .gte('wash_date', startDate.toISOString().split('T')[0])
-        .lte('wash_date', endDate.toISOString().split('T')[0])
-        .order('wash_date', { ascending: false });
+        .gte('work_date', startDate.toISOString().split('T')[0])
+        .lte('work_date', endDate.toISOString().split('T')[0])
+        .order('work_date', { ascending: false });
 
       if (entriesError) throw entriesError;
 
@@ -496,7 +496,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
 
       if (locationsError) throw locationsError;
 
-      setEntries(entriesData || []);
+      setEntries((entriesData || []) as unknown as WashEntry[]);
       setLocations(locationsData || []);
       // Clear selection when data changes
       setSelectedIds(new Set());
@@ -631,8 +631,8 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
 
       // Handle date column
       if (sortColumn === 'date') {
-        const aDate = new Date(a.wash_date).getTime();
-        const bDate = new Date(b.wash_date).getTime();
+        const aDate = new Date(a.work_date).getTime();
+        const bDate = new Date(b.work_date).getTime();
         return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
       }
 
@@ -756,7 +756,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
       const ids = entriesToDelete.map(e => e.id);
       
       const { error } = await supabase
-        .from('wash_entries')
+        .from('work_entries')
         .update({
           deleted_at: new Date().toISOString(),
           deleted_by: userId,
@@ -798,7 +798,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   const handleRestoreEntries = async (ids: string[]) => {
     try {
       const { error } = await supabase
-        .from('wash_entries')
+        .from('work_entries')
         .update({
           deleted_at: null,
           deleted_by: null,
@@ -838,7 +838,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
 
     switch (field) {
       case 'date':
-        dbField = 'wash_date';
+        dbField = 'work_date';
         // Parse the date from various formats
         try {
           const parsedDate = new Date(value);
@@ -865,7 +865,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
         dbValue = value || null;
         break;
       case 'location':
-        dbField = 'actual_location_id';
+        dbField = 'location_id';
         dbValue = value; // This is the location UUID from the dropdown
         // Validate that it's a valid location ID
         if (!locations.find(l => l.id === value)) {
@@ -883,7 +883,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
 
     try {
       const { error } = await supabase
-        .from('wash_entries')
+        .from('work_entries')
         .update({ [dbField]: dbValue })
         .eq('id', entryId);
 
@@ -909,7 +909,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
   // Export functionality
   const handleExport = (entriesToExport: WashEntry[]) => {
     const exportData = entriesToExport.map(entry => ({
-      'Date': format(new Date(entry.wash_date), 'yyyy-MM-dd'),
+      'Date': format(new Date(entry.work_date), 'yyyy-MM-dd'),
       'Vehicle': entry.vehicle?.vehicle_number || 'N/A',
       'Client': entry.vehicle?.client?.client_name || 'No Client',
       'Type': entry.vehicle?.vehicle_type?.type_name || 'N/A',
@@ -919,7 +919,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
       'Comment': entry.comment || '',
     }));
 
-    exportToExcel(exportData, `wash_entries_${format(new Date(), 'yyyy-MM-dd')}`, 'Wash Entries', {
+    exportToExcel(exportData, `work_entries_${format(new Date(), 'yyyy-MM-dd')}`, 'Work Entries', {
       addSumRow: true,
       sumColumns: ['Rate'],
     });
@@ -946,10 +946,10 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
     }
 
     try {
-      const { error } = await supabase.from('wash_entries').insert({
-        wash_date: format(newEntry.wash_date, 'yyyy-MM-dd'),
+      const { error } = await supabase.from('work_entries').insert({
+        work_date: format(newEntry.wash_date, 'yyyy-MM-dd'),
         vehicle_id: newEntry.vehicle_id,
-        actual_location_id: newEntry.actual_location_id,
+        location_id: newEntry.actual_location_id,
         employee_id: userId,
       });
 
@@ -1002,7 +1002,7 @@ export function WashEntryTableEditor({ userId }: { userId: string }) {
         <EditableLocationCell
           value={value}
           entryId={entry.id}
-          locationId={entry.actual_location_id}
+          locationId={entry.location_id}
           locations={locations}
           isEditing={isEditing}
           onStartEdit={() => setEditingCell({ id: entry.id, field: key })}

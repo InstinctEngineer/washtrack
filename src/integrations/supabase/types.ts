@@ -503,6 +503,107 @@ export type Database = {
           },
         ]
       }
+      location_service_rates: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          effective_date: string
+          expiration_date: string | null
+          frequency_id: string | null
+          id: string
+          is_active: boolean
+          is_hourly: boolean
+          location_id: string
+          notes: string | null
+          rate: number
+          service_category_id: string | null
+          vehicle_type_id: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string
+          expiration_date?: string | null
+          frequency_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_hourly?: boolean
+          location_id: string
+          notes?: string | null
+          rate: number
+          service_category_id?: string | null
+          vehicle_type_id?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string
+          expiration_date?: string | null
+          frequency_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_hourly?: boolean
+          location_id?: string
+          notes?: string | null
+          rate?: number
+          service_category_id?: string | null
+          vehicle_type_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_service_rates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_service_rates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_service_rates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_service_rates_frequency_id_fkey"
+            columns: ["frequency_id"]
+            isOneToOne: false
+            referencedRelation: "wash_frequencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_service_rates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_service_rates_service_category_id_fkey"
+            columns: ["service_category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_service_rates_vehicle_type_id_fkey"
+            columns: ["vehicle_type_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null
@@ -524,6 +625,7 @@ export type Database = {
           id: string
           is_active: boolean
           latitude: number | null
+          location_code: string | null
           longitude: number | null
           manager_user_id: string | null
           max_clients_serviced: number | null
@@ -534,6 +636,7 @@ export type Database = {
           phone_number: string | null
           photo_url: string | null
           state: string | null
+          tax_jurisdiction: string | null
           tax_rate: number | null
           timezone: string | null
           total_revenue: number | null
@@ -560,6 +663,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           latitude?: number | null
+          location_code?: string | null
           longitude?: number | null
           manager_user_id?: string | null
           max_clients_serviced?: number | null
@@ -570,6 +674,7 @@ export type Database = {
           phone_number?: string | null
           photo_url?: string | null
           state?: string | null
+          tax_jurisdiction?: string | null
           tax_rate?: number | null
           timezone?: string | null
           total_revenue?: number | null
@@ -596,6 +701,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           latitude?: number | null
+          location_code?: string | null
           longitude?: number | null
           manager_user_id?: string | null
           max_clients_serviced?: number | null
@@ -606,6 +712,7 @@ export type Database = {
           phone_number?: string | null
           photo_url?: string | null
           state?: string | null
+          tax_jurisdiction?: string | null
           tax_rate?: number | null
           timezone?: string | null
           total_revenue?: number | null
@@ -671,7 +778,7 @@ export type Database = {
             foreignKeyName: "manager_approval_requests_wash_entry_id_fkey"
             columns: ["wash_entry_id"]
             isOneToOne: false
-            referencedRelation: "wash_entries"
+            referencedRelation: "work_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -807,6 +914,36 @@ export type Database = {
           template_name?: string
           updated_at?: string
           use_count?: number
+        }
+        Relationships: []
+      }
+      service_categories: {
+        Row: {
+          category_code: string
+          category_name: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_hourly_default: boolean
+          sort_order: number | null
+        }
+        Insert: {
+          category_code: string
+          category_name: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_hourly_default?: boolean
+          sort_order?: number | null
+        }
+        Update: {
+          category_code?: string
+          category_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_hourly_default?: boolean
+          sort_order?: number | null
         }
         Relationships: []
       }
@@ -1421,12 +1558,45 @@ export type Database = {
           },
         ]
       }
-      wash_entries: {
+      wash_frequencies: {
         Row: {
-          actual_location_id: string
+          created_at: string
+          frequency_code: string
+          frequency_name: string
+          id: string
+          is_active: boolean
+          rate_multiplier: number
+          sort_order: number | null
+          washes_per_week: number | null
+        }
+        Insert: {
+          created_at?: string
+          frequency_code: string
+          frequency_name: string
+          id?: string
+          is_active?: boolean
+          rate_multiplier?: number
+          sort_order?: number | null
+          washes_per_week?: number | null
+        }
+        Update: {
+          created_at?: string
+          frequency_code?: string
+          frequency_name?: string
+          id?: string
+          is_active?: boolean
+          rate_multiplier?: number
+          sort_order?: number | null
+          washes_per_week?: number | null
+        }
+        Relationships: []
+      }
+      work_entries: {
+        Row: {
           additional_charges: number | null
           additional_charges_reason: string | null
           additional_services: string[] | null
+          additional_work_description: string | null
           approval_notes: string | null
           approved_at: string | null
           approved_by: string | null
@@ -1445,14 +1615,20 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           deletion_reason: string | null
+          direct_vehicle_type_id: string | null
           discount_percentage: number | null
           employee_id: string
           employee_notes: string | null
           final_amount: number | null
           flag_reason: string | null
           flagged: boolean | null
+          frequency_id: string | null
           fuel_level: string | null
+          hours_worked: number | null
           id: string
+          is_additional_work: boolean | null
+          line_total: number | null
+          location_id: string
           odometer_reading: number | null
           photo_after_url: string | null
           photo_before_url: string | null
@@ -1463,6 +1639,7 @@ export type Database = {
           quality_checked_at: string | null
           quality_checked_by: string | null
           quality_rating: number | null
+          quantity: number | null
           rate_at_time_of_wash: number | null
           rate_override: number | null
           rate_override_reason: string | null
@@ -1470,6 +1647,7 @@ export type Database = {
           rework_completed_at: string | null
           rework_reason: string | null
           rework_required: boolean | null
+          service_category_id: string | null
           service_type: string | null
           soap_used_gallons: number | null
           source: string | null
@@ -1478,20 +1656,21 @@ export type Database = {
           temperature_fahrenheit: number | null
           time_completed: string | null
           time_started: string | null
-          vehicle_id: string
+          unit_rate_applied: number | null
+          vehicle_id: string | null
           warranty_applies: boolean | null
           warranty_expiration_date: string | null
-          wash_date: string
           wash_duration_minutes: number | null
           wash_location_type: string | null
           water_used_gallons: number | null
           weather_condition: string | null
+          work_date: string
         }
         Insert: {
-          actual_location_id: string
           additional_charges?: number | null
           additional_charges_reason?: string | null
           additional_services?: string[] | null
+          additional_work_description?: string | null
           approval_notes?: string | null
           approved_at?: string | null
           approved_by?: string | null
@@ -1510,14 +1689,20 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           deletion_reason?: string | null
+          direct_vehicle_type_id?: string | null
           discount_percentage?: number | null
           employee_id: string
           employee_notes?: string | null
           final_amount?: number | null
           flag_reason?: string | null
           flagged?: boolean | null
+          frequency_id?: string | null
           fuel_level?: string | null
+          hours_worked?: number | null
           id?: string
+          is_additional_work?: boolean | null
+          line_total?: number | null
+          location_id: string
           odometer_reading?: number | null
           photo_after_url?: string | null
           photo_before_url?: string | null
@@ -1528,6 +1713,7 @@ export type Database = {
           quality_checked_at?: string | null
           quality_checked_by?: string | null
           quality_rating?: number | null
+          quantity?: number | null
           rate_at_time_of_wash?: number | null
           rate_override?: number | null
           rate_override_reason?: string | null
@@ -1535,6 +1721,7 @@ export type Database = {
           rework_completed_at?: string | null
           rework_reason?: string | null
           rework_required?: boolean | null
+          service_category_id?: string | null
           service_type?: string | null
           soap_used_gallons?: number | null
           source?: string | null
@@ -1543,20 +1730,21 @@ export type Database = {
           temperature_fahrenheit?: number | null
           time_completed?: string | null
           time_started?: string | null
-          vehicle_id: string
+          unit_rate_applied?: number | null
+          vehicle_id?: string | null
           warranty_applies?: boolean | null
           warranty_expiration_date?: string | null
-          wash_date: string
           wash_duration_minutes?: number | null
           wash_location_type?: string | null
           water_used_gallons?: number | null
           weather_condition?: string | null
+          work_date: string
         }
         Update: {
-          actual_location_id?: string
           additional_charges?: number | null
           additional_charges_reason?: string | null
           additional_services?: string[] | null
+          additional_work_description?: string | null
           approval_notes?: string | null
           approved_at?: string | null
           approved_by?: string | null
@@ -1575,14 +1763,20 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           deletion_reason?: string | null
+          direct_vehicle_type_id?: string | null
           discount_percentage?: number | null
           employee_id?: string
           employee_notes?: string | null
           final_amount?: number | null
           flag_reason?: string | null
           flagged?: boolean | null
+          frequency_id?: string | null
           fuel_level?: string | null
+          hours_worked?: number | null
           id?: string
+          is_additional_work?: boolean | null
+          line_total?: number | null
+          location_id?: string
           odometer_reading?: number | null
           photo_after_url?: string | null
           photo_before_url?: string | null
@@ -1593,6 +1787,7 @@ export type Database = {
           quality_checked_at?: string | null
           quality_checked_by?: string | null
           quality_rating?: number | null
+          quantity?: number | null
           rate_at_time_of_wash?: number | null
           rate_override?: number | null
           rate_override_reason?: string | null
@@ -1600,6 +1795,7 @@ export type Database = {
           rework_completed_at?: string | null
           rework_reason?: string | null
           rework_required?: boolean | null
+          service_category_id?: string | null
           service_type?: string | null
           soap_used_gallons?: number | null
           source?: string | null
@@ -1608,19 +1804,20 @@ export type Database = {
           temperature_fahrenheit?: number | null
           time_completed?: string | null
           time_started?: string | null
-          vehicle_id?: string
+          unit_rate_applied?: number | null
+          vehicle_id?: string | null
           warranty_applies?: boolean | null
           warranty_expiration_date?: string | null
-          wash_date?: string
           wash_duration_minutes?: number | null
           wash_location_type?: string | null
           water_used_gallons?: number | null
           weather_condition?: string | null
+          work_date?: string
         }
         Relationships: [
           {
             foreignKeyName: "wash_entries_actual_location_id_fkey"
-            columns: ["actual_location_id"]
+            columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
@@ -1693,6 +1890,27 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_entries_direct_vehicle_type_id_fkey"
+            columns: ["direct_vehicle_type_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_entries_frequency_id_fkey"
+            columns: ["frequency_id"]
+            isOneToOne: false
+            referencedRelation: "wash_frequencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_entries_service_category_id_fkey"
+            columns: ["service_category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -1820,6 +2038,21 @@ export type Database = {
     }
     Functions: {
       auto_update_cutoff_date: { Args: never; Returns: undefined }
+      get_applicable_rate: {
+        Args: {
+          p_client_id?: string
+          p_frequency_id?: string
+          p_location_id: string
+          p_service_category_id?: string
+          p_vehicle_type_id?: string
+          p_work_date?: string
+        }
+        Returns: {
+          is_hourly: boolean
+          rate: number
+          rate_source: string
+        }[]
+      }
       get_last_sunday: { Args: never; Returns: string }
       get_next_saturday: { Args: never; Returns: string }
       get_users_for_managers: {

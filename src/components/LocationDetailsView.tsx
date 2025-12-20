@@ -74,10 +74,10 @@ export const LocationDetailsView = ({
             .eq('home_location_id', location.id)
             .order('vehicle_number'),
           supabase
-            .from('wash_entries')
-            .select('id, wash_date')
-            .eq('actual_location_id', location.id)
-            .gte('wash_date', format(new Date(new Date().setDate(1)), 'yyyy-MM-dd')),
+            .from('work_entries')
+            .select('id, work_date')
+            .eq('location_id', location.id)
+            .gte('work_date', format(new Date(new Date().setDate(1)), 'yyyy-MM-dd')),
           location.manager_user_id
             ? supabase.from('users').select('name').eq('id', location.manager_user_id).single()
             : Promise.resolve({ data: null, error: null }),
@@ -86,16 +86,16 @@ export const LocationDetailsView = ({
         setEmployees((employeesRes.data || []) as User[]);
         setVehicles(vehiclesRes.data || []);
 
-        // Get last wash date
-        const sortedWashes = (washesRes.data || []).sort(
-          (a, b) => new Date(b.wash_date).getTime() - new Date(a.wash_date).getTime()
+        // Get last work date
+        const sortedEntries = (washesRes.data || []).sort(
+          (a: any, b: any) => new Date(b.work_date).getTime() - new Date(a.work_date).getTime()
         );
 
         setStats({
           totalEmployees: employeesRes.data?.filter((e) => e.is_active).length || 0,
           totalVehicles: vehiclesRes.data?.filter((v) => v.is_active).length || 0,
           monthlyWashes: washesRes.data?.length || 0,
-          lastWashDate: sortedWashes[0]?.wash_date || null,
+          lastWashDate: sortedEntries[0]?.work_date || null,
           managerName: managerRes.data?.name || null,
         });
       } catch (error) {
