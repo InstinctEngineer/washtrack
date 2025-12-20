@@ -67,7 +67,7 @@ export function AddVehicleDialog({
         .select('*')
         .in('id', locationIds)
         .eq('is_active', true)
-        .order('name');
+        .order('location_code');
 
       if (locationsError) throw locationsError;
       setLocations(locationsData || []);
@@ -212,7 +212,7 @@ export function AddVehicleDialog({
               <SelectContent>
                 {locations.map((location) => (
                   <SelectItem key={location.id} value={location.id}>
-                    {location.name}
+                    {location.location_code ? `${location.location_code} - ${location.name}` : location.name}
                   </SelectItem>
                 ))}
               </SelectContent>

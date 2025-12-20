@@ -76,7 +76,7 @@ export const EditUserModal = ({
         .from("locations")
         .select("*")
         .eq("is_active", true)
-        .order("name");
+        .order("location_code");
 
       if (error) throw error;
       return data as Location[];
@@ -409,7 +409,7 @@ export const EditUserModal = ({
                           htmlFor={`location-${location.id}`}
                           className="flex-1 cursor-pointer"
                         >
-                          {location.name}
+                          {location.location_code ? `${location.location_code} - ${location.name}` : location.name}
                         </Label>
                         {isSelected && (
                           <Button

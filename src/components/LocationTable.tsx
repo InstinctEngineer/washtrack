@@ -200,6 +200,7 @@ export const LocationTable = ({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Code</TableHead>
               <TableHead
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('name')}
@@ -227,13 +228,16 @@ export const LocationTable = ({
           <TableBody>
             {filteredAndSortedLocations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No locations found
                 </TableCell>
               </TableRow>
             ) : (
               filteredAndSortedLocations.map((location) => (
                 <TableRow key={location.id}>
+                  <TableCell className="font-mono font-semibold text-primary">
+                    {location.location_code || '-'}
+                  </TableCell>
                   <TableCell>
                     <button
                       onClick={() => onViewDetails(location)}

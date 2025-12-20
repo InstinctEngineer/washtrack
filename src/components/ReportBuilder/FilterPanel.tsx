@@ -41,7 +41,7 @@ export function FilterPanel({
   const fetchFilterOptions = async () => {
     const [clientsRes, locationsRes, employeesRes] = await Promise.all([
       supabase.from('clients').select('id, client_name').eq('is_active', true).order('client_name'),
-      supabase.from('locations').select('id, name').eq('is_active', true).order('name'),
+      supabase.from('locations').select('id, name, location_code').eq('is_active', true).order('location_code'),
       supabase.from('users').select('id, name').eq('is_active', true).order('name'),
     ]);
 
@@ -49,7 +49,7 @@ export function FilterPanel({
       setClients(clientsRes.data.map(c => ({ value: c.id, label: c.client_name })));
     }
     if (locationsRes.data) {
-      setLocations(locationsRes.data.map(l => ({ value: l.id, label: l.name })));
+      setLocations(locationsRes.data.map(l => ({ value: l.id, label: l.location_code ? `${l.location_code} - ${l.name}` : l.name })));
     }
     if (employeesRes.data) {
       setEmployees(employeesRes.data.map(e => ({ value: e.id, label: e.name })));

@@ -30,6 +30,7 @@ interface EmployeeComment {
   location?: {
     id: string;
     name: string;
+    location_code?: string;
   };
 }
 
@@ -59,6 +60,7 @@ interface MessageReply {
 interface Location {
   id: string;
   name: string;
+  location_code?: string;
 }
 
 export default function FinanceMessages() {
@@ -98,9 +100,9 @@ export default function FinanceMessages() {
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('id, name')
+        .select('id, name, location_code')
         .eq('is_active', true)
-        .order('name');
+        .order('location_code');
 
       if (error) throw error;
       setLocations(data || []);
@@ -117,7 +119,7 @@ export default function FinanceMessages() {
         .from('employee_comments')
         .select(`
           *,
-          location:locations(id, name)
+          location:locations(id, name, location_code)
         `)
         .eq('week_start_date', weekStartStr)
         .order('created_at', { ascending: false });
@@ -374,7 +376,7 @@ export default function FinanceMessages() {
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
                     {locations.map(loc => (
-                      <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                      <SelectItem key={loc.id} value={loc.id}>{loc.location_code || loc.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -464,7 +466,7 @@ export default function FinanceMessages() {
                                 </span>
                                 {comment.location && (
                                   <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                                    {comment.location.name}
+                                    {comment.location.location_code || comment.location.name}
                                   </Badge>
                                 )}
                                 <span className="text-xs text-muted-foreground">
