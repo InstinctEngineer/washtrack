@@ -1900,10 +1900,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_entries_frequency_id_fkey"
             columns: ["frequency_id"]
             isOneToOne: false
             referencedRelation: "wash_frequencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_entries_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
