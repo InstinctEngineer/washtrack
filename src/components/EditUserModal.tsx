@@ -370,68 +370,113 @@ export const EditUserModal = ({
                   No locations available. Create locations first.
                 </p>
               ) : (
-                <div className="border rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
-                  {locations.map((location) => {
-                    const isSelected = formData.locations.some(
-                      (l) => l.location_id === location.id
-                    );
-                    const isPrimary = formData.locations.find(
-                      (l) => l.location_id === location.id
-                    )?.is_primary;
+                <div className="border rounded-lg overflow-hidden">
+                  {/* Select All checkbox */}
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 border-b">
+                    <input
+                      type="checkbox"
+                      id="select-all-locations"
+                      checked={locations.length > 0 && formData.locations.length === locations.length}
+                      ref={(el) => {
+                        if (el) {
+                          el.indeterminate = formData.locations.length > 0 && formData.locations.length < locations.length;
+                        }
+                      }}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          // Select all locations, keep existing primary or set first as primary
+                          const currentPrimary = formData.locations.find(l => l.is_primary);
+                          setFormData({
+                            ...formData,
+                            locations: locations.map((loc, index) => ({
+                              location_id: loc.id,
+                              is_primary: currentPrimary 
+                                ? loc.id === currentPrimary.location_id 
+                                : index === 0,
+                            })),
+                          });
+                        } else {
+                          // Deselect all locations
+                          setFormData({
+                            ...formData,
+                            locations: [],
+                          });
+                        }
+                      }}
+                      className="h-4 w-4"
+                    />
+                    <Label
+                      htmlFor="select-all-locations"
+                      className="flex-1 cursor-pointer font-medium"
+                    >
+                      Select All ({formData.locations.length}/{locations.length})
+                    </Label>
+                  </div>
+                  
+                  {/* Location list */}
+                  <div className="p-4 space-y-2 max-h-52 overflow-y-auto">
+                    {locations.map((location) => {
+                      const isSelected = formData.locations.some(
+                        (l) => l.location_id === location.id
+                      );
+                      const isPrimary = formData.locations.find(
+                        (l) => l.location_id === location.id
+                      )?.is_primary;
 
-                    return (
-                      <div key={location.id} className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          id={`location-${location.id}`}
-                          checked={isSelected}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setFormData({
-                                ...formData,
-                                locations: [
-                                  ...formData.locations,
-                                  { location_id: location.id, is_primary: false },
-                                ],
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                locations: formData.locations.filter(
-                                  (l) => l.location_id !== location.id
-                                ),
-                              });
-                            }
-                          }}
-                          className="h-4 w-4"
-                        />
-                        <Label
-                          htmlFor={`location-${location.id}`}
-                          className="flex-1 cursor-pointer"
-                        >
-                          {location.location_code ? `${location.location_code} - ${location.name}` : location.name}
-                        </Label>
-                        {isSelected && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={isPrimary ? "default" : "outline"}
-                            onClick={() => {
-                              setFormData({
-                                ...formData,
-                                locations: formData.locations.map((l) => ({
-                                  ...l,
-                                  is_primary: l.location_id === location.id,
-                                })),
-                              });
+                      return (
+                        <div key={location.id} className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id={`location-${location.id}`}
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  locations: [
+                                    ...formData.locations,
+                                    { location_id: location.id, is_primary: false },
+                                  ],
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  locations: formData.locations.filter(
+                                    (l) => l.location_id !== location.id
+                                  ),
+                                });
+                              }
                             }}
+                            className="h-4 w-4"
+                          />
+                          <Label
+                            htmlFor={`location-${location.id}`}
+                            className="flex-1 cursor-pointer"
                           >
-                            {isPrimary ? "Primary" : "Set as Primary"}
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
+                            {location.location_code ? `${location.location_code} - ${location.name}` : location.name}
+                          </Label>
+                          {isSelected && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={isPrimary ? "default" : "outline"}
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  locations: formData.locations.map((l) => ({
+                                    ...l,
+                                    is_primary: l.location_id === location.id,
+                                  })),
+                                });
+                              }}
+                            >
+                              {isPrimary ? "Primary" : "Set as Primary"}
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
