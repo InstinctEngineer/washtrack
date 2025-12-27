@@ -3,7 +3,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { Users, MapPin, Settings, Car, List } from 'lucide-react';
+import { Users, MapPin, Settings, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { format } from 'date-fns';
@@ -11,28 +11,28 @@ import { AuditLogTable } from '@/components/AuditLogTable';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
-    totalVehicles: 0,
-    activeVehicles: 0,
-    vehicleTypes: 0,
-    locations: 0,
+    activeUsers: 0,
+    totalUsers: 0,
+    activeClients: 0,
+    activeLocations: 0,
   });
   const [cutoffDate, setCutoffDate] = useState<Date | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [vehiclesRes, typesRes, locationsRes, cutoff] = await Promise.all([
-          supabase.from('vehicles').select('id, is_active', { count: 'exact' }),
-          supabase.from('vehicle_types').select('id', { count: 'exact' }),
-          supabase.from('locations').select('id', { count: 'exact' }),
+        const [usersRes, clientsRes, locationsRes, cutoff] = await Promise.all([
+          supabase.from('users').select('id, is_active', { count: 'exact' }),
+          supabase.from('clients').select('id', { count: 'exact' }).eq('is_active', true),
+          supabase.from('locations').select('id', { count: 'exact' }).eq('is_active', true),
           getCurrentCutoff(),
         ]);
 
         setStats({
-          totalVehicles: vehiclesRes.count || 0,
-          activeVehicles: vehiclesRes.data?.filter((v) => v.is_active).length || 0,
-          vehicleTypes: typesRes.count || 0,
-          locations: locationsRes.count || 0,
+          totalUsers: usersRes.count || 0,
+          activeUsers: usersRes.data?.filter((u) => u.is_active).length || 0,
+          activeClients: clientsRes.count || 0,
+          activeLocations: locationsRes.count || 0,
         });
         setCutoffDate(cutoff);
       } catch (error) {
@@ -54,24 +54,24 @@ export default function AdminDashboard() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>Total Vehicles</CardDescription>
-              <CardTitle className="text-3xl">{stats.totalVehicles}</CardTitle>
+              <CardDescription>Active Users</CardDescription>
+              <CardTitle className="text-3xl">{stats.activeUsers}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                {stats.activeVehicles} active
+                {stats.totalUsers} total
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>Vehicle Types</CardDescription>
-              <CardTitle className="text-3xl">{stats.vehicleTypes}</CardTitle>
+              <CardDescription>Active Clients</CardDescription>
+              <CardTitle className="text-3xl">{stats.activeClients}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Configured types
+                Client accounts
               </p>
             </CardContent>
           </Card>
@@ -79,7 +79,7 @@ export default function AdminDashboard() {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Locations</CardDescription>
-              <CardTitle className="text-3xl">{stats.locations}</CardTitle>
+              <CardTitle className="text-3xl">{stats.activeLocations}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
@@ -103,42 +103,29 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <Car className="h-8 w-8 text-primary mb-2" />
-              <CardTitle>Vehicles</CardTitle>
-              <CardDescription>Manage fleet vehicles</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full">
-                <Link to="/admin/vehicles">View Vehicles</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <List className="h-8 w-8 text-primary mb-2" />
-              <CardTitle>Vehicle Types</CardTitle>
-              <CardDescription>Configure types and rates</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full">
-                <Link to="/admin/vehicle-types">Manage Types</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader>
               <Users className="h-8 w-8 text-primary mb-2" />
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>Create and manage user accounts</CardDescription>
+              <CardTitle>Users</CardTitle>
+              <CardDescription>Manage user accounts and permissions</CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild className="w-full">
-                <Link to="/admin/users/create">Create New User</Link>
+                <Link to="/admin/users">Manage Users</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Building2 className="h-8 w-8 text-primary mb-2" />
+              <CardTitle>Clients</CardTitle>
+              <CardDescription>View and manage client accounts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full">
+                <Link to="/admin/clients">Manage Clients</Link>
               </Button>
             </CardContent>
           </Card>
