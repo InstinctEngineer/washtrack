@@ -33,10 +33,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AddServiceModal } from '@/components/AddServiceModal';
 import { EditServiceModal } from '@/components/EditServiceModal';
+import { CSVImportModal } from '@/components/CSVImportModal';
 
 interface BillableItemWithJoins {
   id: string;
@@ -63,6 +64,7 @@ const Services = () => {
   const [selectedLocationId, setSelectedLocationId] = useState<string>('all');
   const [showNeedsReviewOnly, setShowNeedsReviewOnly] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BillableItemWithJoins | null>(null);
   const [deleteItem, setDeleteItem] = useState<BillableItemWithJoins | null>(null);
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
@@ -219,10 +221,16 @@ const Services = () => {
             </p>
           </div>
           {isAdmin && (
-            <Button onClick={() => setAddModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Service
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setImportModalOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                Import CSV
+              </Button>
+              <Button onClick={() => setAddModalOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Service
+              </Button>
+            </div>
           )}
         </div>
 
@@ -387,6 +395,12 @@ const Services = () => {
           )}
         </div>
       </div>
+
+      {/* CSV Import Modal */}
+      <CSVImportModal
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+      />
 
       {/* Add Service Modal */}
       <AddServiceModal

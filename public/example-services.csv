@@ -1,0 +1,6 @@
+client_name,location_name,identifier,work_type,frequency,rate_type,rate
+Acme Corp,Main Warehouse,T-101,Box Truck,2x/week,per_unit,45.00
+Acme Corp,Main Warehouse,T-102,Box Truck,2x/week,per_unit,
+Acme Corp,Downtown Office,,Pressure Washing,Monthly,per_unit,150.00
+Beta Inc,Headquarters,,Hourly Cleaning,,hourly,25.00
+Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00
