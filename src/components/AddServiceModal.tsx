@@ -12,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -47,10 +46,23 @@ export const AddServiceModal = ({ open, onOpenChange, clients }: AddServiceModal
   const [clientId, setClientId] = useState('');
   const [locationId, setLocationId] = useState('');
   const [identifier, setIdentifier] = useState('');
-  const [workType, setWorkType] = useState('');
+  const [workTypeId, setWorkTypeId] = useState('');
   const [frequency, setFrequency] = useState('');
-  const [rateType, setRateType] = useState<'per_unit' | 'hourly'>('per_unit');
   const [rate, setRate] = useState('');
+
+  // Fetch work types
+  const { data: workTypes = [] } = useQuery({
+    queryKey: ['work-types'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_types')
+        .select('id, name, rate_type')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Fetch locations filtered by selected client
   const { data: locations = [] } = useQuery({
@@ -80,9 +92,8 @@ export const AddServiceModal = ({ open, onOpenChange, clients }: AddServiceModal
       setClientId('');
       setLocationId('');
       setIdentifier('');
-      setWorkType('');
+      setWorkTypeId('');
       setFrequency('');
-      setRateType('per_unit');
       setRate('');
     }
   }, [open]);
@@ -90,32 +101,77 @@ export const AddServiceModal = ({ open, onOpenChange, clients }: AddServiceModal
   const createMutation = useMutation({
     mutationFn: async () => {
       const rateValue = rate.trim() === '' ? null : parseFloat(rate);
+      const frequencyValue = frequency === 'none' || frequency === '' ? null : frequency;
       
-      const { data, error } = await supabase
-        .from('billable_items')
+      // First, find or create the rate_config
+      let query = supabase
+        .from('rate_configs')
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('location_id', locationId)
+        .eq('work_type_id', workTypeId);
+      
+      if (frequencyValue === null) {
+        query = query.is('frequency', null);
+      } else {
+        query = query.eq('frequency', frequencyValue);
+      }
+      
+      const { data: existingConfig, error: findError } = await query.maybeSingle();
+      
+      if (findError) throw findError;
+      
+      let rateConfigId: string;
+      
+      if (existingConfig) {
+        rateConfigId = existingConfig.id;
+        // Update rate if provided
+        if (rateValue !== null) {
+          const { error: updateError } = await supabase
+            .from('rate_configs')
+            .update({ rate: rateValue, needs_rate_review: false })
+            .eq('id', rateConfigId);
+          if (updateError) throw updateError;
+        }
+      } else {
+        // Create new rate_config
+        const { data: newConfig, error: createError } = await supabase
+          .from('rate_configs')
+          .insert({
+            client_id: clientId,
+            location_id: locationId,
+            work_type_id: workTypeId,
+            frequency: frequencyValue,
+            rate: rateValue,
+            needs_rate_review: rateValue === null,
+          })
+          .select('id')
+          .single();
+        
+        if (createError) throw createError;
+        rateConfigId = newConfig.id;
+      }
+      
+      // Create the work_item
+      const { data: workItem, error: workItemError } = await supabase
+        .from('work_items')
         .insert({
-          client_id: clientId,
-          location_id: locationId,
-          identifier: identifier.trim() || null,
-          work_type: workType.trim(),
-          frequency: frequency || null,
-          rate_type: rateType,
-          rate: rateValue,
+          rate_config_id: rateConfigId,
+          identifier: identifier.trim(),
         })
         .select()
         .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['billable-items'] });
       
-      const message = data.needs_rate_review
-        ? 'Service created. Rate needs review - no matching rate found to inherit.'
-        : data.rate !== null
-          ? `Service created with rate $${data.rate.toFixed(2)}`
-          : 'Service created successfully';
+      if (workItemError) throw workItemError;
+      return { workItem, rateValue };
+    },
+    onSuccess: ({ rateValue }) => {
+      queryClient.invalidateQueries({ queryKey: ['work-items'] });
+      queryClient.invalidateQueries({ queryKey: ['rate-configs'] });
+      
+      const message = rateValue !== null
+        ? `Service created with rate $${rateValue.toFixed(2)}`
+        : 'Service created. Rate needs to be set.';
       
       toast({ title: message });
       onOpenChange(false);
@@ -131,10 +187,10 @@ export const AddServiceModal = ({ open, onOpenChange, clients }: AddServiceModal
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientId || !locationId || !workType.trim()) {
+    if (!clientId || !locationId || !workTypeId || !identifier.trim()) {
       toast({
         title: 'Missing required fields',
-        description: 'Please fill in Client, Location, and Work Type',
+        description: 'Please fill in Client, Location, Work Type, and Identifier',
         variant: 'destructive',
       });
       return;
@@ -142,13 +198,15 @@ export const AddServiceModal = ({ open, onOpenChange, clients }: AddServiceModal
     createMutation.mutate();
   };
 
+  const selectedWorkType = workTypes.find(wt => wt.id === workTypeId);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Add New Service</DialogTitle>
           <DialogDescription>
-            Create a new billable item. Leave rate blank to inherit from similar items or flag for review.
+            Create a new work item. Leave rate blank to flag for review.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -191,9 +249,26 @@ export const AddServiceModal = ({ open, onOpenChange, clients }: AddServiceModal
               </Select>
             </div>
 
+            {/* Work Type */}
+            <div className="space-y-2">
+              <Label htmlFor="workType">Work Type *</Label>
+              <Select value={workTypeId} onValueChange={setWorkTypeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a work type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workTypes.map((wt) => (
+                    <SelectItem key={wt.id} value={wt.id}>
+                      {wt.name} ({wt.rate_type === 'per_unit' ? 'Per Unit' : 'Hourly'})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Identifier */}
             <div className="space-y-2">
-              <Label htmlFor="identifier">Identifier</Label>
+              <Label htmlFor="identifier">Identifier *</Label>
               <Input
                 id="identifier"
                 value={identifier}
@@ -201,56 +276,28 @@ export const AddServiceModal = ({ open, onOpenChange, clients }: AddServiceModal
                 placeholder="e.g., T-101, License Plate, Asset Tag"
               />
               <p className="text-xs text-muted-foreground">
-                Optional truck number, asset tag, or other identifier
+                Truck number, asset tag, or other unique identifier
               </p>
             </div>
 
-            {/* Work Type */}
-            <div className="space-y-2">
-              <Label htmlFor="workType">Work Type *</Label>
-              <Input
-                id="workType"
-                value={workType}
-                onChange={(e) => setWorkType(e.target.value)}
-                placeholder="e.g., Box Truck, Pressure Washing, Detail"
-              />
-            </div>
-
-            {/* Frequency */}
-            <div className="space-y-2">
-              <Label htmlFor="frequency">Frequency</Label>
-              <Select value={frequency} onValueChange={setFrequency}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select frequency (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {FREQUENCY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value || 'none'} value={option.value || 'none'}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Rate Type */}
-            <div className="space-y-2">
-              <Label>Rate Type *</Label>
-              <RadioGroup
-                value={rateType}
-                onValueChange={(v) => setRateType(v as 'per_unit' | 'hourly')}
-                className="flex gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="per_unit" id="per_unit" />
-                  <Label htmlFor="per_unit" className="cursor-pointer">Per Unit</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="hourly" id="hourly" />
-                  <Label htmlFor="hourly" className="cursor-pointer">Hourly</Label>
-                </div>
-              </RadioGroup>
-            </div>
+            {/* Frequency (only for per_unit) */}
+            {selectedWorkType?.rate_type === 'per_unit' && (
+              <div className="space-y-2">
+                <Label htmlFor="frequency">Frequency</Label>
+                <Select value={frequency || 'none'} onValueChange={setFrequency}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select frequency (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FREQUENCY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value || 'none'} value={option.value || 'none'}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Rate */}
             <div className="space-y-2">
@@ -262,10 +309,10 @@ export const AddServiceModal = ({ open, onOpenChange, clients }: AddServiceModal
                 min="0"
                 value={rate}
                 onChange={(e) => setRate(e.target.value)}
-                placeholder="Leave blank to inherit or flag for review"
+                placeholder="Leave blank to flag for review"
               />
               <p className="text-xs text-muted-foreground">
-                If left blank, the system will try to inherit from similar items
+                If left blank, the service will be flagged for rate review
               </p>
             </div>
           </div>
