@@ -446,6 +446,62 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
     return a.rowNumber - b.rowNumber;
   });
 
+  // Find bulk suggestions - group rows by their top client suggestion
+  const bulkClientSuggestions = parsedRows
+    .filter(r => r.clientError && r.clientSuggestions.length > 0 && !r.resolvedClientId)
+    .reduce((acc, row) => {
+      const topSuggestion = row.clientSuggestions[0];
+      const key = `${row.client_name}→${topSuggestion.item.id}`;
+      if (!acc[key]) {
+        acc[key] = { suggestion: topSuggestion, originalName: row.client_name, rowNumbers: [] };
+      }
+      acc[key].rowNumbers.push(row.rowNumber);
+      return acc;
+    }, {} as Record<string, { suggestion: SimilarMatch<Client>; originalName: string; rowNumbers: number[] }>);
+
+  const bulkLocationSuggestions = parsedRows
+    .filter(r => r.locationError && r.locationSuggestions.length > 0 && !r.resolvedLocationId)
+    .reduce((acc, row) => {
+      const topSuggestion = row.locationSuggestions[0];
+      const key = `${row.location_name}→${topSuggestion.item.id}`;
+      if (!acc[key]) {
+        acc[key] = { suggestion: topSuggestion, originalName: row.location_name, rowNumbers: [] };
+      }
+      acc[key].rowNumbers.push(row.rowNumber);
+      return acc;
+    }, {} as Record<string, { suggestion: SimilarMatch<Location>; originalName: string; rowNumbers: number[] }>);
+
+  const acceptAllClientSuggestion = (suggestion: SimilarMatch<Client>, rowNumbers: number[]) => {
+    setParsedRows(prev => prev.map(row => {
+      if (!rowNumbers.includes(row.rowNumber)) return row;
+      
+      const updatedRow = {
+        ...row,
+        resolvedClientId: suggestion.item.id,
+        resolvedClientName: suggestion.item.name,
+        client_id: suggestion.item.id,
+        resolvedLocationId: null,
+        resolvedLocationName: null,
+        location_id: null,
+      };
+      return validateRow(updatedRow, clients, locations);
+    }));
+  };
+
+  const acceptAllLocationSuggestion = (suggestion: SimilarMatch<Location>, rowNumbers: number[]) => {
+    setParsedRows(prev => prev.map(row => {
+      if (!rowNumbers.includes(row.rowNumber)) return row;
+      
+      const updatedRow = {
+        ...row,
+        resolvedLocationId: suggestion.item.id,
+        resolvedLocationName: suggestion.item.name,
+        location_id: suggestion.item.id,
+      };
+      return validateRow(updatedRow, clients, locations);
+    }));
+  };
+
   const renderCellWithSuggestions = (
     row: ParsedRow,
     value: string,
@@ -607,7 +663,44 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                 )}
               </div>
 
-              <ScrollArea className="flex-1 border rounded-lg">
+              {/* Bulk Accept Suggestions */}
+              {(Object.keys(bulkClientSuggestions).length > 0 || Object.keys(bulkLocationSuggestions).length > 0) && (
+                <div className="p-3 border rounded-lg bg-muted/30 space-y-2">
+                  <p className="text-sm font-medium">Quick Fix - Accept All Similar:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(bulkClientSuggestions)
+                      .filter(([, data]) => data.rowNumbers.length > 1)
+                      .map(([key, data]) => (
+                        <Button
+                          key={key}
+                          variant="outline"
+                          size="sm"
+                          className="h-auto py-1.5 px-3 text-xs bg-background hover:bg-green-500/20 hover:border-green-500/50"
+                          onClick={() => acceptAllClientSuggestion(data.suggestion, data.rowNumbers)}
+                        >
+                          <Check className="h-3 w-3 mr-1.5" />
+                          "{data.originalName}" → "{data.suggestion.name}" ({data.rowNumbers.length} rows)
+                        </Button>
+                      ))}
+                    {Object.entries(bulkLocationSuggestions)
+                      .filter(([, data]) => data.rowNumbers.length > 1)
+                      .map(([key, data]) => (
+                        <Button
+                          key={key}
+                          variant="outline"
+                          size="sm"
+                          className="h-auto py-1.5 px-3 text-xs bg-background hover:bg-blue-500/20 hover:border-blue-500/50"
+                          onClick={() => acceptAllLocationSuggestion(data.suggestion, data.rowNumbers)}
+                        >
+                          <Check className="h-3 w-3 mr-1.5" />
+                          "{data.originalName}" → "{data.suggestion.name}" ({data.rowNumbers.length} rows)
+                        </Button>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              <ScrollArea className="h-[400px] border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
