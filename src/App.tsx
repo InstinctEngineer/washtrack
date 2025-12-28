@@ -21,6 +21,7 @@ import Users from "./pages/Users";
 import Locations from "./pages/Locations";
 import Clients from "./pages/Clients";
 import SuperAdminDatabase from "./pages/SuperAdminDatabase";
+import Services from "./pages/Services";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
@@ -114,6 +115,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <Clients />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/services"
+              element={
+                <ProtectedRoute allowedRoles={['finance', 'admin']}>
+                  <Services />
                 </ProtectedRoute>
               }
             />
