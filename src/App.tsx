@@ -18,8 +18,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminSettings from "./pages/AdminSettings";
 import CreateUser from "./pages/CreateUser";
 import Users from "./pages/Users";
-import VehicleTypes from "./pages/VehicleTypes";
-import Vehicles from "./pages/Vehicles";
 import Locations from "./pages/Locations";
 import Clients from "./pages/Clients";
 import SuperAdminDatabase from "./pages/SuperAdminDatabase";
@@ -100,22 +98,6 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <CreateUser />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/vehicle-types"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <VehicleTypes />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/vehicles"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <Vehicles />
                 </ProtectedRoute>
               }
             />

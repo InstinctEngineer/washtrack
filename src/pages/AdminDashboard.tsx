@@ -7,7 +7,6 @@ import { Users, MapPin, Settings, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { format } from 'date-fns';
-import { AuditLogTable } from '@/components/AuditLogTable';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -48,7 +47,7 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">System Administration</h1>
-          <p className="text-muted-foreground mt-2">Manage users, locations, vehicles, and system settings</p>
+          <p className="text-muted-foreground mt-2">Manage users, locations, clients, and system settings</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -71,7 +70,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Client accounts
+                Billing entities
               </p>
             </CardContent>
           </Card>
@@ -83,7 +82,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Active locations
+                Active work sites
               </p>
             </CardContent>
           </Card>
@@ -121,7 +120,7 @@ export default function AdminDashboard() {
             <CardHeader>
               <Building2 className="h-8 w-8 text-primary mb-2" />
               <CardTitle>Clients</CardTitle>
-              <CardDescription>View and manage client accounts</CardDescription>
+              <CardDescription>Manage billing entities</CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild className="w-full">
@@ -134,7 +133,7 @@ export default function AdminDashboard() {
             <CardHeader>
               <MapPin className="h-8 w-8 text-primary mb-2" />
               <CardTitle>Locations</CardTitle>
-              <CardDescription>Manage wash locations</CardDescription>
+              <CardDescription>Manage work sites</CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild className="w-full">
@@ -156,8 +155,6 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
-
-        <AuditLogTable />
       </div>
     </Layout>
   );

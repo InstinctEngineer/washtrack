@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Location, User } from '@/types/database';
+import { Location, Client } from '@/types/database';
 import {
   Table,
   TableBody,
@@ -44,9 +44,8 @@ interface LocationTableProps {
 
 interface LocationStats {
   [key: string]: {
-    vehicleCount: number;
     employeeCount: number;
-    managerName?: string;
+    clientName?: string;
   };
 }
 
@@ -59,9 +58,10 @@ export const LocationTable = ({
 }: LocationTableProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [sortField, setSortField] = useState<'name' | 'employees' | 'vehicles'>('name');
+  const [sortField, setSortField] = useState<'name' | 'employees'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [stats, setStats] = useState<LocationStats>({});
+  const [clients, setClients] = useState<Client[]>([]);
   const [deactivateDialog, setDeactivateDialog] = useState<{ open: boolean; location: Location | null }>({
     open: false,
     location: null,
@@ -69,31 +69,27 @@ export const LocationTable = ({
   const [isTableOpen, setIsTableOpen] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       try {
-        const [vehiclesRes, usersRes, managersRes] = await Promise.all([
-          supabase.from('vehicles').select('id, home_location_id, is_active'),
+        const [usersRes, clientsRes] = await Promise.all([
           supabase.from('users').select('id, location_id, is_active'),
-          supabase.from('users').select('id, name').eq('role', 'manager'),
+          supabase.from('clients').select('*'),
         ]);
+
+        setClients(clientsRes.data || []);
 
         const newStats: LocationStats = {};
 
         locations.forEach((location) => {
-          const vehicleCount = vehiclesRes.data?.filter(
-            (v) => v.home_location_id === location.id && v.is_active
-          ).length || 0;
-
           const employeeCount = usersRes.data?.filter(
             (u) => u.location_id === location.id && u.is_active
           ).length || 0;
 
-          const manager = managersRes.data?.find((m) => m.id === location.manager_user_id);
+          const client = clientsRes.data?.find((c) => c.id === location.client_id);
 
           newStats[location.id] = {
-            vehicleCount,
             employeeCount,
-            managerName: manager?.name,
+            clientName: client?.name,
           };
         });
 
@@ -104,7 +100,7 @@ export const LocationTable = ({
     };
 
     if (locations.length > 0) {
-      fetchStats();
+      fetchData();
     }
   }, [locations]);
 
@@ -129,8 +125,6 @@ export const LocationTable = ({
         comparison = a.name.localeCompare(b.name);
       } else if (sortField === 'employees') {
         comparison = (stats[a.id]?.employeeCount || 0) - (stats[b.id]?.employeeCount || 0);
-      } else if (sortField === 'vehicles') {
-        comparison = (stats[a.id]?.vehicleCount || 0) - (stats[b.id]?.vehicleCount || 0);
       }
 
       return sortDirection === 'asc' ? comparison : -comparison;
@@ -139,7 +133,7 @@ export const LocationTable = ({
     return filtered;
   }, [locations, searchTerm, statusFilter, sortField, sortDirection, stats]);
 
-  const handleSort = (field: 'name' | 'employees' | 'vehicles') => {
+  const handleSort = (field: 'name' | 'employees') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -200,21 +194,14 @@ export const LocationTable = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Code</TableHead>
               <TableHead
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('name')}
               >
                 Location Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableHead>
+              <TableHead>Client</TableHead>
               <TableHead>Address</TableHead>
-              <TableHead>Assigned Manager</TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('vehicles')}
-              >
-                Active Vehicles {sortField === 'vehicles' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </TableHead>
               <TableHead
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('employees')}
@@ -228,16 +215,13 @@ export const LocationTable = ({
           <TableBody>
             {filteredAndSortedLocations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No locations found
                 </TableCell>
               </TableRow>
             ) : (
               filteredAndSortedLocations.map((location) => (
                 <TableRow key={location.id}>
-                  <TableCell className="font-mono font-semibold text-primary">
-                    {location.location_code || '-'}
-                  </TableCell>
                   <TableCell>
                     <button
                       onClick={() => onViewDetails(location)}
@@ -246,15 +230,16 @@ export const LocationTable = ({
                       {location.name}
                     </button>
                   </TableCell>
+                  <TableCell>
+                    {stats[location.id]?.clientName ? (
+                      <Badge variant="outline">{stats[location.id].clientName}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {location.address || '-'}
                   </TableCell>
-                  <TableCell>
-                    {stats[location.id]?.managerName || (
-                      <span className="text-muted-foreground">Unassigned</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{stats[location.id]?.vehicleCount || 0}</TableCell>
                   <TableCell>{stats[location.id]?.employeeCount || 0}</TableCell>
                   <TableCell>
                     <Badge variant={location.is_active ? 'default' : 'secondary'}>
@@ -308,9 +293,9 @@ export const LocationTable = ({
               {deactivateDialog.location?.is_active ? (
                 <>
                   Are you sure you want to deactivate "{deactivateDialog.location?.name}"?
-                  {stats[deactivateDialog.location?.id]?.employeeCount > 0 && (
+                  {stats[deactivateDialog.location?.id || '']?.employeeCount > 0 && (
                     <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-                      Warning: {stats[deactivateDialog.location?.id]?.employeeCount} active employee(s) are
+                      Warning: {stats[deactivateDialog.location?.id || '']?.employeeCount} active employee(s) are
                       assigned to this location.
                     </div>
                   )}

@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@/types/database';
+import { Client } from '@/types/database';
 import { toast } from '@/hooks/use-toast';
 
 interface CreateLocationModalProps {
@@ -35,34 +35,32 @@ export const CreateLocationModal = ({
   onSuccess,
 }: CreateLocationModalProps) => {
   const [loading, setLoading] = useState(false);
-  const [managers, setManagers] = useState<User[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     address: '',
-    manager_user_id: '',
+    client_id: '',
     is_active: true,
   });
 
   useEffect(() => {
-    const fetchManagers = async () => {
+    const fetchClients = async () => {
       try {
-        // Use users_safe_view to avoid exposing sensitive fields
         const { data, error } = await supabase
-          .from('users_safe_view')
-          .select('id, name, role, is_active')
-          .eq('role', 'manager')
+          .from('clients')
+          .select('*')
           .eq('is_active', true)
           .order('name');
 
         if (error) throw error;
-        setManagers((data || []) as User[]);
+        setClients(data || []);
       } catch (error) {
-        console.error('Error fetching managers:', error);
+        console.error('Error fetching clients:', error);
       }
     };
 
     if (open) {
-      fetchManagers();
+      fetchClients();
     }
   }, [open]);
 
@@ -82,20 +80,10 @@ export const CreateLocationModal = ({
         return;
       }
 
-      if (formData.name.length > 100) {
+      if (!formData.client_id) {
         toast({
           title: 'Validation Error',
-          description: 'Location name must be less than 100 characters',
-          variant: 'destructive',
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (formData.address && formData.address.length > 250) {
-        toast({
-          title: 'Validation Error',
-          description: 'Address must be less than 250 characters',
+          description: 'Client is required - locations must be associated with a billing entity',
           variant: 'destructive',
         });
         setLoading(false);
@@ -124,7 +112,7 @@ export const CreateLocationModal = ({
         {
           name: formData.name.trim(),
           address: formData.address.trim() || null,
-          manager_user_id: formData.manager_user_id || null,
+          client_id: formData.client_id,
           is_active: formData.is_active,
         },
       ]);
@@ -140,7 +128,7 @@ export const CreateLocationModal = ({
       setFormData({
         name: '',
         address: '',
-        manager_user_id: '',
+        client_id: '',
         is_active: true,
       });
 
@@ -165,7 +153,7 @@ export const CreateLocationModal = ({
           <DialogHeader>
             <DialogTitle>Add New Location</DialogTitle>
             <DialogDescription>
-              Create a new wash location. All fields except name are optional.
+              Create a new work site. Each location must be associated with a client for billing.
             </DialogDescription>
           </DialogHeader>
 
@@ -178,10 +166,37 @@ export const CreateLocationModal = ({
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Main Street Depot"
+                placeholder="e.g., Rochester Hub"
                 maxLength={100}
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="client">
+                Client <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={formData.client_id}
+                onValueChange={(value) => setFormData({ ...formData, client_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select the billing client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                      {client.parent_company && ` (${client.parent_company})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {clients.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No clients available. Create a client first.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -192,33 +207,8 @@ export const CreateLocationModal = ({
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 placeholder="123 Main St, City, State ZIP"
                 maxLength={250}
-                rows={3}
+                rows={2}
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="manager">Assign Manager</Label>
-              <Select
-                value={formData.manager_user_id || 'none'}
-                onValueChange={(value) => setFormData({ ...formData, manager_user_id: value === 'none' ? '' : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a manager (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {managers.map((manager) => (
-                    <SelectItem key={manager.id} value={manager.id}>
-                      {manager.name} ({manager.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {managers.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No managers available. Create manager users first.
-                </p>
-              )}
             </div>
 
             <div className="flex items-center space-x-2">
@@ -230,7 +220,7 @@ export const CreateLocationModal = ({
                 }
               />
               <Label htmlFor="active" className="cursor-pointer">
-                Active (employees can log washes at this location)
+                Active (employees can log work at this location)
               </Label>
             </div>
           </div>
@@ -244,7 +234,7 @@ export const CreateLocationModal = ({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || clients.length === 0}>
               {loading ? 'Creating...' : 'Create Location'}
             </Button>
           </DialogFooter>

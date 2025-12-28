@@ -7,16 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Location, User } from '@/types/database';
+import { Location, Client } from '@/types/database';
 import { toast } from '@/hooks/use-toast';
 
 interface EditLocationModalProps {
@@ -47,39 +37,27 @@ export const EditLocationModal = ({
   onSuccess,
 }: EditLocationModalProps) => {
   const [loading, setLoading] = useState(false);
-  const [managers, setManagers] = useState<User[]>([]);
-  const [oldManagerName, setOldManagerName] = useState<string>('');
-  const [newManagerName, setNewManagerName] = useState<string>('');
-  const [confirmDialog, setConfirmDialog] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
   const [formData, setFormData] = useState({
     name: location.name,
     address: location.address || '',
-    location_code: location.location_code || '',
-    manager_user_id: location.manager_user_id || '',
+    client_id: location.client_id,
     is_active: location.is_active,
   });
 
   useEffect(() => {
-    const fetchManagers = async () => {
+    const fetchClients = async () => {
       try {
-        // Use users_safe_view to avoid exposing sensitive fields
         const { data, error } = await supabase
-          .from('users_safe_view')
-          .select('id, name, role, is_active')
-          .eq('role', 'manager')
+          .from('clients')
+          .select('*')
           .eq('is_active', true)
           .order('name');
 
         if (error) throw error;
-        setManagers((data || []) as User[]);
-
-        // Get old manager name
-        if (location.manager_user_id) {
-          const oldManager = data?.find((m) => m.id === location.manager_user_id);
-          setOldManagerName(oldManager?.name || 'Unknown');
-        }
+        setClients(data || []);
       } catch (error) {
-        console.error('Error fetching managers:', error);
+        console.error('Error fetching clients:', error);
       }
     };
 
@@ -87,29 +65,15 @@ export const EditLocationModal = ({
       setFormData({
         name: location.name,
         address: location.address || '',
-        location_code: location.location_code || '',
-        manager_user_id: location.manager_user_id || '',
+        client_id: location.client_id,
         is_active: location.is_active,
       });
-      fetchManagers();
+      fetchClients();
     }
   }, [open, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Check if manager changed
-    if (formData.manager_user_id !== (location.manager_user_id || '')) {
-      const newManager = managers.find((m) => m.id === formData.manager_user_id);
-      setNewManagerName(newManager?.name || 'None');
-      setConfirmDialog(true);
-      return;
-    }
-
-    await saveLocation();
-  };
-
-  const saveLocation = async () => {
     setLoading(true);
 
     try {
@@ -124,20 +88,10 @@ export const EditLocationModal = ({
         return;
       }
 
-      if (formData.name.length > 100) {
+      if (!formData.client_id) {
         toast({
           title: 'Validation Error',
-          description: 'Location name must be less than 100 characters',
-          variant: 'destructive',
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (formData.address && formData.address.length > 250) {
-        toast({
-          title: 'Validation Error',
-          description: 'Address must be less than 250 characters',
+          description: 'Client is required',
           variant: 'destructive',
         });
         setLoading(false);
@@ -170,8 +124,7 @@ export const EditLocationModal = ({
         .update({
           name: formData.name.trim(),
           address: formData.address.trim() || null,
-          location_code: formData.location_code.trim() || null,
-          manager_user_id: formData.manager_user_id || null,
+          client_id: formData.client_id,
           is_active: formData.is_active,
         })
         .eq('id', location.id);
@@ -198,132 +151,94 @@ export const EditLocationModal = ({
   };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px]">
-          <form onSubmit={handleSubmit}>
-            <DialogHeader>
-              <DialogTitle>Edit Location</DialogTitle>
-              <DialogDescription>
-                Update location information and manager assignment.
-              </DialogDescription>
-            </DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Edit Location</DialogTitle>
+            <DialogDescription>
+              Update location information.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">
-                  Location Name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Main Street Depot"
-                  maxLength={100}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="location_code">Location Code</Label>
-                <Input
-                  id="location_code"
-                  value={formData.location_code}
-                  onChange={(e) => setFormData({ ...formData, location_code: e.target.value.toUpperCase() })}
-                  placeholder="e.g., ABR, SFX, MSP"
-                  maxLength={20}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Short code for quick identification
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Textarea
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="123 Main St, City, State ZIP"
-                  maxLength={250}
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="manager">Assign Manager</Label>
-                <Select
-                  value={formData.manager_user_id || 'none'}
-                  onValueChange={(value) => setFormData({ ...formData, manager_user_id: value === 'none' ? '' : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a manager (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {managers.map((manager) => (
-                      <SelectItem key={manager.id} value={manager.id}>
-                        {manager.name} ({manager.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="active"
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, is_active: checked === true })
-                  }
-                />
-                <Label htmlFor="active" className="cursor-pointer">
-                  Active (employees can log washes at this location)
-                </Label>
-              </div>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">
+                Location Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Rochester Hub"
+                maxLength={100}
+                required
+              />
             </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={loading}
+            <div className="space-y-2">
+              <Label htmlFor="client">
+                Client <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={formData.client_id}
+                onValueChange={(value) => setFormData({ ...formData, client_id: value })}
               >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select the billing client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                      {client.parent_company && ` (${client.parent_company})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      <AlertDialog open={confirmDialog} onOpenChange={setConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Manager Change</AlertDialogTitle>
-            <AlertDialogDescription>
-              Reassign manager from{' '}
-              <span className="font-semibold">{oldManagerName || 'None'}</span> to{' '}
-              <span className="font-semibold">{newManagerName}</span>?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmDialog(false);
-                saveLocation();
-              }}
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <Textarea
+                id="address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="123 Main St, City, State ZIP"
+                maxLength={250}
+                rows={2}
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_active: checked === true })
+                }
+              />
+              <Label htmlFor="active" className="cursor-pointer">
+                Active (employees can log work at this location)
+              </Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
             >
-              Confirm
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
