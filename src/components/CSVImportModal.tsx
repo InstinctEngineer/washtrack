@@ -4,15 +4,30 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Upload, Download, FileText, X, CheckCircle2, AlertCircle, XCircle } from "lucide-react";
+import { Upload, Download, FileText, X, CheckCircle2, AlertCircle, XCircle, Check, Plus } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import * as XLSX from "xlsx";
+import { findSimilarMatches, SimilarMatch } from "@/lib/fuzzyMatch";
+import { CreateClientInlineModal } from "./CreateClientInlineModal";
+import { CreateLocationInlineModal } from "./CreateLocationInlineModal";
 
 interface CSVImportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+interface Client {
+  id: string;
+  name: string;
+}
+
+interface Location {
+  id: string;
+  name: string;
+  client_id: string;
 }
 
 interface ParsedRow {
@@ -29,25 +44,33 @@ interface ParsedRow {
   errors: string[];
   warnings: string[];
   isValid: boolean;
+  // Enhanced fields for suggestions
+  clientSuggestions: SimilarMatch<Client>[];
+  locationSuggestions: SimilarMatch<Location>[];
+  resolvedClientId: string | null;
+  resolvedClientName: string | null;
+  resolvedLocationId: string | null;
+  resolvedLocationName: string | null;
+  clientError: string | null;
+  locationError: string | null;
 }
 
-interface Client {
-  id: string;
-  name: string;
-}
-
-interface Location {
-  id: string;
-  name: string;
-  client_id: string;
+interface PendingCreation {
+  rowNumber: number;
+  type: 'client' | 'location';
+  prefillName: string;
+  prefillClientId?: string | null;
 }
 
 export function CSVImportModal({ open, onOpenChange }: CSVImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importResults, setImportResults] = useState<{ success: number; failed: number } | null>(null);
+  const [pendingCreation, setPendingCreation] = useState<PendingCreation | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -55,6 +78,7 @@ export function CSVImportModal({ open, onOpenChange }: CSVImportModalProps) {
     setFile(null);
     setParsedRows([]);
     setImportResults(null);
+    setPendingCreation(null);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -100,6 +124,97 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
     await parseCSV(selectedFile);
   };
 
+  const validateRow = (
+    row: Omit<ParsedRow, 'errors' | 'warnings' | 'isValid' | 'clientSuggestions' | 'locationSuggestions' | 'clientError' | 'locationError'>,
+    clientsData: Client[],
+    locationsData: Location[]
+  ): ParsedRow => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    let clientError: string | null = null;
+    let locationError: string | null = null;
+    let clientSuggestions: SimilarMatch<Client>[] = [];
+    let locationSuggestions: SimilarMatch<Location>[] = [];
+
+    const { client_name, location_name, work_type, rate_type, rate, resolvedClientId, resolvedLocationId } = row;
+
+    // Required field validation
+    if (!client_name) errors.push("Client name is required");
+    if (!location_name) errors.push("Location name is required");
+    if (!work_type) errors.push("Work type is required");
+    if (!rate_type) errors.push("Rate type is required");
+
+    // Rate type validation
+    if (rate_type && !["per_unit", "hourly"].includes(rate_type.toLowerCase())) {
+      errors.push('Rate type must be "per_unit" or "hourly"');
+    }
+
+    // Rate validation
+    if (rate && isNaN(parseFloat(rate))) {
+      errors.push("Rate must be a valid number");
+    }
+
+    // Client lookup maps
+    const clientMap = new Map(clientsData.map((c) => [c.name.toLowerCase(), c]));
+
+    // Resolve client
+    let client_id = resolvedClientId;
+    if (!client_id && client_name) {
+      const client = clientMap.get(client_name.toLowerCase());
+      if (!client) {
+        clientError = `Client "${client_name}" not found`;
+        clientSuggestions = findSimilarMatches(client_name, clientsData, 0.4, 3);
+      } else {
+        client_id = client.id;
+      }
+    }
+
+    // Location lookup
+    const locationsByClient = new Map<string, Location[]>();
+    locationsData.forEach((loc) => {
+      const existing = locationsByClient.get(loc.client_id) || [];
+      existing.push(loc);
+      locationsByClient.set(loc.client_id, existing);
+    });
+
+    // Resolve location
+    let location_id = resolvedLocationId;
+    if (!location_id && client_id && location_name) {
+      const clientLocations = locationsByClient.get(client_id) || [];
+      const location = clientLocations.find(
+        (l) => l.name.toLowerCase() === location_name.toLowerCase()
+      );
+      if (!location) {
+        locationError = `Location "${location_name}" not found for this client`;
+        locationSuggestions = findSimilarMatches(location_name, clientLocations, 0.4, 3);
+      } else {
+        location_id = location.id;
+      }
+    }
+
+    // Warnings
+    if (!rate) {
+      warnings.push("No rate provided - will use rate inheritance or flag for review");
+    }
+
+    // Combine client/location errors into main errors array if not resolved
+    if (clientError && !client_id) errors.push(clientError);
+    if (locationError && !location_id) errors.push(locationError);
+
+    return {
+      ...row,
+      client_id,
+      location_id,
+      errors,
+      warnings,
+      isValid: errors.length === 0,
+      clientSuggestions,
+      locationSuggestions,
+      clientError: clientError && !client_id ? clientError : null,
+      locationError: locationError && !location_id ? locationError : null,
+    };
+  };
+
   const parseCSV = async (csvFile: File) => {
     setIsProcessing(true);
 
@@ -110,17 +225,11 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
         supabase.from("locations").select("id, name, client_id").eq("is_active", true),
       ]);
 
-      const clients: Client[] = clientsRes.data || [];
-      const locations: Location[] = locationsRes.data || [];
-
-      // Create lookup maps (case-insensitive)
-      const clientMap = new Map(clients.map((c) => [c.name.toLowerCase(), c]));
-      const locationsByClient = new Map<string, Location[]>();
-      locations.forEach((loc) => {
-        const existing = locationsByClient.get(loc.client_id) || [];
-        existing.push(loc);
-        locationsByClient.set(loc.client_id, existing);
-      });
+      const clientsData: Client[] = clientsRes.data || [];
+      const locationsData: Location[] = locationsRes.data || [];
+      
+      setClients(clientsData);
+      setLocations(locationsData);
 
       // Read file
       const data = await csvFile.arrayBuffer();
@@ -131,76 +240,24 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
 
       // Parse and validate rows
       const rows: ParsedRow[] = jsonData.map((row, index) => {
-        const errors: string[] = [];
-        const warnings: string[] = [];
-
-        const client_name = (row.client_name || "").trim();
-        const location_name = (row.location_name || "").trim();
-        const identifier = (row.identifier || "").trim();
-        const work_type = (row.work_type || "").trim();
-        const frequency = (row.frequency || "").trim();
-        const rate_type = (row.rate_type || "").trim().toLowerCase();
-        const rate = (row.rate || "").trim();
-
-        // Required field validation
-        if (!client_name) errors.push("Client name is required");
-        if (!location_name) errors.push("Location name is required");
-        if (!work_type) errors.push("Work type is required");
-        if (!rate_type) errors.push("Rate type is required");
-
-        // Rate type validation
-        if (rate_type && !["per_unit", "hourly"].includes(rate_type)) {
-          errors.push('Rate type must be "per_unit" or "hourly"');
-        }
-
-        // Rate validation
-        if (rate && isNaN(parseFloat(rate))) {
-          errors.push("Rate must be a valid number");
-        }
-
-        // Resolve client
-        const client = clientMap.get(client_name.toLowerCase());
-        let client_id: string | null = null;
-        if (client_name && !client) {
-          errors.push(`Client "${client_name}" not found`);
-        } else if (client) {
-          client_id = client.id;
-        }
-
-        // Resolve location
-        let location_id: string | null = null;
-        if (client_id && location_name) {
-          const clientLocations = locationsByClient.get(client_id) || [];
-          const location = clientLocations.find(
-            (l) => l.name.toLowerCase() === location_name.toLowerCase()
-          );
-          if (!location) {
-            errors.push(`Location "${location_name}" not found for client "${client_name}"`);
-          } else {
-            location_id = location.id;
-          }
-        }
-
-        // Warnings
-        if (!rate) {
-          warnings.push("No rate provided - will use rate inheritance or flag for review");
-        }
-
-        return {
+        const baseRow = {
           rowNumber: index + 2, // +2 for 1-indexed + header row
-          client_name,
-          location_name,
-          identifier,
-          work_type,
-          frequency,
-          rate_type,
-          rate,
-          client_id,
-          location_id,
-          errors,
-          warnings,
-          isValid: errors.length === 0,
+          client_name: (row.client_name || "").trim(),
+          location_name: (row.location_name || "").trim(),
+          identifier: (row.identifier || "").trim(),
+          work_type: (row.work_type || "").trim(),
+          frequency: (row.frequency || "").trim(),
+          rate_type: (row.rate_type || "").trim().toLowerCase(),
+          rate: (row.rate || "").trim(),
+          client_id: null as string | null,
+          location_id: null as string | null,
+          resolvedClientId: null as string | null,
+          resolvedClientName: null as string | null,
+          resolvedLocationId: null as string | null,
+          resolvedLocationName: null as string | null,
         };
+
+        return validateRow(baseRow, clientsData, locationsData);
       });
 
       setParsedRows(rows);
@@ -214,6 +271,107 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const acceptClientSuggestion = (rowNumber: number, suggestion: SimilarMatch<Client>) => {
+    setParsedRows(prev => prev.map(row => {
+      if (row.rowNumber !== rowNumber) return row;
+      
+      const updatedRow = {
+        ...row,
+        resolvedClientId: suggestion.item.id,
+        resolvedClientName: suggestion.item.name,
+        client_id: suggestion.item.id,
+        // Reset location since client changed
+        resolvedLocationId: null,
+        resolvedLocationName: null,
+        location_id: null,
+      };
+
+      return validateRow(updatedRow, clients, locations);
+    }));
+  };
+
+  const acceptLocationSuggestion = (rowNumber: number, suggestion: SimilarMatch<Location>) => {
+    setParsedRows(prev => prev.map(row => {
+      if (row.rowNumber !== rowNumber) return row;
+      
+      const updatedRow = {
+        ...row,
+        resolvedLocationId: suggestion.item.id,
+        resolvedLocationName: suggestion.item.name,
+        location_id: suggestion.item.id,
+      };
+
+      return validateRow(updatedRow, clients, locations);
+    }));
+  };
+
+  const openCreateClientModal = (rowNumber: number, prefillName: string) => {
+    setPendingCreation({
+      rowNumber,
+      type: 'client',
+      prefillName,
+    });
+  };
+
+  const openCreateLocationModal = (rowNumber: number, prefillName: string, clientId: string | null) => {
+    setPendingCreation({
+      rowNumber,
+      type: 'location',
+      prefillName,
+      prefillClientId: clientId,
+    });
+  };
+
+  const handleClientCreated = (newClient: { id: string; name: string }) => {
+    // Add to clients list
+    const updatedClients = [...clients, newClient];
+    setClients(updatedClients);
+
+    // Update the row that triggered creation
+    if (pendingCreation) {
+      setParsedRows(prev => prev.map(row => {
+        if (row.rowNumber !== pendingCreation.rowNumber) return row;
+        
+        const updatedRow = {
+          ...row,
+          resolvedClientId: newClient.id,
+          resolvedClientName: newClient.name,
+          client_id: newClient.id,
+        };
+
+        return validateRow(updatedRow, updatedClients, locations);
+      }));
+    }
+
+    setPendingCreation(null);
+    queryClient.invalidateQueries({ queryKey: ["clients"] });
+  };
+
+  const handleLocationCreated = (newLocation: { id: string; name: string; client_id: string }) => {
+    // Add to locations list
+    const updatedLocations = [...locations, newLocation];
+    setLocations(updatedLocations);
+
+    // Update the row that triggered creation
+    if (pendingCreation) {
+      setParsedRows(prev => prev.map(row => {
+        if (row.rowNumber !== pendingCreation.rowNumber) return row;
+        
+        const updatedRow = {
+          ...row,
+          resolvedLocationId: newLocation.id,
+          resolvedLocationName: newLocation.name,
+          location_id: newLocation.id,
+        };
+
+        return validateRow(updatedRow, clients, updatedLocations);
+      }));
+    }
+
+    setPendingCreation(null);
+    queryClient.invalidateQueries({ queryKey: ["locations"] });
   };
 
   const handleImport = async () => {
@@ -279,9 +437,95 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
   const errorCount = parsedRows.filter((r) => !r.isValid).length;
   const warningCount = parsedRows.filter((r) => r.isValid && r.warnings.length > 0).length;
 
+  // Sort rows: errors first, then warnings, then valid
+  const sortedRows = [...parsedRows].sort((a, b) => {
+    if (!a.isValid && b.isValid) return -1;
+    if (a.isValid && !b.isValid) return 1;
+    if (a.warnings.length > 0 && b.warnings.length === 0) return -1;
+    if (a.warnings.length === 0 && b.warnings.length > 0) return 1;
+    return a.rowNumber - b.rowNumber;
+  });
+
+  const renderCellWithSuggestions = (
+    row: ParsedRow,
+    value: string,
+    error: string | null,
+    suggestions: SimilarMatch<Client | Location>[],
+    resolvedName: string | null,
+    onAccept: (suggestion: SimilarMatch<any>) => void,
+    onCreateNew: () => void,
+    type: 'client' | 'location'
+  ) => {
+    const hasError = error !== null;
+    const isResolved = resolvedName !== null;
+
+    return (
+      <TableCell className={hasError ? "bg-destructive/10" : isResolved ? "bg-green-500/10" : ""}>
+        <div className="space-y-2">
+          {/* Original value */}
+          <div className="flex items-center gap-2">
+            <span className={hasError ? "text-destructive font-medium" : ""}>
+              {value}
+            </span>
+            {isResolved && (
+              <Badge variant="outline" className="text-xs bg-green-500/20 text-green-700 border-green-500/30">
+                → {resolvedName}
+              </Badge>
+            )}
+          </div>
+
+          {/* Error message and suggestions */}
+          {hasError && !isResolved && (
+            <div className="space-y-1.5">
+              <p className="text-xs text-destructive">{error}</p>
+              
+              {suggestions.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium">Did you mean:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {suggestions.map((suggestion, idx) => (
+                      <TooltipProvider key={idx}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 text-xs px-2 bg-background hover:bg-green-500/20 hover:border-green-500/50"
+                              onClick={() => onAccept(suggestion)}
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              {suggestion.name}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {Math.round(suggestion.score * 100)}% match
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+                onClick={onCreateNew}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Create new {type}
+              </Button>
+            </div>
+          )}
+        </div>
+      </TableCell>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Import Services from CSV</DialogTitle>
         </DialogHeader>
@@ -339,7 +583,7 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
           {parsedRows.length > 0 && !isProcessing && (
             <>
               {/* Summary */}
-              <div className="flex gap-4 text-sm">
+              <div className="flex items-center gap-4 text-sm">
                 <Badge variant="outline" className="gap-1">
                   <CheckCircle2 className="h-3 w-3 text-green-500" />
                   {validCount} valid
@@ -353,8 +597,13 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                 {errorCount > 0 && (
                   <Badge variant="outline" className="gap-1">
                     <XCircle className="h-3 w-3 text-destructive" />
-                    {errorCount} errors
+                    {errorCount} need attention
                   </Badge>
+                )}
+                {errorCount > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    Click suggestions below to fix issues, or create new clients/locations
+                  </span>
                 )}
               </div>
 
@@ -364,57 +613,87 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                     <TableRow>
                       <TableHead className="w-16">Row</TableHead>
                       <TableHead className="w-16">Status</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Location</TableHead>
+                      <TableHead className="min-w-[200px]">Client</TableHead>
+                      <TableHead className="min-w-[200px]">Location</TableHead>
                       <TableHead>Identifier</TableHead>
                       <TableHead>Work Type</TableHead>
                       <TableHead>Frequency</TableHead>
                       <TableHead>Rate Type</TableHead>
                       <TableHead>Rate</TableHead>
-                      <TableHead>Issues</TableHead>
+                      <TableHead>Other Issues</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {parsedRows.map((row) => (
-                      <TableRow
-                        key={row.rowNumber}
-                        className={
-                          !row.isValid
-                            ? "bg-destructive/10"
-                            : row.warnings.length > 0
-                            ? "bg-yellow-500/10"
-                            : ""
-                        }
-                      >
-                        <TableCell>{row.rowNumber}</TableCell>
-                        <TableCell>
-                          {row.isValid ? (
-                            row.warnings.length > 0 ? (
-                              <AlertCircle className="h-4 w-4 text-yellow-500" />
+                    {sortedRows.map((row) => {
+                      // Filter out client/location errors from general errors display
+                      const otherErrors = row.errors.filter(
+                        e => !e.includes('Client') && !e.includes('Location') && !e.includes('not found')
+                      );
+                      
+                      return (
+                        <TableRow
+                          key={row.rowNumber}
+                          className={
+                            !row.isValid
+                              ? "bg-destructive/5"
+                              : row.warnings.length > 0
+                              ? "bg-yellow-500/5"
+                              : ""
+                          }
+                        >
+                          <TableCell className="font-mono text-xs">{row.rowNumber}</TableCell>
+                          <TableCell>
+                            {row.isValid ? (
+                              row.warnings.length > 0 ? (
+                                <AlertCircle className="h-4 w-4 text-yellow-500" />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                              )
                             ) : (
-                              <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            )
-                          ) : (
-                            <XCircle className="h-4 w-4 text-destructive" />
+                              <XCircle className="h-4 w-4 text-destructive" />
+                            )}
+                          </TableCell>
+                          
+                          {/* Client column with suggestions */}
+                          {renderCellWithSuggestions(
+                            row,
+                            row.client_name,
+                            row.clientError,
+                            row.clientSuggestions,
+                            row.resolvedClientName,
+                            (suggestion) => acceptClientSuggestion(row.rowNumber, suggestion as SimilarMatch<Client>),
+                            () => openCreateClientModal(row.rowNumber, row.client_name),
+                            'client'
                           )}
-                        </TableCell>
-                        <TableCell>{row.client_name}</TableCell>
-                        <TableCell>{row.location_name}</TableCell>
-                        <TableCell>{row.identifier || "-"}</TableCell>
-                        <TableCell>{row.work_type}</TableCell>
-                        <TableCell>{row.frequency || "-"}</TableCell>
-                        <TableCell>{row.rate_type}</TableCell>
-                        <TableCell>{row.rate || "-"}</TableCell>
-                        <TableCell className="max-w-xs">
-                          {row.errors.length > 0 && (
-                            <span className="text-xs text-destructive">{row.errors.join("; ")}</span>
+                          
+                          {/* Location column with suggestions */}
+                          {renderCellWithSuggestions(
+                            row,
+                            row.location_name,
+                            row.locationError,
+                            row.locationSuggestions,
+                            row.resolvedLocationName,
+                            (suggestion) => acceptLocationSuggestion(row.rowNumber, suggestion as SimilarMatch<Location>),
+                            () => openCreateLocationModal(row.rowNumber, row.location_name, row.client_id),
+                            'location'
                           )}
-                          {row.warnings.length > 0 && row.errors.length === 0 && (
-                            <span className="text-xs text-yellow-600">{row.warnings.join("; ")}</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          
+                          <TableCell>{row.identifier || "-"}</TableCell>
+                          <TableCell>{row.work_type || <span className="text-destructive">Required</span>}</TableCell>
+                          <TableCell>{row.frequency || "-"}</TableCell>
+                          <TableCell>{row.rate_type || <span className="text-destructive">Required</span>}</TableCell>
+                          <TableCell>{row.rate || "-"}</TableCell>
+                          <TableCell className="max-w-xs">
+                            {otherErrors.length > 0 && (
+                              <span className="text-xs text-destructive">{otherErrors.join("; ")}</span>
+                            )}
+                            {row.warnings.length > 0 && otherErrors.length === 0 && (
+                              <span className="text-xs text-yellow-600">{row.warnings.join("; ")}</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </ScrollArea>
@@ -445,6 +724,28 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
           )}
         </div>
       </DialogContent>
+
+      {/* Inline Create Client Modal */}
+      {pendingCreation?.type === 'client' && (
+        <CreateClientInlineModal
+          open={true}
+          onOpenChange={() => setPendingCreation(null)}
+          prefillName={pendingCreation.prefillName}
+          onClientCreated={handleClientCreated}
+        />
+      )}
+
+      {/* Inline Create Location Modal */}
+      {pendingCreation?.type === 'location' && (
+        <CreateLocationInlineModal
+          open={true}
+          onOpenChange={() => setPendingCreation(null)}
+          prefillName={pendingCreation.prefillName}
+          prefillClientId={pendingCreation.prefillClientId || null}
+          clients={clients}
+          onLocationCreated={handleLocationCreated}
+        />
+      )}
     </Dialog>
   );
 }
