@@ -54,6 +54,7 @@ export const EditLocationModal = ({
   const [formData, setFormData] = useState({
     name: location.name,
     address: location.address || '',
+    location_code: location.location_code || '',
     manager_user_id: location.manager_user_id || '',
     is_active: location.is_active,
   });
@@ -86,6 +87,7 @@ export const EditLocationModal = ({
       setFormData({
         name: location.name,
         address: location.address || '',
+        location_code: location.location_code || '',
         manager_user_id: location.manager_user_id || '',
         is_active: location.is_active,
       });
@@ -168,6 +170,7 @@ export const EditLocationModal = ({
         .update({
           name: formData.name.trim(),
           address: formData.address.trim() || null,
+          location_code: formData.location_code.trim() || null,
           manager_user_id: formData.manager_user_id || null,
           is_active: formData.is_active,
         })
@@ -219,6 +222,20 @@ export const EditLocationModal = ({
                   maxLength={100}
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="location_code">Location Code</Label>
+                <Input
+                  id="location_code"
+                  value={formData.location_code}
+                  onChange={(e) => setFormData({ ...formData, location_code: e.target.value.toUpperCase() })}
+                  placeholder="e.g., ABR, SFX, MSP"
+                  maxLength={20}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Short code for quick identification
+                </p>
               </div>
 
               <div className="space-y-2">
