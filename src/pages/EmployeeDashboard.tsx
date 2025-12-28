@@ -2,112 +2,11 @@ import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
-import { WashEntryWithDetails } from '@/types/database';
-import { toast } from '@/hooks/use-toast';
-import { format, startOfWeek, endOfWeek, addDays, addWeeks, isToday, isSameWeek } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
-import { CutoffBanner } from '@/components/CutoffBanner';
-import { getCurrentCutoff } from '@/lib/cutoff';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { VehicleGridSelector } from '@/components/VehicleGridSelector';
-import { EmployeeCommentSection } from '@/components/EmployeeCommentSection';
-import { cn } from '@/lib/utils';
+import { AlertCircle, Construction } from 'lucide-react';
 
 export default function EmployeeDashboard() {
   const { userProfile, userLocations } = useAuth();
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [entries, setEntries] = useState<WashEntryWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [cutoffDate, setCutoffDate] = useState<Date | null>(null);
-  const [weekSummaryOpen, setWeekSummaryOpen] = useState(false);
-  const [expandedDay, setExpandedDay] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (userProfile?.id) {
-      fetchWeekEntries();
-      loadCutoffDate();
-    }
-  }, [userProfile?.id, currentWeek]);
-
-  // Check for date change at midnight
-  useEffect(() => {
-    const checkDateChange = () => {
-      const now = new Date();
-      const selected = new Date(selectedDate);
-      
-      if (now.getDate() !== selected.getDate() && isToday(now)) {
-        setSelectedDate(new Date());
-        fetchWeekEntries();
-        toast({
-          title: 'New Day Started',
-          description: `Now tracking ${format(new Date(), 'EEEE, MMMM d')}`,
-        });
-      }
-    };
-
-    const interval = setInterval(checkDateChange, 60000); // Check every minute
-    return () => clearInterval(interval);
-  }, [selectedDate]);
-
-  const loadCutoffDate = async () => {
-    const cutoff = await getCurrentCutoff();
-    setCutoffDate(cutoff);
-  };
-
-  const fetchWeekEntries = async () => {
-    if (!userProfile?.id) return;
-
-    setLoading(true);
-    try {
-      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
-
-      const { data, error } = await supabase
-        .from('work_entries')
-        .select(`
-          *,
-          vehicle:vehicles(
-            *,
-            vehicle_type:vehicle_types(*),
-            client:clients(*),
-            home_location:locations!vehicles_home_location_id_fkey(*)
-          ),
-          employee:users!work_entries_employee_id_fkey(id, name, email, employee_id, role),
-          location:locations(*)
-        `)
-        .in('location_id', userLocations)
-        .gte('work_date', format(weekStart, 'yyyy-MM-dd'))
-        .lte('work_date', format(weekEnd, 'yyyy-MM-dd'))
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setEntries((data || []) as unknown as WashEntryWithDetails[]);
-    } catch (error: any) {
-      console.error('Error fetching wash entries:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load wash entries',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-  const handlePreviousDay = () => {
-    setSelectedDate(prev => addDays(prev, -1));
-  };
-
-  const handleNextDay = () => {
-    setSelectedDate(prev => addDays(prev, 1));
-  };
-
 
   if (!userLocations || userLocations.length === 0) {
     return (
@@ -115,236 +14,32 @@ export default function EmployeeDashboard() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Contact admin to assign your location before tracking washes
+            Contact admin to assign your location before tracking work
           </AlertDescription>
         </Alert>
       </Layout>
     );
   }
 
-  // Get entries by day for week summary
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const entriesByDay = weekDays.map(day => {
-    const dayEntries = entries.filter(entry => entry.work_date === format(day, 'yyyy-MM-dd'));
-    return {
-      day,
-      count: dayEntries.length,
-      entries: dayEntries
-    };
-  });
-
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto space-y-4 pb-20">
-        <CutoffBanner />
-
-        {/* Date Navigation */}
-        <Card className={cn(
-          "sticky top-4 z-10 shadow-lg",
-          isToday(selectedDate) && "bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/30"
-        )}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-4">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handlePreviousDay}
-                className="h-12 w-12"
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </Button>
-              
-              <div className="text-center flex-1">
-                <div className="text-lg md:text-xl font-bold">
-                  {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE')}
-                </div>
-                <div className="text-sm md:text-base text-muted-foreground">
-                  {format(selectedDate, 'MMMM d, yyyy')}
-                </div>
-                {!isToday(selectedDate) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedDate(new Date())}
-                    className="mt-2 h-7 text-xs"
-                  >
-                    Back to Today
-                  </Button>
-                )}
-              </div>
-              
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleNextDay}
-                className="h-12 w-12"
-              >
-                <ChevronRight className="h-6 w-6" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Vehicle Grid Selection */}
+      <div className="max-w-2xl mx-auto space-y-4">
         <Card>
-          <CardContent className="p-4 md:p-6">
-            <VehicleGridSelector
-              selectedDate={selectedDate}
-              locationIds={userLocations}
-              employeeId={userProfile.id}
-              onWashAdded={fetchWeekEntries}
-              cutoffDate={cutoffDate}
-            />
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Construction className="h-5 w-5" />
+              Employee Dashboard
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              The employee dashboard is being rebuilt with a new simplified workflow.
+            </p>
+            <p className="mt-4 text-sm">
+              <strong>Coming soon:</strong> Select billable items for your assigned location and log work entries.
+            </p>
           </CardContent>
         </Card>
-
-        {/* Employee Comment Section */}
-        <EmployeeCommentSection
-          employeeId={userProfile.id}
-          locationId={userLocations[0] || null}
-          currentWeek={currentWeek}
-        />
-
-        {/* Week Summary - Collapsible */}
-        <Collapsible open={weekSummaryOpen} onOpenChange={setWeekSummaryOpen}>
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentWeek(prev => addWeeks(prev, -1));
-                    }}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <div className="text-center">
-                    <CardTitle className="text-lg font-bold">
-                      {isSameWeek(currentWeek, new Date(), { weekStartsOn: 1 }) 
-                        ? 'This Week' 
-                        : format(weekStart, 'MMM d') + ' - ' + format(addDays(weekStart, 6), 'MMM d')}
-                    </CardTitle>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentWeek(prev => addWeeks(prev, 1));
-                    }}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold">{entries.length}</span>
-                  <span className="text-muted-foreground">vehicles</span>
-                </div>
-              </div>
-              {!isSameWeek(currentWeek, new Date(), { weekStartsOn: 1 }) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentWeek(new Date())}
-                  className="mt-2 h-7 text-xs w-fit"
-                >
-                  Return to This Week
-                </Button>
-              )}
-            </CardHeader>
-            <CollapsibleTrigger asChild>
-              <div className="px-6 pb-2 cursor-pointer hover:bg-accent/50 transition-colors rounded-b-lg flex items-center justify-center gap-1 text-sm text-muted-foreground">
-                {weekSummaryOpen ? (
-                  <>Hide Details <ChevronUp className="h-4 w-4" /></>
-                ) : (
-                  <>Show Details <ChevronDown className="h-4 w-4" /></>
-                )}
-              </div>
-            </CollapsibleTrigger>
-            
-            <CollapsibleContent>
-              <CardContent className="pt-0 space-y-2">
-                {entriesByDay.map(({ day, count, entries: dayEntries }) => {
-                  const dayKey = day.toISOString();
-                  const isExpanded = expandedDay === dayKey;
-                  
-                  return (
-                    <div key={dayKey} className="space-y-2">
-                      <div
-                        className={cn(
-                          "w-full flex items-center justify-between p-3 rounded-lg transition-colors",
-                          isToday(day) && selectedDate.getDate() === day.getDate()
-                            ? 'bg-primary/10 border border-primary/20'
-                            : 'bg-accent/30'
-                        )}
-                      >
-                        <button
-                          onClick={() => setSelectedDate(day)}
-                          className="flex-1 flex items-center justify-between hover:opacity-80 transition-opacity"
-                        >
-                          <div className="font-medium text-left">
-                            {format(day, 'EEEE, MMM d')}
-                            {isToday(day) && (
-                              <span className="ml-2 text-xs text-primary font-bold">TODAY</span>
-                            )}
-                          </div>
-                          <div className="text-lg font-bold">{count}</div>
-                        </button>
-                        
-                        {count > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 ml-2"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedDay(isExpanded ? null : dayKey);
-                            }}
-                          >
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                      
-                      {isExpanded && count > 0 && (
-                        <div className="pl-3 pr-3 pb-2 space-y-1">
-                          <div className="text-xs text-muted-foreground font-medium mb-2">
-                            Vehicles Washed:
-                          </div>
-                          <div className="space-y-2">
-                            {dayEntries.map((entry) => (
-                              <div
-                                key={entry.id}
-                                className="text-sm bg-background/50 border rounded px-3 py-2 flex justify-between items-center"
-                              >
-                                <span className="font-mono font-semibold">
-                                  {entry.vehicle?.vehicle_number || 'Unknown'}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  by {entry.employee?.name || 'Unknown'}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
       </div>
     </Layout>
   );

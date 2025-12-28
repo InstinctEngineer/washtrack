@@ -12,15 +12,26 @@ export interface User {
   created_at: string;
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  parent_company: string | null;
+  billing_address: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Location {
   id: string;
   name: string;
+  client_id: string;
   address: string | null;
-  manager_user_id: string | null;
   is_active: boolean;
   created_at: string;
-  location_code?: string | null;
-  tax_jurisdiction?: string | null;
+  // Joined data
+  client?: Client;
 }
 
 export interface UserLocation {
@@ -31,113 +42,34 @@ export interface UserLocation {
   created_at: string;
 }
 
-export interface VehicleType {
+export interface BillableItem {
   id: string;
-  type_name: string;
-  rate_per_wash: number;
+  client_id: string;
+  location_id: string;
+  work_type: string;
+  frequency: string | null;
+  rate: number | null;
+  rate_type: 'per_unit' | 'hourly';
+  needs_rate_review: boolean;
   is_active: boolean;
   created_at: string;
-}
-
-export interface Client {
-  id: string;
-  client_code: string;
-  client_name: string;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface Vehicle {
-  id: string;
-  vehicle_number: string;
-  vehicle_type_id: string;
-  client_id: string | null;
-  home_location_id: string | null;
-  last_seen_location_id: string | null;
-  last_seen_date: string | null;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface VehicleWithDetails extends Vehicle {
-  vehicle_type?: VehicleType;
+  // Joined data
   client?: Client;
-  home_location?: Location;
-  last_seen_location?: Location;
-}
-
-export interface ServiceCategory {
-  id: string;
-  category_code: string;
-  category_name: string;
-  is_hourly_default: boolean;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-}
-
-export interface WashFrequency {
-  id: string;
-  frequency_code: string;
-  frequency_name: string;
-  washes_per_week: number | null;
-  rate_multiplier: number;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-}
-
-export interface LocationServiceRate {
-  id: string;
-  location_id: string;
-  client_id: string | null;
-  vehicle_type_id: string | null;
-  service_category_id: string | null;
-  frequency_id: string | null;
-  rate: number;
-  is_hourly: boolean;
-  effective_date: string;
-  expiration_date: string | null;
-  is_active: boolean;
-  created_by: string | null;
-  created_at: string;
-  notes: string | null;
-}
-
-export interface WorkEntry {
-  id: string;
-  employee_id: string;
-  vehicle_id: string | null;
-  work_date: string;
-  location_id: string;
-  created_at: string;
-  service_category_id: string | null;
-  frequency_id: string | null;
-  direct_vehicle_type_id: string | null;
-  quantity: number | null;
-  unit_rate_applied: number | null;
-  line_total: number | null;
-  is_additional_work: boolean;
-  additional_work_description: string | null;
-  hours_worked: number | null;
-  client_id?: string | null;
-  rate_at_time_of_wash?: number | null;
-  comment?: string | null;
-  deleted_at?: string | null;
-  deleted_by?: string | null;
-  deletion_reason?: string | null;
-}
-
-export interface WorkEntryWithDetails extends WorkEntry {
-  vehicle?: VehicleWithDetails;
-  employee?: User;
   location?: Location;
-  service_category?: ServiceCategory;
-  frequency?: WashFrequency;
 }
 
-export type WashEntry = WorkEntry;
-export type WashEntryWithDetails = WorkEntryWithDetails;
+export interface WorkLog {
+  id: string;
+  billable_item_id: string;
+  employee_id: string;
+  work_date: string;
+  quantity: number;
+  notes: string | null;
+  created_at: string;
+  // Joined data
+  billable_item?: BillableItem;
+  employee?: User;
+}
 
 export interface SystemSetting {
   id: string;
