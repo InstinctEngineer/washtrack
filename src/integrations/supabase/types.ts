@@ -68,6 +68,7 @@ export type Database = {
           created_at: string
           frequency: string | null
           id: string
+          identifier: string | null
           is_active: boolean
           location_id: string
           needs_rate_review: boolean
@@ -80,6 +81,7 @@ export type Database = {
           created_at?: string
           frequency?: string | null
           id?: string
+          identifier?: string | null
           is_active?: boolean
           location_id: string
           needs_rate_review?: boolean
@@ -92,6 +94,7 @@ export type Database = {
           created_at?: string
           frequency?: string | null
           id?: string
+          identifier?: string | null
           is_active?: boolean
           location_id?: string
           needs_rate_review?: boolean
