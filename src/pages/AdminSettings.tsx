@@ -112,7 +112,6 @@ export default function AdminSettings() {
   const [showManualDialog, setShowManualDialog] = useState(false);
   const [manualDate, setManualDate] = useState<Date | undefined>(undefined);
   const [activeUsers, setActiveUsers] = useState(0);
-  const [activeVehicles, setActiveVehicles] = useState(0);
 
   // History section state
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
@@ -165,13 +164,7 @@ export default function AdminSettings() {
         .select('*', { count: 'exact', head: true })
         .eq('is_active', true);
 
-      const { count: vehiclesCount } = await supabase
-        .from('vehicles')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true);
-
       setActiveUsers(usersCount || 0);
-      setActiveVehicles(vehiclesCount || 0);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -527,8 +520,8 @@ export default function AdminSettings() {
                 <div className="text-2xl font-bold mt-1">{activeUsers}</div>
               </div>
               <div className="p-4 border rounded-lg">
-                <div className="text-sm text-muted-foreground">Active Vehicles</div>
-                <div className="text-2xl font-bold mt-1">{activeVehicles}</div>
+                <div className="text-sm text-muted-foreground">Active Locations</div>
+                <div className="text-2xl font-bold mt-1">-</div>
               </div>
               <div className="p-4 border rounded-lg">
                 <div className="text-sm text-muted-foreground">Days Until Next Cutoff</div>

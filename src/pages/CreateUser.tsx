@@ -46,7 +46,7 @@ export default function CreateUser() {
       .from('locations')
       .select('*')
       .eq('is_active', true)
-      .order('location_code');
+      .order('name');
     
     if (data) setLocations(data);
   };
@@ -237,7 +237,7 @@ export default function CreateUser() {
                   <SelectContent>
                     {locations.map((location) => (
                       <SelectItem key={location.id} value={location.id}>
-                        {location.location_code ? `${location.location_code} - ${location.name}` : location.name}
+                        {location.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
