@@ -390,30 +390,107 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
     let failedCount = 0;
 
     try {
-      // Prepare insert data
-      const insertData = validRows.map((row) => ({
-        client_id: row.client_id!,
-        location_id: row.location_id!,
-        identifier: row.identifier || null,
-        work_type: row.work_type,
-        frequency: row.frequency || null,
-        rate_type: row.rate_type,
-        rate: row.rate ? parseFloat(row.rate) : null,
-      }));
-
-      // Batch insert
-      const { data, error } = await supabase
-        .from("billable_items")
-        .insert(insertData)
-        .select();
-
-      if (error) throw error;
-
-      successCount = data?.length || 0;
-      failedCount = validRows.length - successCount;
+      // Fetch existing work_types
+      const { data: workTypesData, error: wtError } = await supabase
+        .from("work_types")
+        .select("id, name, rate_type");
+      
+      if (wtError) throw wtError;
+      
+      const workTypeMap = new Map(workTypesData?.map(wt => [wt.name.toLowerCase(), wt]) || []);
+      
+      // Process each row
+      for (const row of validRows) {
+        try {
+          // Find or create work_type
+          let workType = workTypeMap.get(row.work_type.toLowerCase());
+          
+          if (!workType) {
+            const { data: newWt, error: createWtError } = await supabase
+              .from("work_types")
+              .insert({
+                name: row.work_type,
+                rate_type: row.rate_type || 'per_unit',
+              })
+              .select()
+              .single();
+            
+            if (createWtError) throw createWtError;
+            workType = newWt;
+            workTypeMap.set(row.work_type.toLowerCase(), newWt);
+          }
+          
+          // Find or create rate_config
+          const frequencyValue = row.frequency || null;
+          let query = supabase
+            .from("rate_configs")
+            .select("id")
+            .eq("client_id", row.client_id!)
+            .eq("location_id", row.location_id!)
+            .eq("work_type_id", workType.id);
+          
+          if (frequencyValue === null) {
+            query = query.is("frequency", null);
+          } else {
+            query = query.eq("frequency", frequencyValue);
+          }
+          
+          const { data: existingConfig, error: findError } = await query.maybeSingle();
+          if (findError) throw findError;
+          
+          let rateConfigId: string;
+          const rateValue = row.rate ? parseFloat(row.rate) : null;
+          
+          if (existingConfig) {
+            rateConfigId = existingConfig.id;
+            // Update rate if provided
+            if (rateValue !== null) {
+              await supabase
+                .from("rate_configs")
+                .update({ rate: rateValue, needs_rate_review: false })
+                .eq("id", rateConfigId);
+            }
+          } else {
+            const { data: newConfig, error: createConfigError } = await supabase
+              .from("rate_configs")
+              .insert({
+                client_id: row.client_id!,
+                location_id: row.location_id!,
+                work_type_id: workType.id,
+                frequency: frequencyValue,
+                rate: rateValue,
+                needs_rate_review: rateValue === null,
+              })
+              .select("id")
+              .single();
+            
+            if (createConfigError) throw createConfigError;
+            rateConfigId = newConfig.id;
+          }
+          
+          // Create work_item
+          if (row.identifier) {
+            const { error: workItemError } = await supabase
+              .from("work_items")
+              .insert({
+                rate_config_id: rateConfigId,
+                identifier: row.identifier,
+              });
+            
+            if (workItemError) throw workItemError;
+          }
+          
+          successCount++;
+        } catch (rowError) {
+          console.error("Row import error:", rowError);
+          failedCount++;
+        }
+      }
 
       setImportResults({ success: successCount, failed: failedCount });
-      queryClient.invalidateQueries({ queryKey: ["billableItems"] });
+      queryClient.invalidateQueries({ queryKey: ["work-items"] });
+      queryClient.invalidateQueries({ queryKey: ["work-types"] });
+      queryClient.invalidateQueries({ queryKey: ["rate-configs"] });
 
       toast({
         title: "Import complete",

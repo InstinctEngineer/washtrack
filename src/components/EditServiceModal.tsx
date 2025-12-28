@@ -12,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -23,19 +22,31 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
-interface EditServiceModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  item: {
+interface WorkItemWithJoins {
+  id: string;
+  rate_config_id: string;
+  identifier: string;
+  is_active: boolean;
+  created_at: string;
+  rate_config: {
     id: string;
     client_id: string;
     location_id: string;
-    identifier: string | null;
-    work_type: string;
+    work_type_id: string;
     frequency: string | null;
     rate: number | null;
-    rate_type: string;
-  };
+    needs_rate_review: boolean;
+    is_active: boolean;
+    client: { id: string; name: string } | null;
+    location: { id: string; name: string } | null;
+    work_type: { id: string; name: string; rate_type: string } | null;
+  } | null;
+}
+
+interface EditServiceModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  item: WorkItemWithJoins;
   clients: { id: string; name: string }[];
 }
 
@@ -54,73 +65,61 @@ export const EditServiceModal = ({ open, onOpenChange, item, clients }: EditServ
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [clientId, setClientId] = useState(item.client_id);
-  const [locationId, setLocationId] = useState(item.location_id);
-  const [identifier, setIdentifier] = useState(item.identifier || '');
-  const [workType, setWorkType] = useState(item.work_type);
-  const [frequency, setFrequency] = useState(item.frequency || '');
-  const [rateType, setRateType] = useState<'per_unit' | 'hourly'>(
-    item.rate_type === 'hourly' ? 'hourly' : 'per_unit'
-  );
-  const [rate, setRate] = useState(item.rate?.toString() || '');
+  const rateConfig = item.rate_config;
 
-  // Fetch locations filtered by selected client
-  const { data: locations = [] } = useQuery({
-    queryKey: ['locations', clientId],
+  const [identifier, setIdentifier] = useState(item.identifier || '');
+  const [rate, setRate] = useState(rateConfig?.rate?.toString() || '');
+
+  // Fetch work types
+  const { data: workTypes = [] } = useQuery({
+    queryKey: ['work-types'],
     queryFn: async () => {
-      if (!clientId) return [];
       const { data, error } = await supabase
-        .from('locations')
-        .select('id, name')
-        .eq('client_id', clientId)
+        .from('work_types')
+        .select('id, name, rate_type')
         .eq('is_active', true)
         .order('name');
       if (error) throw error;
       return data;
     },
-    enabled: !!clientId,
   });
 
   // Reset form when item changes
   useEffect(() => {
-    setClientId(item.client_id);
-    setLocationId(item.location_id);
     setIdentifier(item.identifier || '');
-    setWorkType(item.work_type);
-    setFrequency(item.frequency || '');
-    setRateType(item.rate_type === 'hourly' ? 'hourly' : 'per_unit');
-    setRate(item.rate?.toString() || '');
+    setRate(item.rate_config?.rate?.toString() || '');
   }, [item]);
-
-  // Reset location when client changes (but keep if it's the original)
-  useEffect(() => {
-    if (clientId !== item.client_id) {
-      setLocationId('');
-    }
-  }, [clientId, item.client_id]);
 
   const updateMutation = useMutation({
     mutationFn: async () => {
       const rateValue = rate.trim() === '' ? null : parseFloat(rate);
       
-      const { error } = await supabase
-        .from('billable_items')
+      // Update work_item identifier
+      const { error: itemError } = await supabase
+        .from('work_items')
         .update({
-          client_id: clientId,
-          location_id: locationId,
-          identifier: identifier.trim() || null,
-          work_type: workType.trim(),
-          frequency: frequency || null,
-          rate_type: rateType,
-          rate: rateValue,
-          needs_rate_review: rateValue === null,
+          identifier: identifier.trim(),
         })
         .eq('id', item.id);
 
-      if (error) throw error;
+      if (itemError) throw itemError;
+
+      // Update rate_config rate if it exists
+      if (rateConfig) {
+        const { error: configError } = await supabase
+          .from('rate_configs')
+          .update({
+            rate: rateValue,
+            needs_rate_review: rateValue === null,
+          })
+          .eq('id', rateConfig.id);
+
+        if (configError) throw configError;
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['billable-items'] });
+      queryClient.invalidateQueries({ queryKey: ['work-items'] });
+      queryClient.invalidateQueries({ queryKey: ['rate-configs'] });
       toast({ title: 'Service updated successfully' });
       onOpenChange(false);
     },
@@ -135,10 +134,10 @@ export const EditServiceModal = ({ open, onOpenChange, item, clients }: EditServ
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientId || !locationId || !workType.trim()) {
+    if (!identifier.trim()) {
       toast({
         title: 'Missing required fields',
-        description: 'Please fill in Client, Location, and Work Type',
+        description: 'Identifier is required',
         variant: 'destructive',
       });
       return;
@@ -146,60 +145,62 @@ export const EditServiceModal = ({ open, onOpenChange, item, clients }: EditServ
     updateMutation.mutate();
   };
 
+  const selectedWorkType = workTypes.find(wt => wt.id === rateConfig?.work_type_id);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit Service</DialogTitle>
           <DialogDescription>
-            Update the billable item details.
+            Update the work item details.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4">
-            {/* Client */}
+            {/* Client (read-only) */}
             <div className="space-y-2">
-              <Label htmlFor="client">Client *</Label>
-              <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))
-                  }
-                </SelectContent>
-              </Select>
+              <Label>Client</Label>
+              <Input
+                value={rateConfig?.client?.name || 'Unknown'}
+                disabled
+                className="bg-muted"
+              />
             </div>
 
-            {/* Location */}
+            {/* Location (read-only) */}
             <div className="space-y-2">
-              <Label htmlFor="location">Location *</Label>
-              <Select 
-                value={locationId} 
-                onValueChange={setLocationId}
-                disabled={!clientId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={clientId ? "Select a location" : "Select a client first"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {locations.map((location) => (
-                    <SelectItem key={location.id} value={location.id}>
-                      {location.name}
-                    </SelectItem>
-                  ))
-                  }
-                </SelectContent>
-              </Select>
+              <Label>Location</Label>
+              <Input
+                value={rateConfig?.location?.name || 'Unknown'}
+                disabled
+                className="bg-muted"
+              />
             </div>
 
-            {/* Identifier */}
+            {/* Work Type (read-only) */}
             <div className="space-y-2">
-              <Label htmlFor="identifier">Identifier</Label>
+              <Label>Work Type</Label>
+              <Input
+                value={selectedWorkType ? `${selectedWorkType.name} (${selectedWorkType.rate_type === 'per_unit' ? 'Per Unit' : 'Hourly'})` : 'Unknown'}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+
+            {/* Frequency (read-only) */}
+            <div className="space-y-2">
+              <Label>Frequency</Label>
+              <Input
+                value={rateConfig?.frequency || 'None'}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+
+            {/* Identifier (editable) */}
+            <div className="space-y-2">
+              <Label htmlFor="identifier">Identifier *</Label>
               <Input
                 id="identifier"
                 value={identifier}
@@ -208,55 +209,7 @@ export const EditServiceModal = ({ open, onOpenChange, item, clients }: EditServ
               />
             </div>
 
-            {/* Work Type */}
-            <div className="space-y-2">
-              <Label htmlFor="workType">Work Type *</Label>
-              <Input
-                id="workType"
-                value={workType}
-                onChange={(e) => setWorkType(e.target.value)}
-                placeholder="e.g., Box Truck, Pressure Washing, Detail"
-              />
-            </div>
-
-            {/* Frequency */}
-            <div className="space-y-2">
-              <Label htmlFor="frequency">Frequency</Label>
-              <Select value={frequency || 'none'} onValueChange={(v) => setFrequency(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select frequency (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {FREQUENCY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value || 'none'} value={option.value || 'none'}>
-                      {option.label}
-                    </SelectItem>
-                  ))
-                  }
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Rate Type */}
-            <div className="space-y-2">
-              <Label>Rate Type *</Label>
-              <RadioGroup
-                value={rateType}
-                onValueChange={(v) => setRateType(v as 'per_unit' | 'hourly')}
-                className="flex gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="per_unit" id="edit_per_unit" />
-                  <Label htmlFor="edit_per_unit" className="cursor-pointer">Per Unit</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="hourly" id="edit_hourly" />
-                  <Label htmlFor="edit_hourly" className="cursor-pointer">Hourly</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {/* Rate */}
+            {/* Rate (editable) */}
             <div className="space-y-2">
               <Label htmlFor="rate">Rate ($)</Label>
               <Input
@@ -268,6 +221,9 @@ export const EditServiceModal = ({ open, onOpenChange, item, clients }: EditServ
                 onChange={(e) => setRate(e.target.value)}
                 placeholder="Leave blank to flag for review"
               />
+              <p className="text-xs text-muted-foreground">
+                This updates the rate for all items with the same rate configuration
+              </p>
             </div>
           </div>
 

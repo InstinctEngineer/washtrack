@@ -39,20 +39,25 @@ import { AddServiceModal } from '@/components/AddServiceModal';
 import { EditServiceModal } from '@/components/EditServiceModal';
 import { CSVImportModal } from '@/components/CSVImportModal';
 
-interface BillableItemWithJoins {
+interface WorkItemWithJoins {
   id: string;
-  client_id: string;
-  location_id: string;
-  identifier: string | null;
-  work_type: string;
-  frequency: string | null;
-  rate: number | null;
-  rate_type: string;
-  needs_rate_review: boolean;
+  rate_config_id: string;
+  identifier: string;
   is_active: boolean;
   created_at: string;
-  client: { id: string; name: string } | null;
-  location: { id: string; name: string } | null;
+  rate_config: {
+    id: string;
+    client_id: string;
+    location_id: string;
+    work_type_id: string;
+    frequency: string | null;
+    rate: number | null;
+    needs_rate_review: boolean;
+    is_active: boolean;
+    client: { id: string; name: string } | null;
+    location: { id: string; name: string } | null;
+    work_type: { id: string; name: string; rate_type: string } | null;
+  } | null;
 }
 
 const Services = () => {
@@ -65,8 +70,8 @@ const Services = () => {
   const [showNeedsReviewOnly, setShowNeedsReviewOnly] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<BillableItemWithJoins | null>(null);
-  const [deleteItem, setDeleteItem] = useState<BillableItemWithJoins | null>(null);
+  const [editingItem, setEditingItem] = useState<WorkItemWithJoins | null>(null);
+  const [deleteItem, setDeleteItem] = useState<WorkItemWithJoins | null>(null);
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
   const [editingRateValue, setEditingRateValue] = useState<string>('');
 
@@ -106,49 +111,66 @@ const Services = () => {
     },
   });
 
-  // Fetch billable items with joins
-  const { data: billableItems = [], isLoading } = useQuery({
-    queryKey: ['billable-items', selectedClientId, selectedLocationId, showNeedsReviewOnly],
+  // Fetch work items with joins through rate_configs
+  const { data: workItems = [], isLoading } = useQuery({
+    queryKey: ['work-items', selectedClientId, selectedLocationId, showNeedsReviewOnly],
     queryFn: async () => {
       let query = supabase
-        .from('billable_items')
+        .from('work_items')
         .select(`
           *,
-          client:clients(id, name),
-          location:locations(id, name)
+          rate_config:rate_configs(
+            id,
+            client_id,
+            location_id,
+            work_type_id,
+            frequency,
+            rate,
+            needs_rate_review,
+            is_active,
+            client:clients(id, name),
+            location:locations(id, name),
+            work_type:work_types(id, name, rate_type)
+          )
         `)
         .order('created_at', { ascending: false });
 
-      if (selectedClientId !== 'all') {
-        query = query.eq('client_id', selectedClientId);
-      }
-      if (selectedLocationId !== 'all') {
-        query = query.eq('location_id', selectedLocationId);
-      }
-      if (showNeedsReviewOnly) {
-        query = query.or('rate.is.null,needs_rate_review.eq.true');
-      }
-
       const { data, error } = await query;
       if (error) throw error;
-      return data as BillableItemWithJoins[];
+      
+      // Filter in JS for nested fields
+      let filtered = (data as WorkItemWithJoins[]) || [];
+      
+      if (selectedClientId !== 'all') {
+        filtered = filtered.filter(item => item.rate_config?.client_id === selectedClientId);
+      }
+      if (selectedLocationId !== 'all') {
+        filtered = filtered.filter(item => item.rate_config?.location_id === selectedLocationId);
+      }
+      if (showNeedsReviewOnly) {
+        filtered = filtered.filter(item => 
+          item.rate_config?.rate === null || item.rate_config?.needs_rate_review
+        );
+      }
+      
+      return filtered;
     },
   });
 
-  // Update rate mutation
+  // Update rate mutation (updates rate_config)
   const updateRateMutation = useMutation({
-    mutationFn: async ({ id, rate }: { id: string; rate: number | null }) => {
+    mutationFn: async ({ rateConfigId, rate }: { rateConfigId: string; rate: number | null }) => {
       const { error } = await supabase
-        .from('billable_items')
+        .from('rate_configs')
         .update({ 
           rate, 
           needs_rate_review: rate === null 
         })
-        .eq('id', id);
+        .eq('id', rateConfigId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['billable-items'] });
+      queryClient.invalidateQueries({ queryKey: ['work-items'] });
       toast({ title: 'Rate updated successfully' });
       setEditingRateId(null);
     },
@@ -157,17 +179,17 @@ const Services = () => {
     },
   });
 
-  // Toggle active mutation
+  // Toggle active mutation (on work_item)
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const { error } = await supabase
-        .from('billable_items')
+        .from('work_items')
         .update({ is_active: isActive })
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['billable-items'] });
+      queryClient.invalidateQueries({ queryKey: ['work-items'] });
       toast({ title: 'Service status updated' });
     },
     onError: (error) => {
@@ -179,13 +201,13 @@ const Services = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('billable_items')
+        .from('work_items')
         .delete()
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['billable-items'] });
+      queryClient.invalidateQueries({ queryKey: ['work-items'] });
       toast({ title: 'Service deleted successfully' });
       setDeleteItem(null);
     },
@@ -194,19 +216,19 @@ const Services = () => {
     },
   });
 
-  const handleRateEdit = (item: BillableItemWithJoins) => {
-    setEditingRateId(item.id);
-    setEditingRateValue(item.rate?.toString() || '');
+  const handleRateEdit = (item: WorkItemWithJoins) => {
+    setEditingRateId(item.rate_config?.id || null);
+    setEditingRateValue(item.rate_config?.rate?.toString() || '');
   };
 
-  const handleRateSave = (id: string) => {
+  const handleRateSave = (rateConfigId: string) => {
     const rate = editingRateValue.trim() === '' ? null : parseFloat(editingRateValue);
-    updateRateMutation.mutate({ id, rate });
+    updateRateMutation.mutate({ rateConfigId, rate });
   };
 
   const handleClientChange = (value: string) => {
     setSelectedClientId(value);
-    setSelectedLocationId('all'); // Reset location when client changes
+    setSelectedLocationId('all');
   };
 
   return (
@@ -217,7 +239,7 @@ const Services = () => {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Services & Rates</h1>
             <p className="text-muted-foreground">
-              Manage billable items, work types, and pricing
+              Manage work items, work types, and pricing
             </p>
           </div>
           {isAdmin && (
@@ -288,7 +310,7 @@ const Services = () => {
             <div className="flex items-center justify-center h-48">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : billableItems.length === 0 ? (
+          ) : workItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
               <p>No services found</p>
               {isAdmin && (
@@ -313,36 +335,36 @@ const Services = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {billableItems.map((item) => (
+                {workItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">
-                      {item.client?.name || '—'}
+                      {item.rate_config?.client?.name || '—'}
                     </TableCell>
-                    <TableCell>{item.location?.name || '—'}</TableCell>
+                    <TableCell>{item.rate_config?.location?.name || '—'}</TableCell>
                     <TableCell>{item.identifier || '—'}</TableCell>
-                    <TableCell>{item.work_type}</TableCell>
-                    <TableCell>{item.frequency || '—'}</TableCell>
+                    <TableCell>{item.rate_config?.work_type?.name || '—'}</TableCell>
+                    <TableCell>{item.rate_config?.frequency || '—'}</TableCell>
                     <TableCell>
-                      {editingRateId === item.id && isAdmin ? (
+                      {editingRateId === item.rate_config?.id && isAdmin ? (
                         <Input
                           type="number"
                           step="0.01"
                           value={editingRateValue}
                           onChange={(e) => setEditingRateValue(e.target.value)}
-                          onBlur={() => handleRateSave(item.id)}
+                          onBlur={() => item.rate_config && handleRateSave(item.rate_config.id)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRateSave(item.id);
+                            if (e.key === 'Enter' && item.rate_config) handleRateSave(item.rate_config.id);
                             if (e.key === 'Escape') setEditingRateId(null);
                           }}
                           className="w-24 h-8"
                           autoFocus
                         />
-                      ) : item.rate !== null ? (
+                      ) : item.rate_config?.rate !== null && item.rate_config?.rate !== undefined ? (
                         <span
                           className={isAdmin ? 'cursor-pointer hover:underline' : ''}
                           onClick={() => isAdmin && handleRateEdit(item)}
                         >
-                          ${item.rate.toFixed(2)}
+                          ${item.rate_config.rate.toFixed(2)}
                         </span>
                       ) : (
                         <Badge
@@ -356,7 +378,7 @@ const Services = () => {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">
-                        {item.rate_type === 'per_unit' ? 'Per Unit' : 'Hourly'}
+                        {item.rate_config?.work_type?.rate_type === 'per_unit' ? 'Per Unit' : 'Hourly'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -428,7 +450,7 @@ const Services = () => {
               Are you sure you want to delete this service? This action cannot be undone.
               {deleteItem && (
                 <span className="block mt-2 font-medium">
-                  {deleteItem.work_type} - {deleteItem.identifier || 'No identifier'}
+                  {deleteItem.rate_config?.work_type?.name || 'Unknown'} - {deleteItem.identifier || 'No identifier'}
                 </span>
               )}
             </AlertDialogDescription>
