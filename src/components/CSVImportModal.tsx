@@ -62,6 +62,26 @@ export function CSVImportModal({ open, onOpenChange }: CSVImportModalProps) {
     onOpenChange(false);
   }, [onOpenChange, resetState]);
 
+  const downloadExampleCSV = () => {
+    const csvContent = `client_name,location_name,identifier,work_type,frequency,rate_type,rate
+Acme Corp,Main Warehouse,T-101,Box Truck,2x/week,per_unit,45.00
+Acme Corp,Main Warehouse,T-102,Box Truck,2x/week,per_unit,
+Acme Corp,Downtown Office,,Pressure Washing,Monthly,per_unit,150.00
+Beta Inc,Headquarters,,Hourly Cleaning,,hourly,25.00
+Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'example-services.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
@@ -272,11 +292,9 @@ export function CSVImportModal({ open, onOpenChange }: CSVImportModalProps) {
             <p className="text-sm text-muted-foreground">
               Upload a CSV file with service data. Required columns: client_name, location_name, work_type, rate_type.
             </p>
-            <Button variant="outline" size="sm" asChild>
-              <a href="/example-services.csv" download>
-                <Download className="mr-2 h-4 w-4" />
-                Example CSV
-              </a>
+            <Button variant="outline" size="sm" onClick={downloadExampleCSV}>
+              <Download className="mr-2 h-4 w-4" />
+              Example CSV
             </Button>
           </div>
 
