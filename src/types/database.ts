@@ -46,6 +46,7 @@ export interface BillableItem {
   id: string;
   client_id: string;
   location_id: string;
+  identifier: string | null;
   work_type: string;
   frequency: string | null;
   rate: number | null;
