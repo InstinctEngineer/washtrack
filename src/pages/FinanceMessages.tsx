@@ -30,7 +30,6 @@ interface EmployeeComment {
   location?: {
     id: string;
     name: string;
-    location_code?: string;
   };
 }
 
@@ -60,7 +59,6 @@ interface MessageReply {
 interface Location {
   id: string;
   name: string;
-  location_code?: string;
 }
 
 export default function FinanceMessages() {
@@ -100,9 +98,9 @@ export default function FinanceMessages() {
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('id, name, location_code')
+        .select('id, name')
         .eq('is_active', true)
-        .order('location_code');
+        .order('name');
 
       if (error) throw error;
       setLocations(data || []);
@@ -114,13 +112,11 @@ export default function FinanceMessages() {
   const fetchComments = async () => {
     setLoading(true);
     try {
-      // Fetch comments WITHOUT user join (views don't support FK joins)
+      // Fetch comments - locations table doesn't have a direct FK from employee_comments
+      // So we'll fetch separately and join manually
       let query = supabase
         .from('employee_comments')
-        .select(`
-          *,
-          location:locations(id, name, location_code)
-        `)
+        .select('*')
         .eq('week_start_date', weekStartStr)
         .order('created_at', { ascending: false });
 
@@ -142,13 +138,16 @@ export default function FinanceMessages() {
       }
 
       const commentIds = rawComments.map(c => c.id);
+      const locationIds = [...new Set(rawComments.map(c => c.location_id).filter(Boolean))];
 
-      // Fetch reads and replies WITHOUT user joins
-      const [readsResult, repliesResult] = await Promise.all([
+      // Fetch locations, reads and replies in parallel
+      const [locationsResult, readsResult, repliesResult] = await Promise.all([
+        supabase.from('locations').select('id, name').in('id', locationIds),
         supabase.from('message_reads').select('*').in('comment_id', commentIds),
         supabase.from('message_replies').select('*').in('comment_id', commentIds).order('created_at', { ascending: true })
       ]);
 
+      const locationsMap = new Map((locationsResult.data || []).map(l => [l.id, l]));
       const rawReads = readsResult.data || [];
       const rawReplies = repliesResult.data || [];
 
@@ -167,12 +166,13 @@ export default function FinanceMessages() {
       // Create lookup map
       const usersMap = new Map((usersData || []).map(u => [u.id, u]));
 
-      // Attach employee data to comments
-      const commentsWithEmployees: EmployeeComment[] = rawComments.map(comment => ({
+      // Attach employee and location data to comments
+      const commentsWithData: EmployeeComment[] = rawComments.map(comment => ({
         ...comment,
         employee: usersMap.get(comment.employee_id) || undefined,
+        location: comment.location_id ? locationsMap.get(comment.location_id) : undefined,
       }));
-      setComments(commentsWithEmployees);
+      setComments(commentsWithData);
 
       // Attach user data to reads and group by comment_id
       const readsByComment: Record<string, MessageRead[]> = {};
@@ -376,7 +376,7 @@ export default function FinanceMessages() {
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
                     {locations.map(loc => (
-                      <SelectItem key={loc.id} value={loc.id}>{loc.location_code || loc.name}</SelectItem>
+                      <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -466,7 +466,7 @@ export default function FinanceMessages() {
                                 </span>
                                 {comment.location && (
                                   <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                                    {comment.location.location_code || comment.location.name}
+                                    {comment.location.name}
                                   </Badge>
                                 )}
                                 <span className="text-xs text-muted-foreground">
