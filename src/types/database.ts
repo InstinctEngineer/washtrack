@@ -42,33 +42,52 @@ export interface UserLocation {
   created_at: string;
 }
 
-export interface BillableItem {
+export interface WorkType {
+  id: string;
+  name: string;
+  rate_type: 'per_unit' | 'hourly';
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface RateConfig {
   id: string;
   client_id: string;
   location_id: string;
-  identifier: string | null;
-  work_type: string;
+  work_type_id: string;
   frequency: string | null;
   rate: number | null;
-  rate_type: 'per_unit' | 'hourly';
   needs_rate_review: boolean;
   is_active: boolean;
   created_at: string;
   // Joined data
   client?: Client;
   location?: Location;
+  work_type?: WorkType;
+}
+
+export interface WorkItem {
+  id: string;
+  rate_config_id: string;
+  identifier: string;
+  is_active: boolean;
+  created_at: string;
+  // Joined data
+  rate_config?: RateConfig;
 }
 
 export interface WorkLog {
   id: string;
-  billable_item_id: string;
+  work_item_id: string | null;
+  rate_config_id: string | null;
   employee_id: string;
   work_date: string;
   quantity: number;
   notes: string | null;
   created_at: string;
   // Joined data
-  billable_item?: BillableItem;
+  work_item?: WorkItem;
+  rate_config?: RateConfig;
   employee?: User;
 }
 

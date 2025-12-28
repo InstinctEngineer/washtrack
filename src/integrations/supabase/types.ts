@@ -62,63 +62,6 @@ export type Database = {
           },
         ]
       }
-      billable_items: {
-        Row: {
-          client_id: string
-          created_at: string
-          frequency: string | null
-          id: string
-          identifier: string | null
-          is_active: boolean
-          location_id: string
-          needs_rate_review: boolean
-          rate: number | null
-          rate_type: string
-          work_type: string
-        }
-        Insert: {
-          client_id: string
-          created_at?: string
-          frequency?: string | null
-          id?: string
-          identifier?: string | null
-          is_active?: boolean
-          location_id: string
-          needs_rate_review?: boolean
-          rate?: number | null
-          rate_type: string
-          work_type: string
-        }
-        Update: {
-          client_id?: string
-          created_at?: string
-          frequency?: string | null
-          id?: string
-          identifier?: string | null
-          is_active?: boolean
-          location_id?: string
-          needs_rate_review?: boolean
-          rate?: number | null
-          rate_type?: string
-          work_type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "billable_items_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "billable_items_location_id_fkey"
-            columns: ["location_id"]
-            isOneToOne: false
-            referencedRelation: "locations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       clients: {
         Row: {
           billing_address: string | null
@@ -353,6 +296,64 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rate_configs: {
+        Row: {
+          client_id: string
+          created_at: string
+          frequency: string | null
+          id: string
+          is_active: boolean
+          location_id: string
+          needs_rate_review: boolean
+          rate: number | null
+          work_type_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          frequency?: string | null
+          id?: string
+          is_active?: boolean
+          location_id: string
+          needs_rate_review?: boolean
+          rate?: number | null
+          work_type_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          frequency?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string
+          needs_rate_review?: boolean
+          rate?: number | null
+          work_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rate_configs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rate_configs_work_type_id_fkey"
+            columns: ["work_type_id"]
+            isOneToOne: false
+            referencedRelation: "work_types"
             referencedColumns: ["id"]
           },
         ]
@@ -770,42 +771,70 @@ export type Database = {
           },
         ]
       }
+      work_items: {
+        Row: {
+          created_at: string
+          id: string
+          identifier: string
+          is_active: boolean
+          rate_config_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          identifier: string
+          is_active?: boolean
+          rate_config_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          identifier?: string
+          is_active?: boolean
+          rate_config_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_items_rate_config_id_fkey"
+            columns: ["rate_config_id"]
+            isOneToOne: false
+            referencedRelation: "rate_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_logs: {
         Row: {
-          billable_item_id: string
           created_at: string
           employee_id: string
           id: string
           notes: string | null
           quantity: number
+          rate_config_id: string | null
           work_date: string
+          work_item_id: string | null
         }
         Insert: {
-          billable_item_id: string
           created_at?: string
           employee_id: string
           id?: string
           notes?: string | null
           quantity: number
+          rate_config_id?: string | null
           work_date: string
+          work_item_id?: string | null
         }
         Update: {
-          billable_item_id?: string
           created_at?: string
           employee_id?: string
           id?: string
           notes?: string | null
           quantity?: number
+          rate_config_id?: string | null
           work_date?: string
+          work_item_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "work_logs_billable_item_id_fkey"
-            columns: ["billable_item_id"]
-            isOneToOne: false
-            referencedRelation: "billable_items"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "work_logs_employee_id_fkey"
             columns: ["employee_id"]
@@ -820,7 +849,45 @@ export type Database = {
             referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "work_logs_rate_config_id_fkey"
+            columns: ["rate_config_id"]
+            isOneToOne: false
+            referencedRelation: "rate_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_logs_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      work_types: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          rate_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          rate_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          rate_type?: string
+        }
+        Relationships: []
       }
     }
     Views: {
