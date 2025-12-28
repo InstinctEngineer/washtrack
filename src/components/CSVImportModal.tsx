@@ -242,13 +242,13 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
       const rows: ParsedRow[] = jsonData.map((row, index) => {
         const baseRow = {
           rowNumber: index + 2, // +2 for 1-indexed + header row
-          client_name: (row.client_name || "").trim(),
-          location_name: (row.location_name || "").trim(),
-          identifier: (row.identifier || "").trim(),
-          work_type: (row.work_type || "").trim(),
-          frequency: (row.frequency || "").trim(),
-          rate_type: (row.rate_type || "").trim().toLowerCase(),
-          rate: (row.rate || "").trim(),
+          client_name: String(row.client_name ?? "").trim(),
+          location_name: String(row.location_name ?? "").trim(),
+          identifier: String(row.identifier ?? "").trim(),
+          work_type: String(row.work_type ?? "").trim(),
+          frequency: String(row.frequency ?? "").trim(),
+          rate_type: String(row.rate_type ?? "").trim().toLowerCase(),
+          rate: String(row.rate ?? "").trim(),
           client_id: null as string | null,
           location_id: null as string | null,
           resolvedClientId: null as string | null,
