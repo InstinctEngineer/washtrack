@@ -24,11 +24,12 @@ export interface WorkItemWithDetails {
 interface WorkItemGridProps {
   locationId: string;
   selectedIds?: Set<string>;
+  completedIds?: Set<string>;
   onToggle?: (workItem: WorkItemWithDetails) => void;
   onSelect?: (workItem: WorkItemWithDetails) => void;
 }
 
-export function WorkItemGrid({ locationId, selectedIds, onToggle, onSelect }: WorkItemGridProps) {
+export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, onSelect }: WorkItemGridProps) {
   const [workItems, setWorkItems] = useState<WorkItemWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -131,6 +132,9 @@ export function WorkItemGrid({ locationId, selectedIds, onToggle, onSelect }: Wo
   };
 
   const handleItemClick = (item: WorkItemWithDetails) => {
+    // Don't allow interaction with completed items
+    if (completedIds?.has(item.id)) return;
+    
     if (isToggleMode) {
       onToggle(item);
     } else if (onSelect) {
@@ -180,6 +184,9 @@ export function WorkItemGrid({ locationId, selectedIds, onToggle, onSelect }: Wo
             const selectedInSection = isToggleMode 
               ? items.filter(item => selectedIds.has(item.id)).length 
               : 0;
+            const completedInSection = completedIds 
+              ? items.filter(item => completedIds.has(item.id)).length 
+              : 0;
             
             return (
               <Collapsible 
@@ -212,6 +219,11 @@ export function WorkItemGrid({ locationId, selectedIds, onToggle, onSelect }: Wo
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
+                      {completedInSection > 0 && (
+                        <span className="text-sm px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                          {completedInSection} done
+                        </span>
+                      )}
                       {selectedInSection > 0 && (
                         <span className="text-sm px-2 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 font-medium">
                           {selectedInSection} selected
@@ -237,28 +249,41 @@ export function WorkItemGrid({ locationId, selectedIds, onToggle, onSelect }: Wo
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                       {items.map((item) => {
                         const isSelected = isToggleMode && selectedIds.has(item.id);
+                        const isCompleted = completedIds?.has(item.id);
                         
                         return (
                           <button
                             key={item.id}
                             onClick={() => handleItemClick(item)}
+                            disabled={isCompleted}
                             className={cn(
                               "relative flex items-center justify-center p-4 min-h-[64px] rounded-lg",
                               "transition-all duration-150 touch-manipulation",
-                              isSelected
-                                ? "bg-green-500/10 border-2 border-green-500 dark:border-green-400"
-                                : "bg-background border-2 border-border hover:border-primary hover:bg-accent",
-                              "active:scale-95"
+                              isCompleted
+                                ? "bg-muted/50 border-2 border-muted cursor-not-allowed opacity-60"
+                                : isSelected
+                                  ? "bg-green-500/10 border-2 border-green-500 dark:border-green-400"
+                                  : "bg-background border-2 border-border hover:border-primary hover:bg-accent",
+                              !isCompleted && "active:scale-95"
                             )}
                           >
-                            {isSelected && (
+                            {isCompleted && (
+                              <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-muted-foreground/20 text-muted-foreground text-[10px] font-medium uppercase">
+                                Done
+                              </div>
+                            )}
+                            {isSelected && !isCompleted && (
                               <div className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-green-500 flex items-center justify-center">
                                 <Check className="h-3 w-3 text-white" />
                               </div>
                             )}
                             <span className={cn(
                               "font-mono text-xl font-bold",
-                              isSelected ? "text-green-600 dark:text-green-400" : "text-foreground"
+                              isCompleted 
+                                ? "text-muted-foreground" 
+                                : isSelected 
+                                  ? "text-green-600 dark:text-green-400" 
+                                  : "text-foreground"
                             )}>
                               {item.identifier}
                             </span>
