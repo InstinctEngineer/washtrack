@@ -13,7 +13,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, Clock, Truck, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { AlertCircle, Clock, Truck, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { cn } from '@/lib/utils';
@@ -95,6 +97,13 @@ export default function EmployeeDashboard() {
   // Modal state (for hourly)
   const [selectedRateConfig, setSelectedRateConfig] = useState<RateConfigWithDetails | null>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  
+  // Comment modal state
+  const [commentModalOpen, setCommentModalOpen] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [recentComments, setRecentComments] = useState<any[]>([]);
+  const [commentReplies, setCommentReplies] = useState<Record<string, any[]>>({});
   
 
   // Fetch cutoff date
@@ -368,6 +377,76 @@ export default function EmployeeDashboard() {
     return { label: 'Unknown', typeName: null, isHourly: false };
   };
 
+  // Fetch recent comments and replies for this week
+  const fetchRecentComments = useCallback(async () => {
+    if (!user?.id) return;
+    
+    const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+    
+    const { data } = await supabase
+      .from('employee_comments')
+      .select('*')
+      .eq('employee_id', user.id)
+      .eq('week_start_date', weekStart)
+      .order('created_at', { ascending: false });
+    
+    setRecentComments(data || []);
+    
+    // Fetch replies for these comments
+    if (data && data.length > 0) {
+      const commentIds = data.map(c => c.id);
+      const { data: repliesData } = await supabase
+        .from('message_replies')
+        .select('*, users!message_replies_user_id_fkey(id, name)')
+        .in('comment_id', commentIds)
+        .order('created_at', { ascending: true });
+      
+      // Group replies by comment_id
+      const grouped: Record<string, any[]> = {};
+      (repliesData || []).forEach(r => {
+        if (!grouped[r.comment_id]) grouped[r.comment_id] = [];
+        grouped[r.comment_id].push(r);
+      });
+      setCommentReplies(grouped);
+    } else {
+      setCommentReplies({});
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (commentModalOpen) {
+      fetchRecentComments();
+    }
+  }, [commentModalOpen, fetchRecentComments]);
+
+  const handleSubmitComment = async () => {
+    if (!commentText.trim() || !user?.id) return;
+    
+    setSubmittingComment(true);
+    try {
+      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+      
+      const { error } = await supabase
+        .from('employee_comments')
+        .insert({
+          employee_id: user.id,
+          location_id: selectedLocationId || null,
+          comment_text: commentText.trim(),
+          week_start_date: weekStart,
+        });
+
+      if (error) throw error;
+
+      toast.success('Message sent to finance');
+      setCommentText('');
+      fetchRecentComments();
+    } catch (error: any) {
+      console.error('Error submitting comment:', error);
+      toast.error('Failed to send message');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   if (!userLocations || userLocations.length === 0) {
     return (
@@ -675,6 +754,83 @@ export default function EmployeeDashboard() {
         rateConfig={selectedRateConfig || undefined}
         onSuccess={handleLogSuccess}
       />
+
+      {/* Floating Comment Button */}
+      <button
+        onClick={() => setCommentModalOpen(true)}
+        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center"
+        aria-label="Send message to finance"
+      >
+        <MessageSquare className="h-6 w-6" />
+      </button>
+
+      {/* Comment Modal */}
+      <Dialog open={commentModalOpen} onOpenChange={setCommentModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Message to Finance
+            </DialogTitle>
+            <DialogDescription>
+              Send a message to the finance team. They will see your name, location, and submission date.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Comment Input */}
+            <Textarea
+              placeholder="Type your message here... (e.g., equipment issues, schedule changes, questions)"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              className="min-h-[100px] resize-none"
+            />
+            
+            {/* Previous Comments This Week */}
+            {recentComments.length > 0 && (
+              <div className="border-t pt-4 space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Your messages this week:</p>
+                <div className="max-h-[200px] overflow-y-auto space-y-3">
+                  {recentComments.map((c) => (
+                    <div key={c.id} className="space-y-2">
+                      <div className="bg-accent/30 rounded-lg p-3">
+                        <p className="text-sm">{c.comment_text}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {format(new Date(c.created_at), 'MMM d, h:mm a')}
+                        </p>
+                      </div>
+                      {/* Show replies */}
+                      {commentReplies[c.id]?.map((reply) => (
+                        <div key={reply.id} className="ml-4 bg-primary/10 border-l-2 border-primary rounded-lg p-3">
+                          <p className="text-xs text-primary font-medium">
+                            {reply.users?.name || 'Finance Team'}
+                          </p>
+                          <p className="text-sm">{reply.reply_text}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {format(new Date(reply.created_at), 'MMM d, h:mm a')}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCommentModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitComment} 
+              disabled={submittingComment || !commentText.trim()}
+            >
+              {submittingComment ? 'Sending...' : 'Send Message'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </Layout>
   );
