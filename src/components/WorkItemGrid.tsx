@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Package, ChevronRight, ChevronDown } from 'lucide-react';
+import { Search, Package, ChevronRight, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -23,14 +23,19 @@ export interface WorkItemWithDetails {
 
 interface WorkItemGridProps {
   locationId: string;
-  onSelect: (workItem: WorkItemWithDetails) => void;
+  selectedIds?: Set<string>;
+  onToggle?: (workItem: WorkItemWithDetails) => void;
+  onSelect?: (workItem: WorkItemWithDetails) => void;
 }
 
-export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
+export function WorkItemGrid({ locationId, selectedIds, onToggle, onSelect }: WorkItemGridProps) {
   const [workItems, setWorkItems] = useState<WorkItemWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+
+  // Determine mode: toggle (batch) or select (immediate)
+  const isToggleMode = !!onToggle && !!selectedIds;
 
   useEffect(() => {
     const fetchWorkItems = async () => {
@@ -125,6 +130,14 @@ export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
     });
   };
 
+  const handleItemClick = (item: WorkItemWithDetails) => {
+    if (isToggleMode) {
+      onToggle(item);
+    } else if (onSelect) {
+      onSelect(item);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -164,6 +177,9 @@ export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
         <div className="space-y-2">
           {Object.entries(groupedItems).map(([typeName, items]) => {
             const isExpanded = expandedSections.has(typeName);
+            const selectedInSection = isToggleMode 
+              ? items.filter(item => selectedIds.has(item.id)).length 
+              : 0;
             
             return (
               <Collapsible 
@@ -195,14 +211,21 @@ export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
                         {typeName}
                       </span>
                     </div>
-                    <span className={cn(
-                      "text-sm px-2.5 py-1 rounded-full",
-                      isExpanded 
-                        ? "bg-primary/20 text-primary font-medium" 
-                        : "bg-muted text-muted-foreground"
-                    )}>
-                      {items.length} {items.length === 1 ? 'item' : 'items'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {selectedInSection > 0 && (
+                        <span className="text-sm px-2 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 font-medium">
+                          {selectedInSection} selected
+                        </span>
+                      )}
+                      <span className={cn(
+                        "text-sm px-2.5 py-1 rounded-full",
+                        isExpanded 
+                          ? "bg-primary/20 text-primary font-medium" 
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        {items.length}
+                      </span>
+                    </div>
                   </button>
                 </CollapsibleTrigger>
 
@@ -212,23 +235,36 @@ export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
                     "border-2 border-t-0 border-primary rounded-b-lg p-3 bg-card"
                   )}>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                      {items.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => onSelect(item)}
-                          className={cn(
-                            "flex items-center justify-center p-4 min-h-[64px] rounded-lg",
-                            "bg-background border-2 border-border",
-                            "hover:border-primary hover:bg-accent",
-                            "active:scale-95 active:bg-primary/10",
-                            "transition-all duration-150 touch-manipulation"
-                          )}
-                        >
-                          <span className="font-mono text-xl font-bold text-foreground">
-                            {item.identifier}
-                          </span>
-                        </button>
-                      ))}
+                      {items.map((item) => {
+                        const isSelected = isToggleMode && selectedIds.has(item.id);
+                        
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => handleItemClick(item)}
+                            className={cn(
+                              "relative flex items-center justify-center p-4 min-h-[64px] rounded-lg",
+                              "transition-all duration-150 touch-manipulation",
+                              isSelected
+                                ? "bg-green-500/10 border-2 border-green-500 dark:border-green-400"
+                                : "bg-background border-2 border-border hover:border-primary hover:bg-accent",
+                              "active:scale-95"
+                            )}
+                          >
+                            {isSelected && (
+                              <div className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-green-500 flex items-center justify-center">
+                                <Check className="h-3 w-3 text-white" />
+                              </div>
+                            )}
+                            <span className={cn(
+                              "font-mono text-xl font-bold",
+                              isSelected ? "text-green-600 dark:text-green-400" : "text-foreground"
+                            )}>
+                              {item.identifier}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </CollapsibleContent>
