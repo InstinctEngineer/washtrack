@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Package } from 'lucide-react';
+import { Search, Package, ChevronRight, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export interface WorkItemWithDetails {
   id: string;
@@ -29,6 +30,7 @@ export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
   const [workItems, setWorkItems] = useState<WorkItemWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchWorkItems = async () => {
@@ -47,7 +49,6 @@ export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
         .eq('rate_config.location_id', locationId);
 
       if (!error && data) {
-        // Filter to per_unit items and transform
         const perUnitItems = data
           .filter((item: any) => item.rate_config?.work_type?.rate_type === 'per_unit')
           .map((item: any) => ({
@@ -61,7 +62,6 @@ export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
             },
           })) as WorkItemWithDetails[];
         
-        // Sort by work type name, then identifier
         perUnitItems.sort((a, b) => {
           const typeCompare = a.rate_config.work_type.name.localeCompare(b.rate_config.work_type.name);
           if (typeCompare !== 0) return typeCompare;
@@ -69,6 +69,12 @@ export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
         });
         
         setWorkItems(perUnitItems);
+        
+        // Auto-expand first section
+        const firstType = perUnitItems[0]?.rate_config.work_type.name;
+        if (firstType) {
+          setExpandedSections(new Set([firstType]));
+        }
       }
       setLoading(false);
     };
@@ -100,15 +106,32 @@ export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
     return groups;
   }, [filteredItems]);
 
+  // Auto-expand sections with search matches
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setExpandedSections(new Set(Object.keys(groupedItems)));
+    }
+  }, [searchQuery, groupedItems]);
+
+  const toggleSection = (typeName: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(typeName)) {
+        next.delete(typeName);
+      } else {
+        next.add(typeName);
+      }
+      return next;
+    });
+  };
+
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-20" />
-          ))}
-        </div>
+      <div className="space-y-3">
+        <Skeleton className="h-12 w-full" />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-14 w-full rounded-lg" />
+        ))}
       </div>
     );
   }
@@ -123,40 +146,95 @@ export function WorkItemGrid({ locationId, onSelect }: WorkItemGridProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      {/* Mobile-optimized search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
-          placeholder="Search by identifier or type..."
+          placeholder="Search..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
+          className="pl-12 h-12 text-base"
         />
       </div>
 
       {Object.keys(groupedItems).length === 0 ? (
-        <p className="text-center text-muted-foreground py-4">No items match your search</p>
+        <p className="text-center text-muted-foreground py-6">No items match your search</p>
       ) : (
-        <div className="space-y-6">
-          {Object.entries(groupedItems).map(([typeName, items]) => (
-            <div key={typeName}>
-              <h4 className="text-sm font-medium text-muted-foreground mb-2">{typeName}</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {items.map((item) => (
+        <div className="space-y-2">
+          {Object.entries(groupedItems).map(([typeName, items]) => {
+            const isExpanded = expandedSections.has(typeName);
+            
+            return (
+              <Collapsible 
+                key={typeName} 
+                open={isExpanded} 
+                onOpenChange={() => toggleSection(typeName)}
+              >
+                {/* Section Header - Large touch target */}
+                <CollapsibleTrigger asChild>
                   <button
-                    key={item.id}
-                    onClick={() => onSelect(item)}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg border bg-card hover:bg-accent hover:border-primary transition-colors text-center min-h-[80px]"
+                    className={cn(
+                      "w-full flex items-center justify-between p-4 min-h-[56px] rounded-lg transition-all duration-200",
+                      "active:scale-[0.98] touch-manipulation",
+                      isExpanded 
+                        ? "bg-primary/10 border-2 border-primary rounded-b-none" 
+                        : "bg-muted/50 border border-border hover:bg-muted/80"
+                    )}
                   >
-                    <span className="font-mono font-semibold text-lg">{item.identifier}</span>
-                    <Badge variant="secondary" className="mt-1 text-xs">
-                      {item.rate_config.work_type.name}
-                    </Badge>
+                    <div className="flex items-center gap-3">
+                      {isExpanded ? (
+                        <ChevronDown className="h-5 w-5 text-primary shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                      )}
+                      <span className={cn(
+                        "text-base",
+                        isExpanded ? "font-semibold text-foreground" : "font-medium text-muted-foreground"
+                      )}>
+                        {typeName}
+                      </span>
+                    </div>
+                    <span className={cn(
+                      "text-sm px-2.5 py-1 rounded-full",
+                      isExpanded 
+                        ? "bg-primary/20 text-primary font-medium" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      {items.length} {items.length === 1 ? 'item' : 'items'}
+                    </span>
                   </button>
-                ))}
-              </div>
-            </div>
-          ))}
+                </CollapsibleTrigger>
+
+                {/* Section Content */}
+                <CollapsibleContent>
+                  <div className={cn(
+                    "border-2 border-t-0 border-primary rounded-b-lg p-3 bg-card"
+                  )}>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {items.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => onSelect(item)}
+                          className={cn(
+                            "flex items-center justify-center p-4 min-h-[64px] rounded-lg",
+                            "bg-background border-2 border-border",
+                            "hover:border-primary hover:bg-accent",
+                            "active:scale-95 active:bg-primary/10",
+                            "transition-all duration-150 touch-manipulation"
+                          )}
+                        >
+                          <span className="font-mono text-xl font-bold text-foreground">
+                            {item.identifier}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
         </div>
       )}
     </div>
