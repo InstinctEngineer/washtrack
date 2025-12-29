@@ -21,7 +21,9 @@ import Users from "./pages/Users";
 import Locations from "./pages/Locations";
 import Clients from "./pages/Clients";
 import SuperAdminDatabase from "./pages/SuperAdminDatabase";
-import Services from "./pages/Services";
+import WorkTypes from "./pages/WorkTypes";
+import RateCard from "./pages/RateCard";
+import WorkItems from "./pages/WorkItems";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
@@ -119,10 +121,26 @@ const App = () => (
               }
             />
             <Route
-              path="/admin/services"
+              path="/admin/work-types"
               element={
                 <ProtectedRoute allowedRoles={['finance', 'admin']}>
-                  <Services />
+                  <WorkTypes />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/rates"
+              element={
+                <ProtectedRoute allowedRoles={['finance', 'admin']}>
+                  <RateCard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/items"
+              element={
+                <ProtectedRoute allowedRoles={['finance', 'admin']}>
+                  <WorkItems />
                 </ProtectedRoute>
               }
             />

@@ -23,7 +23,8 @@ import {
   UserCircle,
   Building2,
   MessageSquare,
-  Wrench
+  Wrench,
+  Package
 } from 'lucide-react';
 import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
@@ -100,7 +101,9 @@ export const Layout = ({ children }: LayoutProps) => {
       navItems.push(
         { label: 'Users', icon: Users, path: '/admin/users', section: 'Administration' },
         { label: 'Clients', icon: Building2, path: '/admin/clients', section: 'Administration' },
-        { label: 'Services', icon: Wrench, path: '/admin/services', section: 'Administration' },
+        { label: 'Work Types', icon: Wrench, path: '/admin/work-types', section: 'Administration' },
+        { label: 'Rate Card', icon: DollarSign, path: '/admin/rates', section: 'Administration' },
+        { label: 'Work Items', icon: Package, path: '/admin/items', section: 'Administration' },
         { label: 'Locations', icon: MapPin, path: '/admin/locations', section: 'Administration' },
         { label: 'Settings', icon: Settings, path: '/admin/settings', section: 'Administration' }
       );
