@@ -202,7 +202,7 @@ export default function EmployeeDashboard() {
 
   // Date navigation handlers
   const canGoNext = !isToday(selectedDate);
-  const canGoPrev = cutoffDate ? startOfDay(selectedDate) > startOfDay(cutoffDate) : true;
+  const canGoPrev = true; // Employees can always navigate to past dates
   const isNotToday = !isToday(selectedDate);
 
   const handlePrevDay = () => {
@@ -446,6 +446,11 @@ export default function EmployeeDashboard() {
               <Truck className="h-5 w-5" />
               Vehicles / Equipment
             </CardTitle>
+            {pendingEntries.size === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Tap vehicles to select them, then submit all at once
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             {selectedLocationId && (
