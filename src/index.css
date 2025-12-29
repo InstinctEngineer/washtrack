@@ -121,3 +121,18 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Demo spotlight animation */
+@keyframes spotlight-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.5), 0 0 20px 8px hsl(var(--primary) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 6px hsl(var(--primary) / 0.7), 0 0 30px 12px hsl(var(--primary) / 0.4);
+  }
+}
+
+.demo-spotlight-ring {
+  animation: spotlight-pulse 1.5s ease-in-out infinite;
+  border: 3px solid hsl(var(--primary));
+}

@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { CutoffBanner } from '@/components/CutoffBanner';
 import { WorkItemGrid, WorkItemWithDetails } from '@/components/WorkItemGrid';
 import { LogWorkModal, RateConfigWithDetails } from '@/components/LogWorkModal';
+import { GuidedDemo } from '@/components/GuidedDemo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -476,13 +477,15 @@ export default function EmployeeDashboard() {
     <Layout>
       <div className="space-y-4 pb-8">
         {/* Header */}
-        <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">Log Work</h1>
+          <GuidedDemo />
         </div>
 
         {/* Date Navigation */}
-        <div className="flex items-center justify-between gap-2 p-3 bg-card border rounded-lg">
+        <div data-demo="date-nav" className="flex items-center justify-between gap-2 p-3 bg-card border rounded-lg">
           <Button
+            data-demo="prev-day"
             variant="ghost"
             size="icon"
             onClick={handlePrevDay}
@@ -512,6 +515,7 @@ export default function EmployeeDashboard() {
           </div>
           
           <Button
+            data-demo="next-day"
             variant="ghost"
             size="icon"
             onClick={handleNextDay}
@@ -543,7 +547,7 @@ export default function EmployeeDashboard() {
 
         {/* Location selector (only if multiple) */}
         {locations.length > 1 && (
-          <div className="flex items-center gap-3">
+          <div data-demo="location-select" className="flex items-center gap-3">
             <span className="text-sm font-medium">Location:</span>
             <Select value={selectedLocationId} onValueChange={setSelectedLocationId}>
               <SelectTrigger className="w-[200px]">
@@ -561,7 +565,7 @@ export default function EmployeeDashboard() {
         )}
 
         {/* Vehicles / Equipment Section */}
-        <Card>
+        <Card data-demo="vehicles-grid">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Truck className="h-5 w-5" />
@@ -588,7 +592,7 @@ export default function EmployeeDashboard() {
         {/* Selection Summary & Submit Button */}
         {pendingEntries.size > 0 && (
           <div className="space-y-3">
-            <Card className="border-green-500/50 bg-green-500/5">
+            <Card data-demo="selection-summary" className="border-green-500/50 bg-green-500/5">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -615,7 +619,7 @@ export default function EmployeeDashboard() {
             </Card>
 
             {/* Static Submit Button */}
-            <div>
+            <div data-demo="submit-button">
               <Button
                 onClick={handleBatchSubmit}
                 disabled={isSubmitting}
@@ -654,7 +658,7 @@ export default function EmployeeDashboard() {
             </CardContent>
           </Card>
         ) : hourlyConfigs.length > 0 && (
-          <Card>
+          <Card data-demo="hourly-services">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
@@ -685,7 +689,7 @@ export default function EmployeeDashboard() {
         )}
 
         {/* Recent Entries Section */}
-        <Card>
+        <Card data-demo="recent-entries">
           <CardHeader>
             <CardTitle>Recent Entries (Current Week)</CardTitle>
           </CardHeader>
@@ -757,6 +761,7 @@ export default function EmployeeDashboard() {
 
       {/* Floating Comment Button */}
       <button
+        data-demo="comment-button"
         onClick={() => setCommentModalOpen(true)}
         className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center"
         aria-label="Send message to finance"
