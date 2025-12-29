@@ -89,6 +89,9 @@ export default function EmployeeDashboard() {
   const [pendingEntries, setPendingEntries] = useState<Map<string, PendingEntry>>(new Map());
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Completed items (already logged today at this location by anyone)
+  const [completedWorkItemIds, setCompletedWorkItemIds] = useState<Set<string>>(new Set());
+  
   // Modal state (for hourly)
   const [selectedRateConfig, setSelectedRateConfig] = useState<RateConfigWithDetails | null>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -160,6 +163,27 @@ export default function EmployeeDashboard() {
 
     fetchHourlyConfigs();
   }, [selectedLocationId]);
+
+  // Fetch completed work items for selected date at this location (by anyone)
+  const fetchCompletedItems = useCallback(async () => {
+    if (!selectedLocationId) return;
+    
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    
+    const { data, error } = await supabase
+      .from('work_logs')
+      .select('work_item_id')
+      .eq('work_date', dateStr)
+      .not('work_item_id', 'is', null);
+    
+    if (!error && data) {
+      setCompletedWorkItemIds(new Set(data.map(d => d.work_item_id).filter(Boolean) as string[]));
+    }
+  }, [selectedLocationId, selectedDate]);
+
+  useEffect(() => {
+    fetchCompletedItems();
+  }, [fetchCompletedItems]);
 
   // Fetch recent work logs
   const fetchRecentLogs = useCallback(async () => {
@@ -259,11 +283,21 @@ export default function EmployeeDashboard() {
       
       const { error } = await supabase.from('work_logs').insert(entries);
       
-      if (error) throw error;
+      if (error) {
+        // Handle unique constraint violation
+        if (error.code === '23505') {
+          toast.error('Some items were already logged for this date');
+          await fetchCompletedItems();
+          setPendingEntries(new Map());
+          return;
+        }
+        throw error;
+      }
       
       toast.success(`Submitted ${pendingEntries.size} ${pendingEntries.size === 1 ? 'entry' : 'entries'}`);
       setPendingEntries(new Map());
       fetchRecentLogs();
+      fetchCompletedItems();
     } catch (error: any) {
       toast.error(error.message || 'Failed to submit entries');
     } finally {
@@ -457,6 +491,7 @@ export default function EmployeeDashboard() {
               <WorkItemGrid
                 locationId={selectedLocationId}
                 selectedIds={selectedWorkItemIds}
+                completedIds={completedWorkItemIds}
                 onToggle={handleWorkItemToggle}
               />
             )}
