@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format, subDays, addDays, isToday, isFuture, startOfDay } from 'date-fns';
+import { format, subDays, addDays, isToday, isFuture, startOfDay, startOfWeek } from 'date-fns';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -188,7 +188,7 @@ export default function EmployeeDashboard() {
     if (!selectedLocationId) return;
     
     setLoadingLogs(true);
-    const sevenDaysAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd');
+    const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd');
     
     // First get work_item_ids at this location
     const { data: workItemData } = await supabase
@@ -223,7 +223,7 @@ export default function EmployeeDashboard() {
           work_type:work_types(id, name, rate_type)
         )
       `)
-      .gte('work_date', sevenDaysAgo)
+      .gte('work_date', weekStart)
       .order('work_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(50);
