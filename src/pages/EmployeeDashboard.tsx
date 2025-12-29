@@ -395,7 +395,7 @@ export default function EmployeeDashboard() {
 
   return (
     <Layout>
-      <div className="space-y-4 pb-24">
+      <div className="space-y-4 pb-8">
         {/* Header */}
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold">Log Work</h1>
@@ -506,33 +506,62 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
 
-        {/* Selection Summary */}
+        {/* Selection Summary & Submit Button */}
         {pendingEntries.size > 0 && (
-          <Card className="border-green-500/50 bg-green-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <span className="font-bold text-green-600 dark:text-green-400">
-                      {pendingEntries.size}
+          <div className="space-y-3">
+            <Card className="border-green-500/50 bg-green-500/5">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <span className="font-bold text-green-600 dark:text-green-400">
+                        {pendingEntries.size}
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium">
+                      {pendingEntries.size === 1 ? 'vehicle' : 'vehicles'} selected
                     </span>
                   </div>
-                  <span className="text-sm font-medium">
-                    {pendingEntries.size === 1 ? 'vehicle' : 'vehicles'} selected
-                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearSelections}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClearSelections}
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Clear
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Static Submit Button */}
+            <div>
+              <Button
+                onClick={handleBatchSubmit}
+                disabled={isSubmitting}
+                className={cn(
+                  "w-full h-14 text-lg font-bold",
+                  "bg-green-600 hover:bg-green-700 text-white"
+                )}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-5 w-5 mr-2" />
+                    SUBMIT {pendingEntries.size} {pendingEntries.size === 1 ? 'ENTRY' : 'ENTRIES'}
+                  </>
+                )}
+              </Button>
+              <p className="text-center text-sm text-muted-foreground mt-2">
+                For {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+              </p>
+            </div>
+          </div>
         )}
 
         {/* Hourly Services Section */}
@@ -579,7 +608,7 @@ export default function EmployeeDashboard() {
         {/* Recent Entries Section */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Entries (Last 7 days)</CardTitle>
+            <CardTitle>Recent Entries (Current Week)</CardTitle>
           </CardHeader>
           <CardContent>
             {loadingLogs ? (
@@ -637,34 +666,6 @@ export default function EmployeeDashboard() {
         </Card>
       </div>
 
-      {/* Sticky Submit Button */}
-      {pendingEntries.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t shadow-lg z-40">
-          <Button
-            onClick={handleBatchSubmit}
-            disabled={isSubmitting}
-            className={cn(
-              "w-full h-16 text-lg font-bold",
-              "bg-green-600 hover:bg-green-700 text-white"
-            )}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Submitting...
-              </>
-            ) : (
-              <>
-                <Send className="h-5 w-5 mr-2" />
-                SUBMIT {pendingEntries.size} {pendingEntries.size === 1 ? 'ENTRY' : 'ENTRIES'}
-              </>
-            )}
-          </Button>
-          <p className="text-center text-sm text-muted-foreground mt-2">
-            For {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-          </p>
-        </div>
-      )}
 
       {/* Log Work Modal (for hourly) */}
       <LogWorkModal
