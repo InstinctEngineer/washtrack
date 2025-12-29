@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { Download, Eye, Settings2, FileSpreadsheet } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,6 +56,7 @@ export default function FinanceDashboard() {
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvRows, setCsvRows] = useState<string[][]>([]);
+  const [invoiceStartNumber, setInvoiceStartNumber] = useState<number>(1001);
 
   // Fetch report data when filters change
   useEffect(() => {
@@ -89,17 +92,9 @@ export default function FinanceDashboard() {
     if (config.columns) {
       setColumns(config.columns);
     }
-  };
-
-  const generateInvoiceNumber = (clientName: string, endDateStr: string) => {
-    const clientCode = clientName
-      .split(' ')
-      .map((word) => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 3);
-    const dateCode = endDateStr.replace(/-/g, '');
-    return `INV-${clientCode}-${dateCode}`;
+    if (config.invoiceStartNumber) {
+      setInvoiceStartNumber(config.invoiceStartNumber);
+    }
   };
 
   const calculateDueDate = (invoiceDate: Date, terms: string): string => {
@@ -173,12 +168,13 @@ export default function FinanceDashboard() {
     }
 
     const invoiceDate = endDate || new Date();
-    const endDateStr = format(invoiceDate, 'yyyy-MM-dd');
+    
+    // Generate rows for each invoice group with auto-incrementing invoice numbers
+    let currentInvoiceNumber = invoiceStartNumber;
 
-    // Generate rows for each invoice group
     for (const [key, groupRows] of grouped) {
-      const firstRow = groupRows[0];
-      const invoiceNumber = generateInvoiceNumber(firstRow.client_name || 'UNK', endDateStr);
+      const invoiceNumber = String(currentInvoiceNumber);
+      currentInvoiceNumber++;
 
       groupRows.forEach((row, rowIndex) => {
         const isFirstRow = rowIndex === 0;
@@ -249,7 +245,7 @@ export default function FinanceDashboard() {
             </p>
           </div>
           <TemplateManager
-            currentConfig={{ columns }}
+            currentConfig={{ columns, invoiceStartNumber }}
             onLoadTemplate={handleLoadTemplate}
           />
         </div>
@@ -320,7 +316,25 @@ export default function FinanceDashboard() {
               {columns.length} columns configured for export
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Invoice Number Start Setting */}
+            <div className="flex items-center gap-4">
+              <Label htmlFor="invoiceStart" className="whitespace-nowrap">
+                Invoice Number Start:
+              </Label>
+              <Input
+                id="invoiceStart"
+                type="number"
+                value={invoiceStartNumber}
+                onChange={(e) => setInvoiceStartNumber(parseInt(e.target.value) || 1001)}
+                className="w-32"
+                min={1}
+              />
+              <span className="text-sm text-muted-foreground">
+                Invoices will be numbered {invoiceStartNumber}, {invoiceStartNumber + 1}, {invoiceStartNumber + 2}...
+              </span>
+            </div>
+            
             <div className="flex gap-4">
               <Button variant="outline" onClick={handlePreviewCSV} disabled={reportData.length === 0}>
                 <Eye className="h-4 w-4 mr-2" />
