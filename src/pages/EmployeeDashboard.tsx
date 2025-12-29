@@ -183,17 +183,34 @@ export default function EmployeeDashboard() {
     fetchCompletedItems();
   }, [fetchCompletedItems]);
 
-  // Fetch recent work logs
+  // Fetch recent work logs for the selected location (all employees)
   const fetchRecentLogs = useCallback(async () => {
-    if (!user) return;
+    if (!selectedLocationId) return;
     
     setLoadingLogs(true);
     const sevenDaysAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd');
     
-    const { data, error } = await supabase
+    // First get work_item_ids at this location
+    const { data: workItemData } = await supabase
+      .from('work_items')
+      .select('id, rate_config:rate_configs!inner(location_id)')
+      .eq('rate_config.location_id', selectedLocationId);
+    
+    const workItemIds = workItemData?.map(wi => wi.id) || [];
+    
+    // Also get rate_config_ids at this location for hourly services
+    const { data: rateConfigData } = await supabase
+      .from('rate_configs')
+      .select('id')
+      .eq('location_id', selectedLocationId);
+    
+    const rateConfigIds = rateConfigData?.map(rc => rc.id) || [];
+    
+    // Fetch logs for work items OR direct rate configs at this location
+    let query = supabase
       .from('work_logs')
       .select(`
-        id, work_date, quantity, notes, created_at, work_item_id, rate_config_id,
+        id, work_date, quantity, notes, created_at, work_item_id, rate_config_id, employee_id,
         work_item:work_items(
           id, identifier,
           rate_config:rate_configs(
@@ -206,17 +223,33 @@ export default function EmployeeDashboard() {
           work_type:work_types(id, name, rate_type)
         )
       `)
-      .eq('employee_id', user.id)
       .gte('work_date', sevenDaysAgo)
       .order('work_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(50);
+    
+    // Build OR filter for work_item_id or rate_config_id
+    const orConditions: string[] = [];
+    if (workItemIds.length > 0) {
+      orConditions.push(`work_item_id.in.(${workItemIds.join(',')})`);
+    }
+    if (rateConfigIds.length > 0) {
+      orConditions.push(`rate_config_id.in.(${rateConfigIds.join(',')})`);
+    }
+    
+    if (orConditions.length === 0) {
+      setRecentLogs([]);
+      setLoadingLogs(false);
+      return;
+    }
+    
+    const { data, error } = await query.or(orConditions.join(','));
 
     if (!error && data) {
       setRecentLogs(data as unknown as WorkLogWithDetails[]);
     }
     setLoadingLogs(false);
-  }, [user]);
+  }, [selectedLocationId]);
 
   useEffect(() => {
     fetchRecentLogs();
