@@ -14,6 +14,7 @@ export interface ReportTemplateConfig {
   defaultTerms?: string;
   defaultClass?: string;
   invoiceDateMode?: 'export_date' | 'end_date';
+  invoiceStartNumber?: number;
 }
 
 interface Template {
