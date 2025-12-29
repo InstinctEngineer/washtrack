@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, Clock, Truck, Trash2, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2 } from 'lucide-react';
+import { AlertCircle, Clock, Truck, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { cn } from '@/lib/utils';
@@ -96,8 +96,6 @@ export default function EmployeeDashboard() {
   const [selectedRateConfig, setSelectedRateConfig] = useState<RateConfigWithDetails | null>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   
-  // Delete confirmation
-  const [deleteLogId, setDeleteLogId] = useState<string | null>(null);
 
   // Fetch cutoff date
   useEffect(() => {
@@ -319,25 +317,6 @@ export default function EmployeeDashboard() {
     fetchRecentLogs();
   };
 
-  const handleDeleteLog = async () => {
-    if (!deleteLogId) return;
-    
-    try {
-      const { error } = await supabase
-        .from('work_logs')
-        .delete()
-        .eq('id', deleteLogId);
-
-      if (error) throw error;
-      
-      toast.success('Entry deleted');
-      fetchRecentLogs();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete entry');
-    } finally {
-      setDeleteLogId(null);
-    }
-  };
 
   const getLogDisplayInfo = (log: WorkLogWithDetails) => {
     if (log.work_item_id && log.work_item) {
@@ -356,10 +335,6 @@ export default function EmployeeDashboard() {
     return { label: 'Unknown', typeName: null, isHourly: false };
   };
 
-  const canDeleteLog = (log: WorkLogWithDetails) => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    return log.work_date === today;
-  };
 
   if (!userLocations || userLocations.length === 0) {
     return (
@@ -591,7 +566,6 @@ export default function EmployeeDashboard() {
                     <TableHead>Date</TableHead>
                     <TableHead>Item / Service</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -619,18 +593,6 @@ export default function EmployeeDashboard() {
                         </TableCell>
                         <TableCell className="text-right">
                           {info.isHourly ? `${log.quantity}h` : log.quantity}
-                        </TableCell>
-                        <TableCell>
-                          {canDeleteLog(log) && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => setDeleteLogId(log.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -680,23 +642,6 @@ export default function EmployeeDashboard() {
         onSuccess={handleLogSuccess}
       />
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteLogId} onOpenChange={() => setDeleteLogId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Entry</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this work entry? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteLog} className="bg-destructive text-destructive-foreground">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Layout>
   );
 }
