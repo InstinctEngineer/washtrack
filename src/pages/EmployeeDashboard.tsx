@@ -198,7 +198,7 @@ export default function EmployeeDashboard() {
     if (!selectedLocationId) return;
     
     setLoadingLogs(true);
-    const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+    const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
     
     // First get work_item_ids at this location
     const { data: workItemData } = await supabase
@@ -382,7 +382,7 @@ export default function EmployeeDashboard() {
   const fetchRecentComments = useCallback(async () => {
     if (!user?.id) return;
     
-    const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+    const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
     
     const { data } = await supabase
       .from('employee_comments')
@@ -425,7 +425,7 @@ export default function EmployeeDashboard() {
     
     setSubmittingComment(true);
     try {
-      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
       
       const { error } = await supabase
         .from('employee_comments')

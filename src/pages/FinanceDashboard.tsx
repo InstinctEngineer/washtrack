@@ -38,8 +38,8 @@ const DEFAULT_COLUMNS: ExportColumn[] = [
 export default function FinanceDashboard() {
   // Date range state
   const today = new Date();
-  const [startDate, setStartDate] = useState<Date | undefined>(startOfWeek(today, { weekStartsOn: 0 }));
-  const [endDate, setEndDate] = useState<Date | undefined>(endOfWeek(today, { weekStartsOn: 0 }));
+  const [startDate, setStartDate] = useState<Date | undefined>(startOfWeek(today, { weekStartsOn: 1 }));
+  const [endDate, setEndDate] = useState<Date | undefined>(endOfWeek(today, { weekStartsOn: 1 }));
 
   // Filter state
   const [selectedClients, setSelectedClients] = useState<string[]>([]);

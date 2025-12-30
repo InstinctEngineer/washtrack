@@ -21,11 +21,11 @@ export function ReportDateRangePicker({
 }: ReportDateRangePickerProps) {
   const today = new Date();
   
-  // Week starts on Sunday (0)
-  const thisWeekStart = startOfWeek(today, { weekStartsOn: 0 });
-  const thisWeekEnd = endOfWeek(today, { weekStartsOn: 0 });
-  const lastWeekStart = startOfWeek(subWeeks(today, 1), { weekStartsOn: 0 });
-  const lastWeekEnd = endOfWeek(subWeeks(today, 1), { weekStartsOn: 0 });
+  // Week starts on Monday (1)
+  const thisWeekStart = startOfWeek(today, { weekStartsOn: 1 });
+  const thisWeekEnd = endOfWeek(today, { weekStartsOn: 1 });
+  const lastWeekStart = startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
+  const lastWeekEnd = endOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
   
   // Pay periods are the same as weeks for this system
   const thisPayPeriodStart = thisWeekStart;

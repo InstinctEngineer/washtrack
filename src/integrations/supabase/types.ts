@@ -1039,8 +1039,8 @@ export type Database = {
           rate_source: string
         }[]
       }
-      get_last_sunday: { Args: never; Returns: string }
-      get_next_saturday: { Args: never; Returns: string }
+      get_last_monday: { Args: never; Returns: string }
+      get_next_sunday: { Args: never; Returns: string }
       get_report_data: {
         Args: {
           p_client_ids?: string[]

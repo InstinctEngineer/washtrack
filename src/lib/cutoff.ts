@@ -33,26 +33,29 @@ export async function isBeforeCutoff(date: Date): Promise<boolean> {
 }
 
 /**
- * Calculate the last Sunday at 23:59:59
+ * Calculate the last Monday at 23:59:59 (start of current week)
  */
-export function getLastSunday(): Date {
+export function getLastMonday(): Date {
   const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
   
   let daysToSubtract: number;
-  if (dayOfWeek === 0) {
-    // If today is Sunday, use today
+  if (dayOfWeek === 1) {
+    // If today is Monday, use today
     daysToSubtract = 0;
+  } else if (dayOfWeek === 0) {
+    // If today is Sunday, go back 6 days to Monday
+    daysToSubtract = 6;
   } else {
-    // Otherwise, go back to previous Sunday
-    daysToSubtract = dayOfWeek;
+    // Otherwise, go back to previous Monday
+    daysToSubtract = dayOfWeek - 1;
   }
   
-  const lastSunday = new Date(today);
-  lastSunday.setDate(today.getDate() - daysToSubtract);
-  lastSunday.setHours(23, 59, 59, 999);
+  const lastMonday = new Date(today);
+  lastMonday.setDate(today.getDate() - daysToSubtract);
+  lastMonday.setHours(23, 59, 59, 999);
   
-  return lastSunday;
+  return lastMonday;
 }
 
 /**
@@ -63,13 +66,14 @@ export function canUserOverrideCutoff(userRole: UserRole): boolean {
 }
 
 /**
- * Get days until the next auto-cutoff (next Sunday)
+ * Get days until the next auto-cutoff (next Sunday - end of week)
  */
 export function getDaysUntilNextCutoff(): number {
   const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
   
-  // Calculate days until next Sunday
+  // Calculate days until next Sunday (end of week)
+  // Sunday = 0, so days until Sunday = 7 - dayOfWeek, but if Sunday then 7 days
   const daysUntilSunday = dayOfWeek === 0 ? 7 : (7 - dayOfWeek);
   
   return daysUntilSunday;

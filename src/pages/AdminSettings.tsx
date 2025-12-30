@@ -20,7 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { format, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
-import { getCurrentCutoff, getLastSunday, getDaysUntilNextCutoff, getCutoffStatusColor, extendCutoffByDays, updateCutoffDate } from '@/lib/cutoff';
+import { getCurrentCutoff, getLastMonday, getDaysUntilNextCutoff, getCutoffStatusColor, extendCutoffByDays, updateCutoffDate } from '@/lib/cutoff';
 import { SystemSettingsAudit } from '@/types/database';
 import { exportToExcel } from '@/lib/excelExporter';
 
@@ -422,17 +422,17 @@ export default function AdminSettings() {
     setShowExtendDialog(false);
   };
 
-  const handleResetToLastSunday = async () => {
+  const handleResetToLastMonday = async () => {
     if (!user) return;
 
     try {
-      const lastSunday = getLastSunday();
-      const result = await updateCutoffDate(lastSunday, user.id, 'Reset to last Sunday');
+      const lastMonday = getLastMonday();
+      const result = await updateCutoffDate(lastMonday, user.id, 'Reset to last Monday');
       
       if (result.success) {
         toast({
           title: 'Success',
-          description: `Cutoff date reset to ${format(lastSunday, 'PPP p')}`,
+          description: `Cutoff date reset to ${format(lastMonday, 'PPP p')}`,
         });
         await fetchData();
       } else {
@@ -569,7 +569,7 @@ export default function AdminSettings() {
                     Extend Cutoff by 1 Week
                   </Button>
                   <Button variant="outline" onClick={() => setShowResetDialog(true)}>
-                    Reset to Last Sunday
+                    Reset to Last Monday
                   </Button>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -847,16 +847,16 @@ export default function AdminSettings() {
       <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reset to Last Sunday?</AlertDialogTitle>
+            <AlertDialogTitle>Reset to Last Monday?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will set the cutoff to the end of the previous week. Employees can enter washes for the 7-day period ending on{' '}
-              {format(getLastSunday(), 'EEEE, MMMM d, yyyy')} at{' '}
-              {format(getLastSunday(), 'h:mm a')}.
+              This will set the cutoff to the start of the current week. Employees can enter work for the 7-day period starting on{' '}
+              {format(getLastMonday(), 'EEEE, MMMM d, yyyy')} at{' '}
+              {format(getLastMonday(), 'h:mm a')}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleResetToLastSunday}>
+            <AlertDialogAction onClick={handleResetToLastMonday}>
               Reset Cutoff
             </AlertDialogAction>
           </AlertDialogFooter>
