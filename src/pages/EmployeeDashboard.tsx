@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { format, subDays, addDays, isToday, isFuture, startOfDay, startOfWeek } from 'date-fns';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { format, subDays, addDays, isToday, isFuture, startOfDay, startOfWeek, parseISO, differenceInDays } from 'date-fns';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import { CutoffBanner } from '@/components/CutoffBanner';
 import { WorkItemGrid, WorkItemWithDetails } from '@/components/WorkItemGrid';
 import { LogWorkModal, RateConfigWithDetails } from '@/components/LogWorkModal';
 import { GuidedDemo } from '@/components/GuidedDemo';
+import { AddVehicleModal } from '@/components/AddVehicleModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,7 +17,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, Clock, Truck, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2, MessageSquare } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AlertCircle, Clock, Truck, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2, MessageSquare, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { cn } from '@/lib/utils';
@@ -98,6 +100,14 @@ export default function EmployeeDashboard() {
   // Modal state (for hourly)
   const [selectedRateConfig, setSelectedRateConfig] = useState<RateConfigWithDetails | null>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  
+  // Add vehicle modal state
+  const [addVehicleModalOpen, setAddVehicleModalOpen] = useState(false);
+  const [addVehiclePreselectedType, setAddVehiclePreselectedType] = useState<string>('');
+  const [vehicleRefreshKey, setVehicleRefreshKey] = useState(0);
+  
+  // Work type filter for recent entries
+  const [filterWorkType, setFilterWorkType] = useState<string>('all');
   
   // Comment modal state
   const [commentModalOpen, setCommentModalOpen] = useState(false);
@@ -367,15 +377,89 @@ export default function EmployeeDashboard() {
         label: log.work_item.identifier,
         typeName: log.work_item.rate_config?.work_type?.name || 'Unknown',
         isHourly: false,
+        workItemId: log.work_item_id,
       };
     } else if (log.rate_config_id && log.direct_rate_config) {
       return {
         label: log.direct_rate_config.work_type?.name || 'Unknown',
         typeName: null,
         isHourly: true,
+        workItemId: null,
       };
     }
-    return { label: 'Unknown', typeName: null, isHourly: false };
+    return { label: 'Unknown', typeName: null, isHourly: false, workItemId: null };
+  };
+
+  // Compute back-to-back day flags for work items
+  const backToBackFlags = useMemo(() => {
+    const flags = new Set<string>(); // Set of work_log IDs that are back-to-back
+    
+    // Only check logs with work_item_id (per-unit items, not hourly)
+    const perUnitLogs = recentLogs.filter(log => log.work_item_id);
+    
+    // Group by work_item_id
+    const logsByWorkItem: Record<string, WorkLogWithDetails[]> = {};
+    perUnitLogs.forEach(log => {
+      const key = log.work_item_id!;
+      if (!logsByWorkItem[key]) logsByWorkItem[key] = [];
+      logsByWorkItem[key].push(log);
+    });
+    
+    // For each work item, check for consecutive days
+    Object.values(logsByWorkItem).forEach(logs => {
+      if (logs.length < 2) return;
+      
+      // Sort by date
+      const sorted = [...logs].sort((a, b) => 
+        parseLocalDate(a.work_date).getTime() - parseLocalDate(b.work_date).getTime()
+      );
+      
+      for (let i = 1; i < sorted.length; i++) {
+        const prevDate = parseLocalDate(sorted[i - 1].work_date);
+        const currDate = parseLocalDate(sorted[i].work_date);
+        const diff = differenceInDays(currDate, prevDate);
+        
+        if (diff === 1) {
+          // Mark both as flagged
+          flags.add(sorted[i - 1].id);
+          flags.add(sorted[i].id);
+        }
+      }
+    });
+    
+    return flags;
+  }, [recentLogs]);
+
+  // Get unique work types from logs for filtering
+  const uniqueWorkTypes = useMemo(() => {
+    const types = new Set<string>();
+    recentLogs.forEach(log => {
+      const typeName = log.work_item?.rate_config?.work_type?.name 
+                    || log.direct_rate_config?.work_type?.name;
+      if (typeName) types.add(typeName);
+    });
+    return Array.from(types).sort();
+  }, [recentLogs]);
+
+  // Filter recent logs by work type
+  const filteredLogs = useMemo(() => {
+    if (filterWorkType === 'all') return recentLogs;
+    return recentLogs.filter(log => {
+      const typeName = log.work_item?.rate_config?.work_type?.name 
+                    || log.direct_rate_config?.work_type?.name;
+      return typeName === filterWorkType;
+    });
+  }, [recentLogs, filterWorkType]);
+
+  // Add vehicle handler
+  const handleAddVehicle = (typeName: string) => {
+    setAddVehiclePreselectedType(typeName);
+    setAddVehicleModalOpen(true);
+  };
+
+  const handleVehicleAdded = () => {
+    setVehicleRefreshKey(prev => prev + 1);
+    fetchCompletedItems();
   };
 
   // Fetch recent comments and replies for this week
@@ -584,6 +668,8 @@ export default function EmployeeDashboard() {
                 selectedIds={selectedWorkItemIds}
                 completedIds={completedWorkItemIds}
                 onToggle={handleWorkItemToggle}
+                onAddVehicle={handleAddVehicle}
+                refreshKey={vehicleRefreshKey}
               />
             )}
           </CardContent>
@@ -691,7 +777,22 @@ export default function EmployeeDashboard() {
         {/* Recent Entries Section */}
         <Card data-demo="recent-entries">
           <CardHeader>
-            <CardTitle>Recent Entries (Current Week)</CardTitle>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <CardTitle>Recent Entries (Current Week)</CardTitle>
+              {uniqueWorkTypes.length > 1 && (
+                <Select value={filterWorkType} onValueChange={setFilterWorkType}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    {uniqueWorkTypes.map(wt => (
+                      <SelectItem key={wt} value={wt}>{wt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {loadingLogs ? (
@@ -700,50 +801,66 @@ export default function EmployeeDashboard() {
                   <Skeleton key={i} className="h-12" />
                 ))}
               </div>
-            ) : recentLogs.length === 0 ? (
+            ) : filteredLogs.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
-                No entries in the last 7 days
+                {recentLogs.length === 0 ? 'No entries this week' : 'No entries match the selected filter'}
               </p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Item / Service</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentLogs.map((log) => {
-                    const info = getLogDisplayInfo(log);
-                    return (
-                      <TableRow key={log.id}>
-                        <TableCell className="font-medium">
-                          {format(parseLocalDate(log.work_date), 'MMM d')}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span>{info.label}</span>
-                            {info.typeName && (
-                              <Badge variant="outline" className="text-xs">
-                                {info.typeName}
-                              </Badge>
-                            )}
-                            {info.isHourly && (
-                              <Badge variant="secondary" className="text-xs">
-                                Hourly
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {info.isHourly ? `${log.quantity}h` : log.quantity}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <TooltipProvider>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Item / Service</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLogs.map((log) => {
+                      const info = getLogDisplayInfo(log);
+                      const isFlagged = backToBackFlags.has(log.id);
+                      
+                      return (
+                        <TableRow key={log.id} className={cn(isFlagged && "bg-amber-500/5")}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-1.5">
+                              {format(parseLocalDate(log.work_date), 'MMM d')}
+                              {isFlagged && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Back-to-back: This vehicle was also logged on consecutive day(s)</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span>{info.label}</span>
+                              {info.typeName && (
+                                <Badge variant="outline" className="text-xs">
+                                  {info.typeName}
+                                </Badge>
+                              )}
+                              {info.isHourly && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Hourly
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {info.isHourly ? `${log.quantity}h` : log.quantity}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TooltipProvider>
             )}
           </CardContent>
         </Card>
@@ -836,6 +953,17 @@ export default function EmployeeDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Vehicle Modal */}
+      {selectedLocationId && (
+        <AddVehicleModal
+          open={addVehicleModalOpen}
+          onOpenChange={setAddVehicleModalOpen}
+          locationId={selectedLocationId}
+          preselectedTypeName={addVehiclePreselectedType}
+          onSuccess={handleVehicleAdded}
+        />
+      )}
 
     </Layout>
   );

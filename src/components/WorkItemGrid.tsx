@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Package, ChevronRight, ChevronDown, Check } from 'lucide-react';
+import { Search, Package, ChevronRight, ChevronDown, Check, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -27,9 +27,11 @@ interface WorkItemGridProps {
   completedIds?: Set<string>;
   onToggle?: (workItem: WorkItemWithDetails) => void;
   onSelect?: (workItem: WorkItemWithDetails) => void;
+  onAddVehicle?: (typeName: string) => void;
+  refreshKey?: number;
 }
 
-export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, onSelect }: WorkItemGridProps) {
+export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, onSelect, onAddVehicle, refreshKey }: WorkItemGridProps) {
   const [workItems, setWorkItems] = useState<WorkItemWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,7 +90,7 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
     if (locationId) {
       fetchWorkItems();
     }
-  }, [locationId]);
+  }, [locationId, refreshKey]);
 
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return workItems;
@@ -290,6 +292,22 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                           </button>
                         );
                       })}
+                      
+                      {/* Add Vehicle Button */}
+                      {onAddVehicle && (
+                        <button
+                          onClick={() => onAddVehicle(typeName)}
+                          className={cn(
+                            "flex items-center justify-center gap-1 p-4 min-h-[64px] rounded-lg",
+                            "border-2 border-dashed border-muted-foreground/30",
+                            "hover:border-primary hover:bg-accent text-muted-foreground hover:text-primary",
+                            "transition-all duration-150 touch-manipulation active:scale-95"
+                          )}
+                        >
+                          <Plus className="h-5 w-5" />
+                          <span className="text-sm font-medium">Add</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </CollapsibleContent>
