@@ -651,6 +651,12 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
           />
         </div>
 
+        {/* Full-page click blocker - prevents clicking anywhere except demo elements */}
+        <div 
+          className="fixed inset-0 z-[9999] cursor-not-allowed"
+          onClick={(e) => e.stopPropagation()}
+        />
+
         {/* Highlight Ring - no dark overlay, just the ring with smooth transitions */}
         {animatedRect && !showingInteractionResult && (
           <div
