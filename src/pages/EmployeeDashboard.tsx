@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, subDays, addDays, isToday, isFuture, startOfDay, startOfWeek, parseISO, differenceInDays } from 'date-fns';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDemoMode } from '@/contexts/DemoModeContext';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { CutoffBanner } from '@/components/CutoffBanner';
 import { WorkItemGrid, WorkItemWithDetails } from '@/components/WorkItemGrid';
@@ -20,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { AlertCircle, Clock, Truck, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2, MessageSquare, AlertTriangle, Info } from 'lucide-react';
+import { AlertCircle, Clock, Truck, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2, MessageSquare, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { cn } from '@/lib/utils';
@@ -80,8 +78,6 @@ function parseLocalDate(dateStr: string): Date {
 
 export default function EmployeeDashboard() {
   const { user, userLocations } = useAuth();
-  const { isDemoMode } = useDemoMode();
-  const isMobile = useIsMobile();
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [hourlyConfigs, setHourlyConfigs] = useState<RateConfigWithDetails[]>([]);
@@ -325,14 +321,6 @@ export default function EmployeeDashboard() {
   const handleBatchSubmit = async () => {
     if (!user || pendingEntries.size === 0) return;
     
-    // Block submissions in demo mode
-    if (isDemoMode) {
-      toast.info('Demo Mode: Submissions are disabled during the tour. This is just a preview!', {
-        icon: <Info className="h-4 w-4" />,
-      });
-      return;
-    }
-    
     setIsSubmitting(true);
     try {
       const entries = Array.from(pendingEntries.values()).map(entry => ({
@@ -571,34 +559,31 @@ export default function EmployeeDashboard() {
 
   return (
     <Layout>
-      <div className={cn(isMobile ? "pb-4 space-y-2" : "pb-8 space-y-4")}>
+      <div className="space-y-4 pb-8">
         {/* Header */}
-        <div className={cn("flex items-center justify-between", isMobile ? "gap-1" : "gap-2")}>
-          <h1 className={cn("font-bold", isMobile ? "text-xl" : "text-2xl")}>Log Work</h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-2xl font-bold">Log Work</h1>
           <GuidedDemo />
         </div>
 
         {/* Date Navigation */}
-        <div data-demo="date-nav" className={cn(
-          "flex items-center justify-between bg-card border rounded-lg",
-          isMobile ? "p-1.5 gap-0.5" : "p-3 gap-1"
-        )}>
+        <div data-demo="date-nav" className="flex items-center justify-between gap-2 p-3 bg-card border rounded-lg">
           <Button
             data-demo="prev-day"
             variant="ghost"
             size="icon"
             onClick={handlePrevDay}
             disabled={!canGoPrev}
-            className={cn("shrink-0", isMobile ? "h-10 w-10" : "h-12 w-12")}
+            className="h-12 w-12 shrink-0"
           >
-            <ChevronLeft className={isMobile ? "h-5 w-5" : "h-6 w-6"} />
+            <ChevronLeft className="h-6 w-6" />
           </Button>
           
-          <div className="flex-1 text-center min-w-0">
-            <div className="flex items-center justify-center gap-1.5">
-              <CalendarDays className={cn("text-muted-foreground shrink-0", isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
-              <span className={cn("font-semibold truncate", isMobile ? "text-sm" : "text-base")}>
-                {format(selectedDate, isMobile ? 'EEE, MMM d' : 'EEE, MMM d, yyyy')}
+          <div className="flex-1 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <span className="font-semibold text-base">
+                {format(selectedDate, 'EEE, MMM d, yyyy')}
               </span>
             </div>
             {isNotToday && (
@@ -606,7 +591,7 @@ export default function EmployeeDashboard() {
                 variant="link"
                 size="sm"
                 onClick={handleGoToToday}
-                className={cn("text-primary p-0 h-auto", isMobile ? "text-xs mt-0.5" : "mt-1")}
+                className="text-primary p-0 h-auto mt-1"
               >
                 Go to Today
               </Button>
@@ -619,30 +604,25 @@ export default function EmployeeDashboard() {
             size="icon"
             onClick={handleNextDay}
             disabled={!canGoNext}
-            className={cn("shrink-0", isMobile ? "h-10 w-10" : "h-12 w-12")}
+            className="h-12 w-12 shrink-0"
           >
-            <ChevronRight className={isMobile ? "h-5 w-5" : "h-6 w-6"} />
+            <ChevronRight className="h-6 w-6" />
           </Button>
         </div>
 
         {/* Past Date Warning Banner */}
         {isNotToday && (
-          <div data-demo="past-date-banner" className="sticky top-0 z-50 animate-pulse">
-            <div className={cn(
-              "bg-amber-500 text-white rounded-lg shadow-lg",
-              isMobile ? "px-3 py-2" : "px-4 py-3"
-            )}>
+          <div className="sticky top-0 z-50 animate-pulse">
+            <div className="bg-amber-500 text-white px-4 py-3 rounded-lg shadow-lg">
               <div className="flex items-center justify-center gap-2">
-                <AlertCircle className={cn("shrink-0", isMobile ? "h-4 w-4" : "h-5 w-5")} />
-                <span className={cn("font-bold text-center", isMobile ? "text-sm" : "text-base")}>
-                  LOGGING FOR {format(selectedDate, isMobile ? 'MMM d, yyyy' : 'MMMM d, yyyy').toUpperCase()}
+                <AlertCircle className="h-5 w-5 shrink-0" />
+                <span className="font-bold text-center">
+                  LOGGING FOR {format(selectedDate, 'MMMM d, yyyy').toUpperCase()}
                 </span>
               </div>
-              {!isMobile && (
-                <p className="text-center text-sm mt-1 text-amber-100">
-                  Entries will be recorded for this past date
-                </p>
-              )}
+              <p className="text-center text-sm mt-1 text-amber-100">
+                Entries will be recorded for this past date
+              </p>
             </div>
           </div>
         )}
@@ -669,19 +649,19 @@ export default function EmployeeDashboard() {
         )}
 
         {/* Vehicles / Equipment Section */}
-        <Card data-demo="vehicles-grid" className={isMobile ? "border-0 shadow-none" : undefined}>
-          <CardHeader className={isMobile ? "px-0 py-2" : undefined}>
-            <CardTitle className={cn("flex items-center gap-2", isMobile && "text-sm")}>
-              <Truck className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
+        <Card data-demo="vehicles-grid">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
               Vehicles / Equipment
             </CardTitle>
-            {pendingEntries.size === 0 && !isMobile && (
+            {pendingEntries.size === 0 && (
               <p className="text-sm text-muted-foreground">
                 Tap vehicles to select them, then submit all at once
               </p>
             )}
           </CardHeader>
-          <CardContent className={isMobile ? "px-0" : undefined}>
+          <CardContent>
             {selectedLocationId && (
               <WorkItemGrid
                 locationId={selectedLocationId}
@@ -695,42 +675,32 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
 
-        {/* Selection Summary & Submit Button - Always show in demo mode */}
-        {(pendingEntries.size > 0 || isDemoMode) && (
-          <div className={isMobile ? "space-y-2" : "space-y-3"}>
-            <Card data-demo="selection-summary" className={cn(
-              "border-green-500/50 bg-green-500/5",
-              isDemoMode && pendingEntries.size === 0 && "border-dashed opacity-75"
-            )}>
-              <CardContent className={isMobile ? "p-2" : "p-4"}>
-                {isDemoMode && pendingEntries.size === 0 ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Info className="h-4 w-4" />
-                    <span className="text-sm">Selection summary appears here when vehicles are selected</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                        <span className="font-bold text-green-600 dark:text-green-400">
-                          {pendingEntries.size}
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium">
-                        {pendingEntries.size === 1 ? 'vehicle' : 'vehicles'} selected
+        {/* Selection Summary & Submit Button */}
+        {pendingEntries.size > 0 && (
+          <div className="space-y-3">
+            <Card data-demo="selection-summary" className="border-green-500/50 bg-green-500/5">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <span className="font-bold text-green-600 dark:text-green-400">
+                        {pendingEntries.size}
                       </span>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleClearSelections}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Clear
-                    </Button>
+                    <span className="text-sm font-medium">
+                      {pendingEntries.size === 1 ? 'vehicle' : 'vehicles'} selected
+                    </span>
                   </div>
-                )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearSelections}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
@@ -738,23 +708,16 @@ export default function EmployeeDashboard() {
             <div data-demo="submit-button">
               <Button
                 onClick={handleBatchSubmit}
-                disabled={isSubmitting || (isDemoMode && pendingEntries.size === 0)}
+                disabled={isSubmitting}
                 className={cn(
-                  "w-full font-bold",
-                  isMobile ? "h-11 text-base" : "h-14 text-lg",
-                  "bg-green-600 hover:bg-green-700 text-white",
-                  isDemoMode && pendingEntries.size === 0 && "opacity-75"
+                  "w-full h-14 text-lg font-bold",
+                  "bg-green-600 hover:bg-green-700 text-white"
                 )}
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                     Submitting...
-                  </>
-                ) : isDemoMode && pendingEntries.size === 0 ? (
-                  <>
-                    <Send className="h-5 w-5 mr-2" />
-                    SUBMIT ENTRIES
                   </>
                 ) : (
                   <>
@@ -764,14 +727,7 @@ export default function EmployeeDashboard() {
                 )}
               </Button>
               <p className="text-center text-sm text-muted-foreground mt-2">
-                {isDemoMode ? (
-                  <span className="flex items-center justify-center gap-1">
-                    <Info className="h-3 w-3" />
-                    Demo Mode: Submissions are disabled
-                  </span>
-                ) : (
-                  `For ${format(selectedDate, 'EEEE, MMMM d, yyyy')}`
-                )}
+                For {format(selectedDate, 'EEEE, MMMM d, yyyy')}
               </p>
             </div>
           </div>
@@ -788,36 +744,27 @@ export default function EmployeeDashboard() {
             </CardContent>
           </Card>
         ) : hourlyConfigs.length > 0 && (
-          <Card data-demo="hourly-services" className={isMobile ? "border-0 shadow-none" : undefined}>
-            <CardHeader className={isMobile ? "px-0 py-2" : undefined}>
-              <CardTitle className={cn("flex items-center gap-2", isMobile && "text-sm")}>
-                <Clock className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
+          <Card data-demo="hourly-services">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
                 Hourly Services
               </CardTitle>
             </CardHeader>
-            <CardContent className={isMobile ? "px-0" : undefined}>
+            <CardContent>
               <div className="space-y-2">
                 {hourlyConfigs.map((config) => (
                   <div
                     key={config.id}
-                    className={cn(
-                      "rounded-lg border bg-card",
-                      isMobile ? "p-3 space-y-2" : "flex items-center justify-between p-3"
-                    )}
+                    className="flex items-center justify-between p-3 rounded-lg border bg-card"
                   >
-                    <div className={cn("flex items-center gap-2", isMobile && "flex-wrap")}>
-                      <span className={cn("font-medium", isMobile && "text-sm")}>{config.work_type.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">{config.work_type.name}</span>
                       {config.rate && (
-                        <Badge variant="secondary" className={isMobile ? "text-xs" : undefined}>
-                          ${config.rate.toFixed(2)}/hr
-                        </Badge>
+                        <Badge variant="secondary">${config.rate.toFixed(2)}/hr</Badge>
                       )}
                     </div>
-                    <Button 
-                      size={isMobile ? "default" : "sm"} 
-                      className={isMobile ? "w-full" : undefined}
-                      onClick={() => handleHourlySelect(config)}
-                    >
+                    <Button size="sm" onClick={() => handleHourlySelect(config)}>
                       Log Hours
                     </Button>
                   </div>
@@ -828,13 +775,13 @@ export default function EmployeeDashboard() {
         )}
 
         {/* Recent Entries Section */}
-        <Card data-demo="recent-entries" className={isMobile ? "border-0 shadow-none" : undefined}>
-          <CardHeader className={isMobile ? "px-0 py-2" : undefined}>
-            <div className={cn("flex items-center justify-between gap-2", isMobile && "flex-col items-start gap-1")}>
-              <CardTitle className={isMobile ? "text-sm" : undefined}>Recent Entries (Current Week)</CardTitle>
+        <Card data-demo="recent-entries">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <CardTitle>Recent Entries (Current Week)</CardTitle>
               {uniqueWorkTypes.length > 1 && (
                 <Select value={filterWorkType} onValueChange={setFilterWorkType}>
-                  <SelectTrigger className={isMobile ? "w-full" : "w-[150px]"}>
+                  <SelectTrigger className="w-[150px]">
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -847,7 +794,7 @@ export default function EmployeeDashboard() {
               )}
             </div>
           </CardHeader>
-          <CardContent className={isMobile ? "px-0" : undefined}>
+          <CardContent>
             {loadingLogs ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -860,14 +807,13 @@ export default function EmployeeDashboard() {
               </p>
             ) : (
               <TooltipProvider>
-                <div className={isMobile ? "overflow-x-auto -mx-3 px-3" : undefined}>
-                  <Table className={isMobile ? "text-sm" : undefined}>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className={isMobile ? "w-[60px]" : undefined}>Date</TableHead>
-                        <TableHead>Item / Service</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
-                      </TableRow>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Item / Service</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                    </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredLogs.map((log) => {
@@ -914,7 +860,6 @@ export default function EmployeeDashboard() {
                     })}
                   </TableBody>
                 </Table>
-                </div>
               </TooltipProvider>
             )}
           </CardContent>
@@ -935,13 +880,10 @@ export default function EmployeeDashboard() {
       <button
         data-demo="comment-button"
         onClick={() => setCommentModalOpen(true)}
-        className={cn(
-          "fixed z-50 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center",
-          isMobile ? "bottom-4 right-4 h-12 w-12" : "bottom-6 right-6 h-14 w-14"
-        )}
+        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center"
         aria-label="Send message to finance"
       >
-        <MessageSquare className={isMobile ? "h-5 w-5" : "h-6 w-6"} />
+        <MessageSquare className="h-6 w-6" />
       </button>
 
       {/* Comment Modal */}

@@ -132,7 +132,7 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div className="min-h-screen bg-background">
       {/* Top Navigation */}
       <header className="border-b bg-card sticky top-0 z-50">
         <div className="flex h-16 items-center justify-between px-4 lg:px-8">
@@ -194,22 +194,13 @@ export const Layout = ({ children }: LayoutProps) => {
         {/* Side Navigation */}
         <aside className={`
           fixed lg:sticky top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64 
-          border-r transition-all duration-300 ease-in-out lg:translate-x-0 lg:visible relative
-          ${mobileMenuOpen ? 'translate-x-0 visible' : '-translate-x-full invisible lg:visible'}
-        `}
-        style={{ 
-          backgroundColor: 'hsl(var(--sidebar-background))',
-          borderColor: 'hsl(var(--sidebar-border))',
-          color: 'hsl(var(--sidebar-foreground))'
-        }}
-        >
-          {/* Accent bar */}
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#2d8cc4] via-[#1e3a5f] to-[#2d8cc4]" />
-          
-          <nav className="flex flex-col gap-4 p-4 pl-5">
+          border-r bg-card transition-transform lg:translate-x-0
+          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+          <nav className="flex flex-col gap-4 p-4">
             {Object.entries(groupedNavItems).map(([section, items]) => (
               <div key={section} className="space-y-1">
-                <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--sidebar-foreground) / 0.6)' }}>
+                <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   {section}
                 </h3>
                 {items.map((item) => {
@@ -220,26 +211,11 @@ export const Layout = ({ children }: LayoutProps) => {
                       to={item.path}
                       className={`
                         flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+                        ${isActive 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'hover:bg-accent hover:text-accent-foreground'
+                        }
                       `}
-                      style={isActive 
-                        ? { 
-                            backgroundColor: 'hsl(var(--sidebar-primary))',
-                            color: 'hsl(var(--sidebar-primary-foreground))'
-                          }
-                        : { 
-                            color: 'hsl(var(--sidebar-foreground))'
-                          }
-                      }
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = 'hsl(var(--sidebar-accent))';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }
-                      }}
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       <item.icon className="h-4 w-4" />
@@ -261,7 +237,7 @@ export const Layout = ({ children }: LayoutProps) => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-3 sm:p-4 lg:p-8">
+        <main className="flex-1 p-4 lg:p-8">
           {children}
         </main>
       </div>
