@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Eye } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { Info, X, ChevronRight, ChevronLeft, CalendarDays, MapPin, Truck, Send, Clock, Table2, MessageSquare, Play, CheckCircle2, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -197,6 +198,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [completedFeatures, setCompletedFeatures] = useState<Set<string>>(new Set());
+  const [showingInteractionResult, setShowingInteractionResult] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const isDemoActive = activeFeature !== null;
@@ -603,11 +605,12 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
           />
         </div>
 
-        {/* Dark overlay - NO onClick to exit */}
+        {/* Dark overlay - fades out during interaction to show result */}
         <div
           ref={overlayRef}
-          className="fixed inset-0 z-[10000] pointer-events-none"
+          className="fixed inset-0 z-[10000] pointer-events-none transition-opacity duration-300"
           style={{
+            opacity: showingInteractionResult ? 0 : 1,
             background: targetRect
               ? `radial-gradient(
                   ellipse ${targetRect.width + spotlightPadding * 2}px ${targetRect.height + spotlightPadding * 2}px at ${targetRect.left + targetRect.width / 2}px ${targetRect.top + targetRect.height / 2}px,
@@ -620,7 +623,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
         />
 
         {/* Clickable area around spotlight to allow interaction */}
-        {targetRect && (
+        {targetRect && !showingInteractionResult && (
           <div
             className="fixed z-[10001] pointer-events-auto cursor-pointer"
             style={{
@@ -636,24 +639,26 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
               if (target instanceof HTMLElement) {
                 target.click();
               }
-              // For interactive steps, auto-advance after click
+              // For interactive steps, fade overlay and show result
               if (currentStep?.type === 'interactive') {
+                setShowingInteractionResult(true);
                 setTimeout(() => {
+                  setShowingInteractionResult(false);
                   if (currentStep.successMessage) {
                     toast.success(currentStep.successMessage);
                   }
                   nextStep();
-                }, 300);
+                }, 1200);
               }
             }}
           />
         )}
 
         {/* Spotlight border/glow effect - pulsing green for interactive steps */}
-        {targetRect && (
+        {targetRect && !showingInteractionResult && (
           <div
             className={cn(
-              "fixed z-[10001] pointer-events-none",
+              "fixed z-[10001] pointer-events-none transition-opacity duration-300",
               currentStep?.type === 'interactive' 
                 ? "animate-demo-pulse" 
                 : "demo-spotlight-ring"
@@ -671,8 +676,16 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
           />
         )}
 
-        {/* Tooltip Card */}
-        {currentStep && (
+        {/* "See what happened" indicator during interaction result viewing */}
+        {showingInteractionResult && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[10003] bg-success text-success-foreground px-5 py-3 rounded-full shadow-lg flex items-center gap-2">
+            <Eye className="h-5 w-5" />
+            <span className="font-medium">See what happened...</span>
+          </div>
+        )}
+
+        {/* Tooltip Card - hidden during interaction result viewing */}
+        {currentStep && !showingInteractionResult && (
           <Card
             className="shadow-2xl border-2 border-primary pointer-events-auto"
             style={getTooltipStyle()}
