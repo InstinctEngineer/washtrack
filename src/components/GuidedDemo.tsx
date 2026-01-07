@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Info, X, ChevronRight, CalendarDays, MapPin, Truck, Send, Clock, Table2, MessageSquare, Play, CheckCircle2, SkipForward } from 'lucide-react';
+import { Info, X, ChevronRight, ChevronLeft, CalendarDays, MapPin, Truck, Send, Clock, Table2, MessageSquare, Play, CheckCircle2, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useDemoMode } from '@/contexts/DemoModeContext';
 import { toast } from 'sonner';
@@ -179,6 +180,7 @@ interface GuidedDemoProps {
 export function GuidedDemo({ className }: GuidedDemoProps) {
   const { setDemoMode, skippedSteps, addSkippedStep, resetSkippedSteps } = useDemoMode();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [stepHistory, setStepHistory] = useState<{ featureId: string; stepIndex: number }[]>([]);
   const [activeFeature, setActiveFeature] = useState<DemoFeature | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -294,6 +296,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
   const startFeatureDemo = (feature: DemoFeature) => {
     setMenuOpen(false);
     resetSkippedSteps();
+    setStepHistory([]);
     
     // Find first valid step
     const validStep = findNextValidStep(feature, 0);
@@ -311,6 +314,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
   const startFullTour = () => {
     setMenuOpen(false);
     resetSkippedSteps();
+    setStepHistory([]);
     
     // Find first valid feature and step
     for (let i = 0; i < DEMO_FEATURES.length; i++) {
@@ -329,6 +333,9 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
 
   const nextStep = () => {
     if (!activeFeature) return;
+
+    // Save current position to history before moving
+    setStepHistory(prev => [...prev, { featureId: activeFeature.id, stepIndex: currentStepIndex }]);
 
     if (isLastStep) {
       // Mark feature as completed
@@ -369,10 +376,24 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
     }
   };
 
+  const prevStep = () => {
+    if (stepHistory.length === 0) return;
+    
+    const previousPosition = stepHistory[stepHistory.length - 1];
+    setStepHistory(prev => prev.slice(0, -1));
+    
+    const feature = DEMO_FEATURES.find(f => f.id === previousPosition.featureId);
+    if (feature) {
+      setActiveFeature(feature);
+      setCurrentStepIndex(previousPosition.stepIndex);
+    }
+  };
+
   const exitDemo = () => {
     setActiveFeature(null);
     setCurrentStepIndex(0);
     setTargetRect(null);
+    setStepHistory([]);
     setDemoMode(false);
   };
 
@@ -500,11 +521,31 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
     }
   };
 
-  // Calculate progress through tour
+  // Calculate progress through tour (overall step count across all features)
   const getTourProgress = () => {
     const currentFeatureIndex = DEMO_FEATURES.findIndex(f => f.id === activeFeature?.id);
-    const totalFeatures = DEMO_FEATURES.length;
-    return { current: currentFeatureIndex + 1, total: totalFeatures };
+    
+    // Calculate total steps and current step number
+    let totalSteps = 0;
+    let currentStepNumber = 0;
+    
+    for (let i = 0; i < DEMO_FEATURES.length; i++) {
+      const feature = DEMO_FEATURES[i];
+      if (i < currentFeatureIndex) {
+        currentStepNumber += feature.steps.length;
+      } else if (i === currentFeatureIndex) {
+        currentStepNumber += currentStepIndex + 1;
+      }
+      totalSteps += feature.steps.length;
+    }
+    
+    return { 
+      currentStep: currentStepNumber, 
+      totalSteps,
+      currentFeature: currentFeatureIndex + 1, 
+      totalFeatures: DEMO_FEATURES.length,
+      percentage: Math.round((currentStepNumber / totalSteps) * 100)
+    };
   };
 
   // Render demo overlay with spotlight
@@ -516,31 +557,38 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
 
     return createPortal(
       <>
-        {/* Demo Mode Banner */}
-        <div className="fixed top-0 left-0 right-0 z-[10003] bg-primary text-primary-foreground py-2 px-4">
-          <div className="flex items-center justify-between max-w-screen-lg mx-auto">
-            <div className="flex items-center gap-2">
-              <Info className="h-4 w-4 animate-pulse" />
-              <span className="text-sm font-medium">Demo Mode</span>
-              <span className="text-sm opacity-75">
-                - {activeFeature?.name} ({progress.current}/{progress.total})
-              </span>
-              {skippedSteps > 0 && (
-                <span className="text-xs bg-primary-foreground/20 px-2 py-0.5 rounded">
-                  {skippedSteps} skipped
+        {/* Demo Mode Banner with Progress */}
+        <div className="fixed top-0 left-0 right-0 z-[10003] bg-primary text-primary-foreground">
+          <div className="py-2 px-4">
+            <div className="flex items-center justify-between max-w-screen-lg mx-auto">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 animate-pulse" />
+                <span className="text-sm font-medium">Demo Mode</span>
+                <span className="text-sm opacity-75">
+                  - {activeFeature?.name} (Step {progress.currentStep}/{progress.totalSteps})
                 </span>
-              )}
+                {skippedSteps > 0 && (
+                  <span className="text-xs bg-primary-foreground/20 px-2 py-0.5 rounded">
+                    {skippedSteps} skipped
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={exitDemo}
+                className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Exit Demo
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={exitDemo}
-              className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/20"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Exit Demo
-            </Button>
           </div>
+          {/* Progress Bar */}
+          <Progress 
+            value={progress.percentage} 
+            className="h-1 rounded-none bg-primary-foreground/20"
+          />
         </div>
 
         {/* Dark overlay - NO onClick to exit */}
@@ -631,19 +679,30 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                   : currentStep.description
                 }
               </p>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <Button variant="ghost" size="sm" onClick={exitDemo}>
                   Skip Tour
                 </Button>
-                <Button size="sm" onClick={nextStep}>
-                  {isLastStep && DEMO_FEATURES.findIndex(f => f.id === activeFeature?.id) === DEMO_FEATURES.length - 1 
-                    ? 'Finish Tour' 
-                    : isLastStep 
-                      ? 'Next Feature' 
-                      : 'Next'
-                  }
-                  {!isLastStep && <ChevronRight className="h-4 w-4 ml-1" />}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={prevStep}
+                    disabled={stepHistory.length === 0}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Back
+                  </Button>
+                  <Button size="sm" onClick={nextStep}>
+                    {isLastStep && DEMO_FEATURES.findIndex(f => f.id === activeFeature?.id) === DEMO_FEATURES.length - 1 
+                      ? 'Finish Tour' 
+                      : isLastStep 
+                        ? 'Next Feature' 
+                        : 'Next'
+                    }
+                    {!isLastStep && <ChevronRight className="h-4 w-4 ml-1" />}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
