@@ -3,6 +3,7 @@ import { format, subDays, addDays, isToday, isFuture, startOfDay, startOfWeek, p
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDemoMode } from '@/contexts/DemoModeContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { CutoffBanner } from '@/components/CutoffBanner';
 import { WorkItemGrid, WorkItemWithDetails } from '@/components/WorkItemGrid';
@@ -80,6 +81,7 @@ function parseLocalDate(dateStr: string): Date {
 export default function EmployeeDashboard() {
   const { user, userLocations } = useAuth();
   const { isDemoMode } = useDemoMode();
+  const isMobile = useIsMobile();
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [hourlyConfigs, setHourlyConfigs] = useState<RateConfigWithDetails[]>([]);
@@ -577,23 +579,26 @@ export default function EmployeeDashboard() {
         </div>
 
         {/* Date Navigation */}
-        <div data-demo="date-nav" className="flex items-center justify-between gap-2 p-3 bg-card border rounded-lg">
+        <div data-demo="date-nav" className={cn(
+          "flex items-center justify-between gap-1 bg-card border rounded-lg",
+          isMobile ? "p-2" : "p-3"
+        )}>
           <Button
             data-demo="prev-day"
             variant="ghost"
             size="icon"
             onClick={handlePrevDay}
             disabled={!canGoPrev}
-            className="h-12 w-12 shrink-0"
+            className={cn("shrink-0", isMobile ? "h-10 w-10" : "h-12 w-12")}
           >
-            <ChevronLeft className="h-6 w-6" />
+            <ChevronLeft className={isMobile ? "h-5 w-5" : "h-6 w-6"} />
           </Button>
           
-          <div className="flex-1 text-center">
-            <div className="flex items-center justify-center gap-2">
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-              <span className="font-semibold text-base">
-                {format(selectedDate, 'EEE, MMM d, yyyy')}
+          <div className="flex-1 text-center min-w-0">
+            <div className="flex items-center justify-center gap-1.5">
+              <CalendarDays className={cn("text-muted-foreground shrink-0", isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
+              <span className={cn("font-semibold truncate", isMobile ? "text-sm" : "text-base")}>
+                {format(selectedDate, isMobile ? 'EEE, MMM d' : 'EEE, MMM d, yyyy')}
               </span>
             </div>
             {isNotToday && (
@@ -601,7 +606,7 @@ export default function EmployeeDashboard() {
                 variant="link"
                 size="sm"
                 onClick={handleGoToToday}
-                className="text-primary p-0 h-auto mt-1"
+                className={cn("text-primary p-0 h-auto", isMobile ? "text-xs mt-0.5" : "mt-1")}
               >
                 Go to Today
               </Button>
@@ -614,25 +619,30 @@ export default function EmployeeDashboard() {
             size="icon"
             onClick={handleNextDay}
             disabled={!canGoNext}
-            className="h-12 w-12 shrink-0"
+            className={cn("shrink-0", isMobile ? "h-10 w-10" : "h-12 w-12")}
           >
-            <ChevronRight className="h-6 w-6" />
+            <ChevronRight className={isMobile ? "h-5 w-5" : "h-6 w-6"} />
           </Button>
         </div>
 
         {/* Past Date Warning Banner */}
         {isNotToday && (
-          <div className="sticky top-0 z-50 animate-pulse">
-            <div className="bg-amber-500 text-white px-4 py-3 rounded-lg shadow-lg">
+          <div data-demo="past-date-banner" className="sticky top-0 z-50 animate-pulse">
+            <div className={cn(
+              "bg-amber-500 text-white rounded-lg shadow-lg",
+              isMobile ? "px-3 py-2" : "px-4 py-3"
+            )}>
               <div className="flex items-center justify-center gap-2">
-                <AlertCircle className="h-5 w-5 shrink-0" />
-                <span className="font-bold text-center">
-                  LOGGING FOR {format(selectedDate, 'MMMM d, yyyy').toUpperCase()}
+                <AlertCircle className={cn("shrink-0", isMobile ? "h-4 w-4" : "h-5 w-5")} />
+                <span className={cn("font-bold text-center", isMobile ? "text-sm" : "text-base")}>
+                  LOGGING FOR {format(selectedDate, isMobile ? 'MMM d, yyyy' : 'MMMM d, yyyy').toUpperCase()}
                 </span>
               </div>
-              <p className="text-center text-sm mt-1 text-amber-100">
-                Entries will be recorded for this past date
-              </p>
+              {!isMobile && (
+                <p className="text-center text-sm mt-1 text-amber-100">
+                  Entries will be recorded for this past date
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -660,18 +670,18 @@ export default function EmployeeDashboard() {
 
         {/* Vehicles / Equipment Section */}
         <Card data-demo="vehicles-grid">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
+          <CardHeader className={isMobile ? "px-3 py-3" : undefined}>
+            <CardTitle className={cn("flex items-center gap-2", isMobile && "text-base")}>
+              <Truck className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
               Vehicles / Equipment
             </CardTitle>
             {pendingEntries.size === 0 && (
-              <p className="text-sm text-muted-foreground">
+              <p className={cn("text-muted-foreground", isMobile ? "text-xs" : "text-sm")}>
                 Tap vehicles to select them, then submit all at once
               </p>
             )}
           </CardHeader>
-          <CardContent>
+          <CardContent className={isMobile ? "px-3" : undefined}>
             {selectedLocationId && (
               <WorkItemGrid
                 locationId={selectedLocationId}
@@ -778,26 +788,35 @@ export default function EmployeeDashboard() {
           </Card>
         ) : hourlyConfigs.length > 0 && (
           <Card data-demo="hourly-services">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
+            <CardHeader className={isMobile ? "px-3 py-3" : undefined}>
+              <CardTitle className={cn("flex items-center gap-2", isMobile && "text-base")}>
+                <Clock className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
                 Hourly Services
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className={isMobile ? "px-3" : undefined}>
               <div className="space-y-2">
                 {hourlyConfigs.map((config) => (
                   <div
                     key={config.id}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                    className={cn(
+                      "rounded-lg border bg-card",
+                      isMobile ? "p-3 space-y-2" : "flex items-center justify-between p-3"
+                    )}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium">{config.work_type.name}</span>
+                    <div className={cn("flex items-center gap-2", isMobile && "flex-wrap")}>
+                      <span className={cn("font-medium", isMobile && "text-sm")}>{config.work_type.name}</span>
                       {config.rate && (
-                        <Badge variant="secondary">${config.rate.toFixed(2)}/hr</Badge>
+                        <Badge variant="secondary" className={isMobile ? "text-xs" : undefined}>
+                          ${config.rate.toFixed(2)}/hr
+                        </Badge>
                       )}
                     </div>
-                    <Button size="sm" onClick={() => handleHourlySelect(config)}>
+                    <Button 
+                      size={isMobile ? "default" : "sm"} 
+                      className={isMobile ? "w-full" : undefined}
+                      onClick={() => handleHourlySelect(config)}
+                    >
                       Log Hours
                     </Button>
                   </div>
@@ -809,12 +828,12 @@ export default function EmployeeDashboard() {
 
         {/* Recent Entries Section */}
         <Card data-demo="recent-entries">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <CardTitle>Recent Entries (Current Week)</CardTitle>
+          <CardHeader className={isMobile ? "px-3 py-3" : undefined}>
+            <div className={cn("flex items-center justify-between gap-2", isMobile && "flex-col items-start gap-2")}>
+              <CardTitle className={isMobile ? "text-base" : undefined}>Recent Entries (Current Week)</CardTitle>
               {uniqueWorkTypes.length > 1 && (
                 <Select value={filterWorkType} onValueChange={setFilterWorkType}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className={isMobile ? "w-full" : "w-[150px]"}>
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -827,7 +846,7 @@ export default function EmployeeDashboard() {
               )}
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className={isMobile ? "px-3" : undefined}>
             {loadingLogs ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -840,13 +859,14 @@ export default function EmployeeDashboard() {
               </p>
             ) : (
               <TooltipProvider>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Item / Service</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                    </TableRow>
+                <div className={isMobile ? "overflow-x-auto -mx-3 px-3" : undefined}>
+                  <Table className={isMobile ? "text-sm" : undefined}>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className={isMobile ? "w-[60px]" : undefined}>Date</TableHead>
+                        <TableHead>Item / Service</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                      </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredLogs.map((log) => {
@@ -893,6 +913,7 @@ export default function EmployeeDashboard() {
                     })}
                   </TableBody>
                 </Table>
+                </div>
               </TooltipProvider>
             )}
           </CardContent>
@@ -913,10 +934,13 @@ export default function EmployeeDashboard() {
       <button
         data-demo="comment-button"
         onClick={() => setCommentModalOpen(true)}
-        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center"
+        className={cn(
+          "fixed z-50 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center",
+          isMobile ? "bottom-4 right-4 h-12 w-12" : "bottom-6 right-6 h-14 w-14"
+        )}
         aria-label="Send message to finance"
       >
-        <MessageSquare className="h-6 w-6" />
+        <MessageSquare className={isMobile ? "h-5 w-5" : "h-6 w-6"} />
       </button>
 
       {/* Comment Modal */}

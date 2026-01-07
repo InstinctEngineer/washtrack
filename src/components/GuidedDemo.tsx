@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useDemoMode } from '@/contexts/DemoModeContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 
 interface DemoStep {
@@ -52,6 +53,14 @@ const DEMO_FEATURES: DemoFeature[] = [
         type: 'interactive',
         action: 'click',
         successMessage: 'Great! You navigated to the previous day.',
+      },
+      {
+        id: 'date-nav-2b',
+        targetSelector: '[data-demo="past-date-banner"]',
+        title: 'Past Date Warning',
+        description: 'This orange banner appears when you\'re viewing a date other than today. Any work you log will be recorded for the displayed date, not today.',
+        position: 'bottom',
+        optional: true,
       },
       {
         id: 'date-nav-3',
@@ -191,6 +200,7 @@ interface GuidedDemoProps {
 
 export function GuidedDemo({ className }: GuidedDemoProps) {
   const { setDemoMode, skippedSteps, addSkippedStep, resetSkippedSteps } = useDemoMode();
+  const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const [stepHistory, setStepHistory] = useState<{ featureId: string; stepIndex: number }[]>([]);
   const [activeFeature, setActiveFeature] = useState<DemoFeature | null>(null);
@@ -459,10 +469,10 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
 
   // Calculate tooltip position based on target rect and preferred position
   const getTooltipStyle = (): React.CSSProperties => {
-    const padding = 16;
-    const tooltipWidth = 320;
+    const padding = isMobile ? 8 : 16;
+    const tooltipWidth = isMobile ? Math.min(280, window.innerWidth - 24) : 320;
     const tooltipHeight = 200;
-    const position = currentStep?.position || 'bottom';
+    let position = currentStep?.position || 'bottom';
 
     // If no target, center in viewport
     if (!targetRect) {
@@ -474,6 +484,13 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
         width: `${tooltipWidth}px`,
         zIndex: 10002,
       };
+    }
+
+    // On mobile, force vertical positioning for left/right positions
+    if (isMobile && (position === 'left' || position === 'right')) {
+      const spaceAbove = targetRect.top;
+      const spaceBelow = window.innerHeight - targetRect.bottom;
+      position = spaceBelow > spaceAbove ? 'bottom' : 'top';
     }
 
     let top = 0;
@@ -498,9 +515,14 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
         break;
     }
 
+    // On mobile, center tooltip horizontally
+    if (isMobile) {
+      left = (window.innerWidth - tooltipWidth) / 2;
+    }
+
     // Keep tooltip in viewport
     left = Math.max(padding, Math.min(left, window.innerWidth - tooltipWidth - padding));
-    top = Math.max(padding, Math.min(top, window.innerHeight - tooltipHeight - padding));
+    top = Math.max(padding + (isMobile ? 40 : 60), Math.min(top, window.innerHeight - tooltipHeight - padding));
 
     return {
       position: 'fixed',
@@ -617,35 +639,41 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
 
     return createPortal(
       <>
-        {/* Demo Mode Banner with Progress - Purple theme */}
+        {/* Demo Mode Banner with Progress - Purple theme, compact on mobile */}
         <div 
           className="fixed top-0 left-0 right-0 z-[10003] text-white"
           style={{ background: 'hsl(270 70% 45%)' }}
         >
-          <div className="py-2 px-4">
-            <div className="flex items-center justify-between max-w-screen-lg mx-auto">
-              <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 animate-pulse" />
-                <span className="text-sm font-medium">Demo Mode</span>
-                <span className="text-sm opacity-75">
-                  - {activeFeature?.name} (Step {progress.currentStep}/{progress.totalSteps})
+          <div className={cn("flex items-center justify-between", isMobile ? "py-1.5 px-2" : "py-2 px-4")}>
+            <div className="flex items-center gap-1.5">
+              <Info className={cn("animate-pulse", isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
+              {isMobile ? (
+                <span className="text-xs font-medium">
+                  Step {progress.currentStep}/{progress.totalSteps}
                 </span>
-                {skippedSteps > 0 && (
-                  <span className="text-xs bg-white/20 px-2 py-0.5 rounded">
-                    {skippedSteps} skipped
+              ) : (
+                <>
+                  <span className="text-sm font-medium">Demo Mode</span>
+                  <span className="text-sm opacity-75">
+                    - {activeFeature?.name} (Step {progress.currentStep}/{progress.totalSteps})
                   </span>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={exitDemo}
-                className="text-white hover:text-white hover:bg-white/20"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Exit Demo
-              </Button>
+                </>
+              )}
+              {!isMobile && skippedSteps > 0 && (
+                <span className="text-xs bg-white/20 px-2 py-0.5 rounded">
+                  {skippedSteps} skipped
+                </span>
+              )}
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={exitDemo}
+              className={cn("text-white hover:text-white hover:bg-white/20", isMobile && "h-7 px-2")}
+            >
+              <X className={isMobile ? "h-3.5 w-3.5" : "h-4 w-4"} />
+              {!isMobile && <span className="ml-1">Exit Demo</span>}
+            </Button>
           </div>
           {/* Progress Bar */}
           <Progress 

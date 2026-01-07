@@ -6,6 +6,7 @@ import { Search, Package, ChevronRight, ChevronDown, Check, Plus } from 'lucide-
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { subDays } from 'date-fns';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export interface WorkItemWithDetails {
   id: string;
@@ -33,6 +34,7 @@ interface WorkItemGridProps {
 }
 
 export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, onSelect, onAddVehicle, refreshKey }: WorkItemGridProps) {
+  const isMobile = useIsMobile();
   const [workItems, setWorkItems] = useState<WorkItemWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -199,12 +201,15 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
     <div className="space-y-3">
       {/* Mobile-optimized search */}
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+        <Search className={cn(
+          "absolute top-1/2 -translate-y-1/2 text-muted-foreground",
+          isMobile ? "left-3 h-4 w-4" : "left-4 h-5 w-5"
+        )} />
         <Input
           placeholder="Search..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-12 h-12 text-base"
+          className={cn(isMobile ? "pl-10 h-10 text-sm" : "pl-12 h-12 text-base")}
         />
       </div>
 
@@ -239,39 +244,47 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                 <CollapsibleTrigger asChild>
                   <button
                     className={cn(
-                      "w-full flex items-center justify-between p-4 min-h-[56px] rounded-lg transition-all duration-200",
+                      "w-full flex items-center justify-between rounded-lg transition-all duration-200",
                       "active:scale-[0.98] touch-manipulation",
+                      isMobile ? "p-3 min-h-[48px]" : "p-4 min-h-[56px]",
                       isExpanded 
                         ? "bg-primary/10 border-2 border-primary rounded-b-none" 
                         : "bg-muted/50 border border-border hover:bg-muted/80"
                     )}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {isExpanded ? (
-                        <ChevronDown className="h-5 w-5 text-primary shrink-0" />
+                        <ChevronDown className={cn("text-primary shrink-0", isMobile ? "h-4 w-4" : "h-5 w-5")} />
                       ) : (
-                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                        <ChevronRight className={cn("text-muted-foreground shrink-0", isMobile ? "h-4 w-4" : "h-5 w-5")} />
                       )}
                       <span className={cn(
-                        "text-base",
+                        isMobile ? "text-sm" : "text-base",
                         isExpanded ? "font-semibold text-foreground" : "font-medium text-muted-foreground"
                       )}>
                         {typeName}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       {completedInSection > 0 && (
-                        <span className="text-sm px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium",
+                          isMobile ? "text-xs" : "text-sm"
+                        )}>
                           {completedInSection} done
                         </span>
                       )}
                       {selectedInSection > 0 && (
-                        <span className="text-sm px-2 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 font-medium">
-                          {selectedInSection} selected
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 font-medium",
+                          isMobile ? "text-xs" : "text-sm"
+                        )}>
+                          {selectedInSection}
                         </span>
                       )}
                       <span className={cn(
-                        "text-sm px-2.5 py-1 rounded-full",
+                        "px-2 py-0.5 rounded-full",
+                        isMobile ? "text-xs" : "text-sm",
                         isExpanded 
                           ? "bg-primary/20 text-primary font-medium" 
                           : "bg-muted text-muted-foreground"
@@ -285,9 +298,13 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                 {/* Section Content */}
                 <CollapsibleContent>
                   <div className={cn(
-                    "border-2 border-t-0 border-primary rounded-b-lg p-3 bg-card"
+                    "border-2 border-t-0 border-primary rounded-b-lg bg-card",
+                    isMobile ? "p-2" : "p-3"
                   )}>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    <div className={cn(
+                      "grid gap-2",
+                      isMobile ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+                    )}>
                       {items.map((item, itemIndex) => {
                         const isSelected = isToggleMode && selectedIds.has(item.id);
                         const isCompleted = completedIds?.has(item.id);
@@ -301,8 +318,9 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                             disabled={isCompleted}
                             data-demo={isFirstSelectable && !isCompleted ? "vehicle-card" : undefined}
                             className={cn(
-                              "relative flex items-center justify-center p-4 min-h-[64px] rounded-lg",
+                              "relative flex items-center justify-center rounded-lg",
                               "transition-all duration-150 touch-manipulation",
+                              isMobile ? "p-3 min-h-[56px]" : "p-4 min-h-[64px]",
                               isCompleted
                                 ? "bg-muted/50 border-2 border-muted cursor-not-allowed opacity-60"
                                 : isSelected
@@ -312,17 +330,21 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                             )}
                           >
                             {isCompleted && (
-                              <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-muted-foreground/20 text-muted-foreground text-[10px] font-medium uppercase">
+                              <div className="absolute top-1 right-1 px-1 py-0.5 rounded bg-muted-foreground/20 text-muted-foreground text-[9px] font-medium uppercase">
                                 Done
                               </div>
                             )}
                             {isSelected && !isCompleted && (
-                              <div className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-green-500 flex items-center justify-center">
-                                <Check className="h-3 w-3 text-white" />
+                              <div className={cn(
+                                "absolute top-1 right-1 rounded-full bg-green-500 flex items-center justify-center",
+                                isMobile ? "h-4 w-4" : "h-5 w-5"
+                              )}>
+                                <Check className={isMobile ? "h-2.5 w-2.5 text-white" : "h-3 w-3 text-white"} />
                               </div>
                             )}
                             <span className={cn(
-                              "font-mono text-xl font-bold",
+                              "font-mono font-bold",
+                              isMobile ? "text-lg" : "text-xl",
                               isCompleted 
                                 ? "text-muted-foreground" 
                                 : isSelected 
@@ -340,14 +362,15 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                         <button
                           onClick={() => onAddVehicle(typeName)}
                           className={cn(
-                            "flex items-center justify-center gap-1 p-4 min-h-[64px] rounded-lg",
+                            "flex items-center justify-center gap-1 rounded-lg",
                             "border-2 border-dashed border-muted-foreground/30",
                             "hover:border-primary hover:bg-accent text-muted-foreground hover:text-primary",
-                            "transition-all duration-150 touch-manipulation active:scale-95"
+                            "transition-all duration-150 touch-manipulation active:scale-95",
+                            isMobile ? "p-3 min-h-[56px]" : "p-4 min-h-[64px]"
                           )}
                         >
-                          <Plus className="h-5 w-5" />
-                          <span className="text-sm font-medium">Add</span>
+                          <Plus className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
+                          <span className={cn("font-medium", isMobile ? "text-xs" : "text-sm")}>Add</span>
                         </button>
                       )}
                     </div>
