@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, subDays, addDays, isToday, isFuture, startOfDay, startOfWeek, parseISO, differenceInDays } from 'date-fns';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDemoMode } from '@/contexts/DemoModeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { CutoffBanner } from '@/components/CutoffBanner';
 import { WorkItemGrid, WorkItemWithDetails } from '@/components/WorkItemGrid';
@@ -18,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { AlertCircle, Clock, Truck, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2, MessageSquare, AlertTriangle } from 'lucide-react';
+import { AlertCircle, Clock, Truck, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2, MessageSquare, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { cn } from '@/lib/utils';
@@ -78,6 +79,7 @@ function parseLocalDate(dateStr: string): Date {
 
 export default function EmployeeDashboard() {
   const { user, userLocations } = useAuth();
+  const { isDemoMode } = useDemoMode();
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [hourlyConfigs, setHourlyConfigs] = useState<RateConfigWithDetails[]>([]);
@@ -320,6 +322,14 @@ export default function EmployeeDashboard() {
   // Batch submit handler
   const handleBatchSubmit = async () => {
     if (!user || pendingEntries.size === 0) return;
+    
+    // Block submissions in demo mode
+    if (isDemoMode) {
+      toast.info('Demo Mode: Submissions are disabled during the tour. This is just a preview!', {
+        icon: <Info className="h-4 w-4" />,
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -675,32 +685,42 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
 
-        {/* Selection Summary & Submit Button */}
-        {pendingEntries.size > 0 && (
+        {/* Selection Summary & Submit Button - Always show in demo mode */}
+        {(pendingEntries.size > 0 || isDemoMode) && (
           <div className="space-y-3">
-            <Card data-demo="selection-summary" className="border-green-500/50 bg-green-500/5">
+            <Card data-demo="selection-summary" className={cn(
+              "border-green-500/50 bg-green-500/5",
+              isDemoMode && pendingEntries.size === 0 && "border-dashed opacity-75"
+            )}>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                      <span className="font-bold text-green-600 dark:text-green-400">
-                        {pendingEntries.size}
+                {isDemoMode && pendingEntries.size === 0 ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Info className="h-4 w-4" />
+                    <span className="text-sm">Selection summary appears here when vehicles are selected</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                        <span className="font-bold text-green-600 dark:text-green-400">
+                          {pendingEntries.size}
+                        </span>
+                      </div>
+                      <span className="text-sm font-medium">
+                        {pendingEntries.size === 1 ? 'vehicle' : 'vehicles'} selected
                       </span>
                     </div>
-                    <span className="text-sm font-medium">
-                      {pendingEntries.size === 1 ? 'vehicle' : 'vehicles'} selected
-                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearSelections}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleClearSelections}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Clear
-                  </Button>
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -708,16 +728,22 @@ export default function EmployeeDashboard() {
             <div data-demo="submit-button">
               <Button
                 onClick={handleBatchSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || (isDemoMode && pendingEntries.size === 0)}
                 className={cn(
                   "w-full h-14 text-lg font-bold",
-                  "bg-green-600 hover:bg-green-700 text-white"
+                  "bg-green-600 hover:bg-green-700 text-white",
+                  isDemoMode && pendingEntries.size === 0 && "opacity-75"
                 )}
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                     Submitting...
+                  </>
+                ) : isDemoMode && pendingEntries.size === 0 ? (
+                  <>
+                    <Send className="h-5 w-5 mr-2" />
+                    SUBMIT ENTRIES
                   </>
                 ) : (
                   <>
@@ -727,7 +753,14 @@ export default function EmployeeDashboard() {
                 )}
               </Button>
               <p className="text-center text-sm text-muted-foreground mt-2">
-                For {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                {isDemoMode ? (
+                  <span className="flex items-center justify-center gap-1">
+                    <Info className="h-3 w-3" />
+                    Demo Mode: Submissions are disabled
+                  </span>
+                ) : (
+                  `For ${format(selectedDate, 'EEEE, MMMM d, yyyy')}`
+                )}
               </p>
             </div>
           </div>
