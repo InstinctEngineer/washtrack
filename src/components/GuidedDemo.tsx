@@ -705,11 +705,11 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
           </div>
         )}
 
-        {/* Tooltip Card - distinctive styling with primary background */}
+        {/* Tooltip Card - purple theme */}
         {currentStep && !showingInteractionResult && (
           <Card
             className={cn(
-              "demo-tooltip shadow-2xl border-0 pointer-events-auto bg-primary text-primary-foreground",
+              "demo-tooltip shadow-2xl border-0 pointer-events-auto text-white",
               tooltipVisible ? "demo-tooltip-enter" : "demo-tooltip-exit"
             )}
             style={getTooltipStyle()}
@@ -720,35 +720,35 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
               <div 
                 style={{
                   ...getArrowStyle().style as React.CSSProperties,
-                  borderTopColor: currentStep.position === 'top' ? 'hsl(var(--primary))' : undefined,
-                  borderBottomColor: currentStep.position === 'bottom' ? 'hsl(var(--primary))' : undefined,
-                  borderLeftColor: currentStep.position === 'left' ? 'hsl(var(--primary))' : undefined,
-                  borderRightColor: currentStep.position === 'right' ? 'hsl(var(--primary))' : undefined,
+                  borderTopColor: currentStep.position === 'top' ? 'hsl(270 70% 45%)' : undefined,
+                  borderBottomColor: currentStep.position === 'bottom' ? 'hsl(270 70% 45%)' : undefined,
+                  borderLeftColor: currentStep.position === 'left' ? 'hsl(270 70% 45%)' : undefined,
+                  borderRightColor: currentStep.position === 'right' ? 'hsl(270 70% 45%)' : undefined,
                 }} 
               />
             )}
 
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2 text-primary-foreground">
+                <CardTitle className="text-base flex items-center gap-2 text-white">
                   <span className="opacity-80">{activeFeature?.icon}</span>
                   {currentStep.title}
                 </CardTitle>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20"
+                  className="h-6 w-6 text-white/80 hover:text-white hover:bg-white/20"
                   onClick={exitDemo}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <CardDescription className="text-primary-foreground/70">
+              <CardDescription className="text-white/70">
                 Step {currentStepIndex + 1} of {activeFeature?.steps.length}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-primary-foreground/90">
+              <p className="text-sm text-white/90">
                 {!targetRect && currentStep.optional 
                   ? "This feature is not available in your current setup - skipping..."
                   : currentStep.description
@@ -756,16 +756,16 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
               </p>
               {currentStep.type === 'interactive' && targetRect ? (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-center gap-2 text-primary-foreground">
+                  <div className="flex items-center justify-center gap-2 text-white">
                     <span className="text-2xl animate-bounce">👆</span>
-                    <span className="text-sm font-medium">Click the highlighted area</span>
+                    <span className="text-sm font-medium">Click the red highlighted area!</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <Button 
                       variant="ghost" 
                       size="sm" 
                       onClick={exitDemo}
-                      className="text-primary-foreground hover:bg-primary-foreground/20"
+                      className="text-white/80 hover:text-white hover:bg-white/20"
                     >
                       Skip Tour
                     </Button>
@@ -775,7 +775,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                         size="sm" 
                         onClick={prevStep}
                         disabled={stepHistory.length === 0}
-                        className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/20 disabled:opacity-50"
+                        className="border-white/40 text-white bg-transparent hover:bg-white/20 disabled:opacity-40"
                       >
                         <ChevronLeft className="h-4 w-4 mr-1" />
                         Back
@@ -784,7 +784,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                         variant="ghost" 
                         size="sm" 
                         onClick={nextStep}
-                        className="text-primary-foreground hover:bg-primary-foreground/20"
+                        className="text-white/80 hover:text-white hover:bg-white/20"
                       >
                         <SkipForward className="h-4 w-4 mr-1" />
                         Skip
@@ -798,7 +798,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                     variant="ghost" 
                     size="sm" 
                     onClick={exitDemo}
-                    className="text-primary-foreground hover:bg-primary-foreground/20"
+                    className="text-white/80 hover:text-white hover:bg-white/20"
                   >
                     Skip Tour
                   </Button>
@@ -808,7 +808,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                       size="sm" 
                       onClick={prevStep}
                       disabled={stepHistory.length === 0}
-                      className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/20 disabled:opacity-50"
+                      className="border-white/40 text-white bg-transparent hover:bg-white/20 disabled:opacity-40"
                     >
                       <ChevronLeft className="h-4 w-4 mr-1" />
                       Back
@@ -816,7 +816,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                     <Button 
                       size="sm" 
                       onClick={nextStep}
-                      className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                      className="bg-white text-purple-700 hover:bg-white/90 font-medium"
                     >
                       {isLastStep && DEMO_FEATURES.findIndex(f => f.id === activeFeature?.id) === DEMO_FEATURES.length - 1 
                         ? 'Finish Tour' 
