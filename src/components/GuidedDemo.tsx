@@ -16,6 +16,9 @@ interface DemoStep {
   description: string;
   position: 'top' | 'bottom' | 'left' | 'right';
   optional?: boolean; // Skip if element not found
+  type?: 'informational' | 'interactive'; // Step behavior type
+  action?: 'click' | 'select'; // What action completes this step
+  successMessage?: string; // Toast message on success
 }
 
 interface DemoFeature {
@@ -44,15 +47,21 @@ const DEMO_FEATURES: DemoFeature[] = [
         id: 'date-nav-2',
         targetSelector: '[data-demo="prev-day"]',
         title: 'Previous Day',
-        description: 'Tap the left arrow to go back one day and log work for past dates.',
+        description: 'Try clicking the left arrow to go back one day.',
         position: 'right',
+        type: 'interactive',
+        action: 'click',
+        successMessage: 'Great! You navigated to the previous day.',
       },
       {
         id: 'date-nav-3',
         targetSelector: '[data-demo="next-day"]',
         title: 'Next Day',
-        description: 'Tap the right arrow to move forward (you cannot log future dates).',
+        description: 'Now click the right arrow to move forward.',
         position: 'left',
+        type: 'interactive',
+        action: 'click',
+        successMessage: 'Perfect! You moved to the next day.',
       },
     ],
   },
@@ -87,16 +96,19 @@ const DEMO_FEATURES: DemoFeature[] = [
       },
       {
         id: 'vehicles-2',
-        targetSelector: '[data-demo="vehicles-grid"]',
-        title: 'Selecting Vehicles',
-        description: 'Tap on a vehicle card to select it. Selected items will show a green border and checkmark. Tap again to deselect.',
+        targetSelector: '[data-demo="vehicle-card"]',
+        title: 'Select a Vehicle',
+        description: 'Tap on a vehicle card to select it. Try clicking one now!',
         position: 'bottom',
+        type: 'interactive',
+        action: 'click',
+        successMessage: 'Nice! You selected a vehicle.',
       },
       {
         id: 'vehicles-3',
         targetSelector: '[data-demo="vehicles-grid"]',
-        title: 'Completed Items',
-        description: 'Items that have already been logged today will appear grayed out and cannot be selected again.',
+        title: 'Selection Indicator',
+        description: 'Selected items show a green border and checkmark. Items already logged today appear grayed out.',
         position: 'bottom',
       },
     ],
@@ -111,9 +123,9 @@ const DEMO_FEATURES: DemoFeature[] = [
         id: 'submit-1',
         targetSelector: '[data-demo="selection-summary"]',
         title: 'Selection Summary',
-        description: 'After selecting vehicles, this card shows how many items you\'ve selected. Use the "Clear" button to deselect all.',
+        description: 'This card shows how many items you\'ve selected. Use the "Clear" button to deselect all.',
         position: 'bottom',
-        optional: true, // Only visible when items are selected
+        optional: true,
       },
       {
         id: 'submit-2',
@@ -121,7 +133,7 @@ const DEMO_FEATURES: DemoFeature[] = [
         title: 'Submit Button',
         description: 'Tap this green button to submit all your selected entries at once. The entries will be recorded for the currently selected date.',
         position: 'top',
-        optional: true, // Only visible when items are selected
+        optional: true,
       },
     ],
   },
@@ -137,7 +149,7 @@ const DEMO_FEATURES: DemoFeature[] = [
         title: 'Hourly Services',
         description: 'This section shows services billed by the hour (like detailing). Tap "Log Hours" to record time spent on these services.',
         position: 'top',
-        optional: true, // Only visible if location has hourly services
+        optional: true,
       },
     ],
   },
@@ -619,26 +631,42 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
               borderRadius: '8px',
             }}
             onClick={(e) => {
-              // Allow the click to pass through to the actual element
               e.stopPropagation();
               const target = document.querySelector(currentStep?.targetSelector || '');
               if (target instanceof HTMLElement) {
                 target.click();
               }
+              // For interactive steps, auto-advance after click
+              if (currentStep?.type === 'interactive') {
+                setTimeout(() => {
+                  if (currentStep.successMessage) {
+                    toast.success(currentStep.successMessage);
+                  }
+                  nextStep();
+                }, 300);
+              }
             }}
           />
         )}
 
-        {/* Spotlight border/glow effect */}
+        {/* Spotlight border/glow effect - pulsing green for interactive steps */}
         {targetRect && (
           <div
-            className="fixed z-[10001] pointer-events-none demo-spotlight-ring"
+            className={cn(
+              "fixed z-[10001] pointer-events-none",
+              currentStep?.type === 'interactive' 
+                ? "animate-demo-pulse" 
+                : "demo-spotlight-ring"
+            )}
             style={{
               top: targetRect.top - spotlightPadding,
               left: targetRect.left - spotlightPadding,
               width: targetRect.width + spotlightPadding * 2,
               height: targetRect.height + spotlightPadding * 2,
               borderRadius: '8px',
+              border: currentStep?.type === 'interactive' 
+                ? '3px solid hsl(var(--success))' 
+                : '3px solid hsl(var(--primary))',
             }}
           />
         )}
@@ -679,31 +707,60 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                   : currentStep.description
                 }
               </p>
-              <div className="flex items-center justify-between gap-2">
-                <Button variant="ghost" size="sm" onClick={exitDemo}>
-                  Skip Tour
-                </Button>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={prevStep}
-                    disabled={stepHistory.length === 0}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Back
-                  </Button>
-                  <Button size="sm" onClick={nextStep}>
-                    {isLastStep && DEMO_FEATURES.findIndex(f => f.id === activeFeature?.id) === DEMO_FEATURES.length - 1 
-                      ? 'Finish Tour' 
-                      : isLastStep 
-                        ? 'Next Feature' 
-                        : 'Next'
-                    }
-                    {!isLastStep && <ChevronRight className="h-4 w-4 ml-1" />}
-                  </Button>
+              {currentStep.type === 'interactive' && targetRect ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-success">
+                    <span className="text-2xl animate-bounce">👆</span>
+                    <span className="text-sm font-medium">Click the highlighted area</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <Button variant="ghost" size="sm" onClick={exitDemo}>
+                      Skip Tour
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={prevStep}
+                        disabled={stepHistory.length === 0}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Back
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={nextStep}>
+                        <SkipForward className="h-4 w-4 mr-1" />
+                        Skip
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <Button variant="ghost" size="sm" onClick={exitDemo}>
+                    Skip Tour
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={prevStep}
+                      disabled={stepHistory.length === 0}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Back
+                    </Button>
+                    <Button size="sm" onClick={nextStep}>
+                      {isLastStep && DEMO_FEATURES.findIndex(f => f.id === activeFeature?.id) === DEMO_FEATURES.length - 1 
+                        ? 'Finish Tour' 
+                        : isLastStep 
+                          ? 'Next Feature' 
+                          : 'Next'
+                      }
+                      {!isLastStep && <ChevronRight className="h-4 w-4 ml-1" />}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

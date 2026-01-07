@@ -136,3 +136,17 @@ All colors MUST be HSL.
   animation: spotlight-pulse 1.5s ease-in-out infinite;
   border: 3px solid hsl(var(--primary));
 }
+
+/* Interactive demo step pulsing animation */
+@keyframes demo-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px hsl(var(--success) / 0.6);
+  }
+  50% {
+    box-shadow: 0 0 40px hsl(var(--success) / 0.9), 0 0 60px hsl(var(--success) / 0.4);
+  }
+}
+
+.animate-demo-pulse {
+  animation: demo-pulse 1.2s ease-in-out infinite;
+}
