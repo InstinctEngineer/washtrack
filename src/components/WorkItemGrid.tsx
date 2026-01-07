@@ -198,25 +198,25 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
   }
 
   return (
-    <div className="space-y-3">
+    <div className={cn(isMobile ? "space-y-1.5" : "space-y-3")}>
       {/* Mobile-optimized search */}
       <div className="relative">
         <Search className={cn(
           "absolute top-1/2 -translate-y-1/2 text-muted-foreground",
-          isMobile ? "left-3 h-4 w-4" : "left-4 h-5 w-5"
+          isMobile ? "left-2.5 h-3.5 w-3.5" : "left-4 h-5 w-5"
         )} />
         <Input
           placeholder="Search..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className={cn(isMobile ? "pl-10 h-10 text-sm" : "pl-12 h-12 text-base")}
+          className={cn(isMobile ? "pl-8 h-9 text-sm" : "pl-12 h-12 text-base")}
         />
       </div>
 
       {Object.keys(groupedItems).length === 0 ? (
         <p className="text-center text-muted-foreground py-6">No items match your search</p>
       ) : (
-        <div className="space-y-2">
+        <div className={isMobile ? "space-y-1" : "space-y-2"}>
           {Object.keys(groupedItems)
             .sort((a, b) => {
               // PUD first, then alphabetical
@@ -246,7 +246,7 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                     className={cn(
                       "w-full flex items-center justify-between rounded-lg transition-all duration-200",
                       "active:scale-[0.98] touch-manipulation",
-                      isMobile ? "p-3 min-h-[48px]" : "p-4 min-h-[56px]",
+                      isMobile ? "p-2 min-h-[44px]" : "p-4 min-h-[56px]",
                       isExpanded 
                         ? "bg-primary/10 border-2 border-primary rounded-b-none" 
                         : "bg-muted/50 border border-border hover:bg-muted/80"
@@ -299,11 +299,11 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                 <CollapsibleContent>
                   <div className={cn(
                     "border-2 border-t-0 border-primary rounded-b-lg bg-card",
-                    isMobile ? "p-2" : "p-3"
+                    isMobile ? "p-1.5" : "p-3"
                   )}>
                     <div className={cn(
-                      "grid gap-2",
-                      isMobile ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+                      "grid",
+                      isMobile ? "grid-cols-3 gap-1.5" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"
                     )}>
                       {items.map((item, itemIndex) => {
                         const isSelected = isToggleMode && selectedIds.has(item.id);
@@ -320,7 +320,7 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                             className={cn(
                               "relative flex items-center justify-center rounded-lg",
                               "transition-all duration-150 touch-manipulation",
-                              isMobile ? "p-3 min-h-[56px]" : "p-4 min-h-[64px]",
+                              isMobile ? "p-2 min-h-[48px]" : "p-4 min-h-[64px]",
                               isCompleted
                                 ? "bg-muted/50 border-2 border-muted cursor-not-allowed opacity-60"
                                 : isSelected
@@ -344,7 +344,7 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                             )}
                             <span className={cn(
                               "font-mono font-bold",
-                              isMobile ? "text-lg" : "text-xl",
+                              isMobile ? "text-base" : "text-xl",
                               isCompleted 
                                 ? "text-muted-foreground" 
                                 : isSelected 
@@ -366,11 +366,11 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                             "border-2 border-dashed border-muted-foreground/30",
                             "hover:border-primary hover:bg-accent text-muted-foreground hover:text-primary",
                             "transition-all duration-150 touch-manipulation active:scale-95",
-                            isMobile ? "p-3 min-h-[56px]" : "p-4 min-h-[64px]"
+                            isMobile ? "p-2 min-h-[48px]" : "p-4 min-h-[64px]"
                           )}
                         >
-                          <Plus className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
-                          <span className={cn("font-medium", isMobile ? "text-xs" : "text-sm")}>Add</span>
+                          <Plus className={isMobile ? "h-3.5 w-3.5" : "h-5 w-5"} />
+                          <span className={cn("font-medium", isMobile ? "text-[10px]" : "text-sm")}>Add</span>
                         </button>
                       )}
                     </div>

@@ -571,17 +571,17 @@ export default function EmployeeDashboard() {
 
   return (
     <Layout>
-      <div className="space-y-4 pb-8">
+      <div className={cn("pb-8", isMobile ? "space-y-2" : "space-y-4")}>
         {/* Header */}
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-2xl font-bold">Log Work</h1>
+        <div className={cn("flex items-center justify-between", isMobile ? "gap-1" : "gap-2")}>
+          <h1 className={cn("font-bold", isMobile ? "text-xl" : "text-2xl")}>Log Work</h1>
           <GuidedDemo />
         </div>
 
         {/* Date Navigation */}
         <div data-demo="date-nav" className={cn(
-          "flex items-center justify-between gap-1 bg-card border rounded-lg",
-          isMobile ? "p-2" : "p-3"
+          "flex items-center justify-between bg-card border rounded-lg",
+          isMobile ? "p-1.5 gap-0.5" : "p-3 gap-1"
         )}>
           <Button
             data-demo="prev-day"
@@ -669,19 +669,19 @@ export default function EmployeeDashboard() {
         )}
 
         {/* Vehicles / Equipment Section */}
-        <Card data-demo="vehicles-grid">
-          <CardHeader className={isMobile ? "px-3 py-3" : undefined}>
-            <CardTitle className={cn("flex items-center gap-2", isMobile && "text-base")}>
+        <Card data-demo="vehicles-grid" className={isMobile ? "border-0 shadow-none" : undefined}>
+          <CardHeader className={isMobile ? "px-0 py-2" : undefined}>
+            <CardTitle className={cn("flex items-center gap-2", isMobile && "text-sm")}>
               <Truck className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
               Vehicles / Equipment
             </CardTitle>
-            {pendingEntries.size === 0 && (
-              <p className={cn("text-muted-foreground", isMobile ? "text-xs" : "text-sm")}>
+            {pendingEntries.size === 0 && !isMobile && (
+              <p className="text-sm text-muted-foreground">
                 Tap vehicles to select them, then submit all at once
               </p>
             )}
           </CardHeader>
-          <CardContent className={isMobile ? "px-3" : undefined}>
+          <CardContent className={isMobile ? "px-0" : undefined}>
             {selectedLocationId && (
               <WorkItemGrid
                 locationId={selectedLocationId}
@@ -697,12 +697,12 @@ export default function EmployeeDashboard() {
 
         {/* Selection Summary & Submit Button - Always show in demo mode */}
         {(pendingEntries.size > 0 || isDemoMode) && (
-          <div className="space-y-3">
+          <div className={isMobile ? "space-y-2" : "space-y-3"}>
             <Card data-demo="selection-summary" className={cn(
               "border-green-500/50 bg-green-500/5",
               isDemoMode && pendingEntries.size === 0 && "border-dashed opacity-75"
             )}>
-              <CardContent className="p-4">
+              <CardContent className={isMobile ? "p-2" : "p-4"}>
                 {isDemoMode && pendingEntries.size === 0 ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Info className="h-4 w-4" />
@@ -740,7 +740,8 @@ export default function EmployeeDashboard() {
                 onClick={handleBatchSubmit}
                 disabled={isSubmitting || (isDemoMode && pendingEntries.size === 0)}
                 className={cn(
-                  "w-full h-14 text-lg font-bold",
+                  "w-full font-bold",
+                  isMobile ? "h-11 text-base" : "h-14 text-lg",
                   "bg-green-600 hover:bg-green-700 text-white",
                   isDemoMode && pendingEntries.size === 0 && "opacity-75"
                 )}
@@ -787,14 +788,14 @@ export default function EmployeeDashboard() {
             </CardContent>
           </Card>
         ) : hourlyConfigs.length > 0 && (
-          <Card data-demo="hourly-services">
-            <CardHeader className={isMobile ? "px-3 py-3" : undefined}>
-              <CardTitle className={cn("flex items-center gap-2", isMobile && "text-base")}>
+          <Card data-demo="hourly-services" className={isMobile ? "border-0 shadow-none" : undefined}>
+            <CardHeader className={isMobile ? "px-0 py-2" : undefined}>
+              <CardTitle className={cn("flex items-center gap-2", isMobile && "text-sm")}>
                 <Clock className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
                 Hourly Services
               </CardTitle>
             </CardHeader>
-            <CardContent className={isMobile ? "px-3" : undefined}>
+            <CardContent className={isMobile ? "px-0" : undefined}>
               <div className="space-y-2">
                 {hourlyConfigs.map((config) => (
                   <div
@@ -827,10 +828,10 @@ export default function EmployeeDashboard() {
         )}
 
         {/* Recent Entries Section */}
-        <Card data-demo="recent-entries">
-          <CardHeader className={isMobile ? "px-3 py-3" : undefined}>
-            <div className={cn("flex items-center justify-between gap-2", isMobile && "flex-col items-start gap-2")}>
-              <CardTitle className={isMobile ? "text-base" : undefined}>Recent Entries (Current Week)</CardTitle>
+        <Card data-demo="recent-entries" className={isMobile ? "border-0 shadow-none" : undefined}>
+          <CardHeader className={isMobile ? "px-0 py-2" : undefined}>
+            <div className={cn("flex items-center justify-between gap-2", isMobile && "flex-col items-start gap-1")}>
+              <CardTitle className={isMobile ? "text-sm" : undefined}>Recent Entries (Current Week)</CardTitle>
               {uniqueWorkTypes.length > 1 && (
                 <Select value={filterWorkType} onValueChange={setFilterWorkType}>
                   <SelectTrigger className={isMobile ? "w-full" : "w-[150px]"}>
@@ -846,7 +847,7 @@ export default function EmployeeDashboard() {
               )}
             </div>
           </CardHeader>
-          <CardContent className={isMobile ? "px-3" : undefined}>
+          <CardContent className={isMobile ? "px-0" : undefined}>
             {loadingLogs ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
