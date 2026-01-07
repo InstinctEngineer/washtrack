@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Eye } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Info, X, ChevronRight, ChevronLeft, CalendarDays, MapPin, Truck, Send, Clock, Table2, MessageSquare, Play, CheckCircle2, SkipForward } from 'lucide-react';
+import { Info, X, ChevronRight, ChevronLeft, CalendarDays, MapPin, Truck, Send, Clock, Table2, MessageSquare, Play, CheckCircle2, SkipForward, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -197,13 +196,44 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
   const [activeFeature, setActiveFeature] = useState<DemoFeature | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [animatedRect, setAnimatedRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [targetBorderRadius, setTargetBorderRadius] = useState('8px');
+  const [tooltipVisible, setTooltipVisible] = useState(true);
   const [completedFeatures, setCompletedFeatures] = useState<Set<string>>(new Set());
   const [showingInteractionResult, setShowingInteractionResult] = useState(false);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   const isDemoActive = activeFeature !== null;
   const currentStep = activeFeature?.steps[currentStepIndex];
   const isLastStep = activeFeature ? currentStepIndex === activeFeature.steps.length - 1 : false;
+
+  // Get target element's actual border radius
+  const getTargetBorderRadius = (target: Element): string => {
+    const computed = window.getComputedStyle(target);
+    return computed.borderRadius || '8px';
+  };
+
+  // Animate rect changes smoothly
+  useEffect(() => {
+    if (targetRect) {
+      setAnimatedRect({
+        top: targetRect.top,
+        left: targetRect.left,
+        width: targetRect.width,
+        height: targetRect.height,
+      });
+    } else {
+      setAnimatedRect(null);
+    }
+  }, [targetRect]);
+
+  // Fade tooltip on step change
+  useEffect(() => {
+    if (isDemoActive) {
+      setTooltipVisible(false);
+      const timer = setTimeout(() => setTooltipVisible(true), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [currentStepIndex, activeFeature?.id]);
 
   // Find next valid step (skipping missing optional elements)
   const findNextValidStep = useCallback((feature: DemoFeature, startIndex: number): number => {
@@ -254,6 +284,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
     if (target) {
       const rect = target.getBoundingClientRect();
       setTargetRect(rect);
+      setTargetBorderRadius(getTargetBorderRadius(target));
       
       // Scroll target into view if needed
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -581,7 +612,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
   const renderOverlay = () => {
     if (!isDemoActive) return null;
 
-    const spotlightPadding = 8;
+    const spotlightPadding = 6;
     const progress = getTourProgress();
 
     return createPortal(
@@ -620,33 +651,33 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
           />
         </div>
 
-        {/* Dark overlay - fades out during interaction to show result */}
-        <div
-          ref={overlayRef}
-          className="fixed inset-0 z-[10000] pointer-events-none transition-opacity duration-300"
-          style={{
-            opacity: showingInteractionResult ? 0 : 1,
-            background: targetRect
-              ? `radial-gradient(
-                  ellipse ${targetRect.width + spotlightPadding * 2}px ${targetRect.height + spotlightPadding * 2}px at ${targetRect.left + targetRect.width / 2}px ${targetRect.top + targetRect.height / 2}px,
-                  transparent 0%,
-                  transparent 70%,
-                  rgba(0, 0, 0, 0.75) 70%
-                )`
-              : 'rgba(0, 0, 0, 0.75)',
-          }}
-        />
-
-        {/* Clickable area around spotlight to allow interaction */}
-        {targetRect && !showingInteractionResult && (
+        {/* Highlight Ring - no dark overlay, just the ring with smooth transitions */}
+        {animatedRect && !showingInteractionResult && (
           <div
-            className="fixed z-[10001] pointer-events-auto cursor-pointer"
+            className={cn(
+              "fixed z-[10001] pointer-events-none demo-highlight-ring",
+              currentStep?.type === 'interactive' && "interactive"
+            )}
             style={{
-              top: targetRect.top - spotlightPadding,
-              left: targetRect.left - spotlightPadding,
-              width: targetRect.width + spotlightPadding * 2,
-              height: targetRect.height + spotlightPadding * 2,
-              borderRadius: '8px',
+              top: animatedRect.top - spotlightPadding,
+              left: animatedRect.left - spotlightPadding,
+              width: animatedRect.width + spotlightPadding * 2,
+              height: animatedRect.height + spotlightPadding * 2,
+              borderRadius: targetBorderRadius,
+            }}
+          />
+        )}
+
+        {/* Clickable area for interactive steps */}
+        {animatedRect && !showingInteractionResult && currentStep?.type === 'interactive' && (
+          <div
+            className="fixed z-[10002] pointer-events-auto cursor-pointer"
+            style={{
+              top: animatedRect.top,
+              left: animatedRect.left,
+              width: animatedRect.width,
+              height: animatedRect.height,
+              borderRadius: targetBorderRadius,
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -654,39 +685,14 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
               if (target instanceof HTMLElement) {
                 target.click();
               }
-              // For interactive steps, fade overlay and show result
-              if (currentStep?.type === 'interactive') {
-                setShowingInteractionResult(true);
-                setTimeout(() => {
-                  setShowingInteractionResult(false);
-                  if (currentStep.successMessage) {
-                    toast.success(currentStep.successMessage);
-                  }
-                  nextStep();
-                }, 1200);
-              }
-            }}
-          />
-        )}
-
-        {/* Spotlight border/glow effect - pulsing green for interactive steps */}
-        {targetRect && !showingInteractionResult && (
-          <div
-            className={cn(
-              "fixed z-[10001] pointer-events-none transition-opacity duration-300",
-              currentStep?.type === 'interactive' 
-                ? "animate-demo-pulse" 
-                : "demo-spotlight-ring"
-            )}
-            style={{
-              top: targetRect.top - spotlightPadding,
-              left: targetRect.left - spotlightPadding,
-              width: targetRect.width + spotlightPadding * 2,
-              height: targetRect.height + spotlightPadding * 2,
-              borderRadius: '8px',
-              border: currentStep?.type === 'interactive' 
-                ? '3px solid hsl(var(--success))' 
-                : '3px solid hsl(var(--primary))',
+              setShowingInteractionResult(true);
+              setTimeout(() => {
+                setShowingInteractionResult(false);
+                if (currentStep.successMessage) {
+                  toast.success(currentStep.successMessage);
+                }
+                nextStep();
+              }, 1200);
             }}
           />
         )}
@@ -699,37 +705,50 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
           </div>
         )}
 
-        {/* Tooltip Card - hidden during interaction result viewing */}
+        {/* Tooltip Card - distinctive styling with primary background */}
         {currentStep && !showingInteractionResult && (
           <Card
-            className="shadow-2xl border-2 border-primary pointer-events-auto"
+            className={cn(
+              "demo-tooltip shadow-2xl border-0 pointer-events-auto bg-primary text-primary-foreground",
+              tooltipVisible ? "demo-tooltip-enter" : "demo-tooltip-exit"
+            )}
             style={getTooltipStyle()}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Arrow - only show if we have a target */}
-            {targetRect && <div style={getArrowStyle().style as React.CSSProperties} />}
+            {targetRect && (
+              <div 
+                style={{
+                  ...getArrowStyle().style as React.CSSProperties,
+                  borderTopColor: currentStep.position === 'top' ? 'hsl(var(--primary))' : undefined,
+                  borderBottomColor: currentStep.position === 'bottom' ? 'hsl(var(--primary))' : undefined,
+                  borderLeftColor: currentStep.position === 'left' ? 'hsl(var(--primary))' : undefined,
+                  borderRightColor: currentStep.position === 'right' ? 'hsl(var(--primary))' : undefined,
+                }} 
+              />
+            )}
 
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  {activeFeature?.icon}
+                <CardTitle className="text-base flex items-center gap-2 text-primary-foreground">
+                  <span className="opacity-80">{activeFeature?.icon}</span>
                   {currentStep.title}
                 </CardTitle>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6"
+                  className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20"
                   onClick={exitDemo}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <CardDescription>
+              <CardDescription className="text-primary-foreground/70">
                 Step {currentStepIndex + 1} of {activeFeature?.steps.length}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm">
+              <p className="text-sm text-primary-foreground/90">
                 {!targetRect && currentStep.optional 
                   ? "This feature is not available in your current setup - skipping..."
                   : currentStep.description
@@ -737,12 +756,17 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
               </p>
               {currentStep.type === 'interactive' && targetRect ? (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-center gap-2 text-success">
+                  <div className="flex items-center justify-center gap-2 text-primary-foreground">
                     <span className="text-2xl animate-bounce">👆</span>
                     <span className="text-sm font-medium">Click the highlighted area</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <Button variant="ghost" size="sm" onClick={exitDemo}>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={exitDemo}
+                      className="text-primary-foreground hover:bg-primary-foreground/20"
+                    >
                       Skip Tour
                     </Button>
                     <div className="flex items-center gap-2">
@@ -751,11 +775,17 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                         size="sm" 
                         onClick={prevStep}
                         disabled={stepHistory.length === 0}
+                        className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/20 disabled:opacity-50"
                       >
                         <ChevronLeft className="h-4 w-4 mr-1" />
                         Back
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={nextStep}>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={nextStep}
+                        className="text-primary-foreground hover:bg-primary-foreground/20"
+                      >
                         <SkipForward className="h-4 w-4 mr-1" />
                         Skip
                       </Button>
@@ -764,7 +794,12 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-2">
-                  <Button variant="ghost" size="sm" onClick={exitDemo}>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={exitDemo}
+                    className="text-primary-foreground hover:bg-primary-foreground/20"
+                  >
                     Skip Tour
                   </Button>
                   <div className="flex items-center gap-2">
@@ -773,11 +808,16 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                       size="sm" 
                       onClick={prevStep}
                       disabled={stepHistory.length === 0}
+                      className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/20 disabled:opacity-50"
                     >
                       <ChevronLeft className="h-4 w-4 mr-1" />
                       Back
                     </Button>
-                    <Button size="sm" onClick={nextStep}>
+                    <Button 
+                      size="sm" 
+                      onClick={nextStep}
+                      className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                    >
                       {isLastStep && DEMO_FEATURES.findIndex(f => f.id === activeFeature?.id) === DEMO_FEATURES.length - 1 
                         ? 'Finish Tour' 
                         : isLastStep 
