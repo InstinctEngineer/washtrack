@@ -122,31 +122,70 @@ All colors MUST be HSL.
   }
 }
 
-/* Demo spotlight animation */
-@keyframes spotlight-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.5), 0 0 20px 8px hsl(var(--primary) / 0.3);
-  }
-  50% {
-    box-shadow: 0 0 0 6px hsl(var(--primary) / 0.7), 0 0 30px 12px hsl(var(--primary) / 0.4);
-  }
-}
-
-.demo-spotlight-ring {
-  animation: spotlight-pulse 1.5s ease-in-out infinite;
+/* Demo highlight ring - smooth transitions */
+.demo-highlight-ring {
   border: 3px solid hsl(var(--primary));
+  box-shadow: 
+    0 0 0 4px hsl(var(--primary) / 0.25),
+    0 0 20px 4px hsl(var(--primary) / 0.15);
+  transition: 
+    top 400ms cubic-bezier(0.4, 0, 0.2, 1),
+    left 400ms cubic-bezier(0.4, 0, 0.2, 1),
+    width 400ms cubic-bezier(0.4, 0, 0.2, 1),
+    height 400ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-radius 300ms ease,
+    opacity 200ms ease;
+  animation: ring-pulse 2s ease-in-out infinite;
 }
 
-/* Interactive demo step pulsing animation */
-@keyframes demo-pulse {
+@keyframes ring-pulse {
   0%, 100% {
-    box-shadow: 0 0 20px hsl(var(--success) / 0.6);
+    box-shadow: 
+      0 0 0 4px hsl(var(--primary) / 0.25),
+      0 0 20px 4px hsl(var(--primary) / 0.15);
   }
   50% {
-    box-shadow: 0 0 40px hsl(var(--success) / 0.9), 0 0 60px hsl(var(--success) / 0.4);
+    box-shadow: 
+      0 0 0 6px hsl(var(--primary) / 0.35),
+      0 0 30px 8px hsl(var(--primary) / 0.2);
   }
 }
 
-.animate-demo-pulse {
-  animation: demo-pulse 1.2s ease-in-out infinite;
+/* Interactive step highlight - green variant */
+.demo-highlight-ring.interactive {
+  border-color: hsl(var(--success));
+  box-shadow: 
+    0 0 0 4px hsl(var(--success) / 0.25),
+    0 0 20px 4px hsl(var(--success) / 0.15);
+  animation: ring-pulse-interactive 1.5s ease-in-out infinite;
+}
+
+@keyframes ring-pulse-interactive {
+  0%, 100% {
+    box-shadow: 
+      0 0 0 4px hsl(var(--success) / 0.25),
+      0 0 20px 4px hsl(var(--success) / 0.15);
+  }
+  50% {
+    box-shadow: 
+      0 0 0 6px hsl(var(--success) / 0.4),
+      0 0 30px 8px hsl(var(--success) / 0.25);
+  }
+}
+
+/* Demo tooltip with smooth transitions */
+.demo-tooltip {
+  transition: 
+    opacity 200ms ease,
+    transform 200ms ease;
+}
+
+.demo-tooltip-enter {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.demo-tooltip-exit {
+  opacity: 0;
+  transform: translateY(8px);
 }
