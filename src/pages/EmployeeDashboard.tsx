@@ -571,7 +571,7 @@ export default function EmployeeDashboard() {
 
   return (
     <Layout>
-      <div className={cn("pb-8", isMobile ? "space-y-2" : "space-y-4")}>
+      <div className={cn(isMobile ? "pb-4 space-y-2" : "pb-8 space-y-4")}>
         {/* Header */}
         <div className={cn("flex items-center justify-between", isMobile ? "gap-1" : "gap-2")}>
           <h1 className={cn("font-bold", isMobile ? "text-xl" : "text-2xl")}>Log Work</h1>
