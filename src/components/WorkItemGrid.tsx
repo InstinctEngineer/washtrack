@@ -70,9 +70,20 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
             },
           })) as WorkItemWithDetails[];
         
+        // Custom sort: PUD first, then alphabetical by type, then by identifier
         perUnitItems.sort((a, b) => {
-          const typeCompare = a.rate_config.work_type.name.localeCompare(b.rate_config.work_type.name);
+          const typeA = a.rate_config.work_type.name;
+          const typeB = b.rate_config.work_type.name;
+          
+          // PUD comes first
+          if (typeA === 'PUD' && typeB !== 'PUD') return -1;
+          if (typeB === 'PUD' && typeA !== 'PUD') return 1;
+          
+          // Then alphabetical by type
+          const typeCompare = typeA.localeCompare(typeB);
           if (typeCompare !== 0) return typeCompare;
+          
+          // Within same type, sort by identifier
           return a.identifier.localeCompare(b.identifier);
         });
         
@@ -181,7 +192,15 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
         <p className="text-center text-muted-foreground py-6">No items match your search</p>
       ) : (
         <div className="space-y-2">
-          {Object.entries(groupedItems).map(([typeName, items]) => {
+          {Object.keys(groupedItems)
+            .sort((a, b) => {
+              // PUD first, then alphabetical
+              if (a === 'PUD') return -1;
+              if (b === 'PUD') return 1;
+              return a.localeCompare(b);
+            })
+            .map((typeName) => {
+            const items = groupedItems[typeName];
             const isExpanded = expandedSections.has(typeName);
             const selectedInSection = isToggleMode 
               ? items.filter(item => selectedIds.has(item.id)).length 
