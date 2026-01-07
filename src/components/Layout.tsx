@@ -132,7 +132,7 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Top Navigation */}
       <header className="border-b bg-card sticky top-0 z-50">
         <div className="flex h-16 items-center justify-between px-4 lg:px-8">
@@ -194,8 +194,8 @@ export const Layout = ({ children }: LayoutProps) => {
         {/* Side Navigation */}
         <aside className={`
           fixed lg:sticky top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64 
-          border-r transition-transform lg:translate-x-0 relative
-          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+          border-r transition-all duration-300 ease-in-out lg:translate-x-0 lg:visible relative
+          ${mobileMenuOpen ? 'translate-x-0 visible' : '-translate-x-full invisible lg:visible'}
         `}
         style={{ 
           backgroundColor: 'hsl(var(--sidebar-background))',
