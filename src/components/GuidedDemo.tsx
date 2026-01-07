@@ -617,8 +617,11 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
 
     return createPortal(
       <>
-        {/* Demo Mode Banner with Progress */}
-        <div className="fixed top-0 left-0 right-0 z-[10003] bg-primary text-primary-foreground">
+        {/* Demo Mode Banner with Progress - Purple theme */}
+        <div 
+          className="fixed top-0 left-0 right-0 z-[10003] text-white"
+          style={{ background: 'hsl(270 70% 45%)' }}
+        >
           <div className="py-2 px-4">
             <div className="flex items-center justify-between max-w-screen-lg mx-auto">
               <div className="flex items-center gap-2">
@@ -628,7 +631,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                   - {activeFeature?.name} (Step {progress.currentStep}/{progress.totalSteps})
                 </span>
                 {skippedSteps > 0 && (
-                  <span className="text-xs bg-primary-foreground/20 px-2 py-0.5 rounded">
+                  <span className="text-xs bg-white/20 px-2 py-0.5 rounded">
                     {skippedSteps} skipped
                   </span>
                 )}
@@ -637,7 +640,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
                 variant="ghost"
                 size="sm"
                 onClick={exitDemo}
-                className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/20"
+                className="text-white hover:text-white hover:bg-white/20"
               >
                 <X className="h-4 w-4 mr-1" />
                 Exit Demo
@@ -647,7 +650,7 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
           {/* Progress Bar */}
           <Progress 
             value={progress.percentage} 
-            className="h-1 rounded-none bg-primary-foreground/20"
+            className="h-1 rounded-none bg-white/20 [&>div]:bg-white"
           />
         </div>
 
