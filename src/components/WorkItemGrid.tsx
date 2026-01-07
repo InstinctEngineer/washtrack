@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Package, ChevronRight, ChevronDown, Check, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { subDays } from 'date-fns';
 
 export interface WorkItemWithDetails {
   id: string;
@@ -43,6 +44,8 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
   useEffect(() => {
     const fetchWorkItems = async () => {
       setLoading(true);
+      
+      // Fetch work items
       const { data, error } = await supabase
         .from('work_items')
         .select(`
@@ -70,8 +73,25 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
             },
           })) as WorkItemWithDetails[];
         
+        // Fetch last wash dates for all work items
+        const workItemIds = perUnitItems.map(item => item.id);
+        const thirtyDaysAgo = subDays(new Date(), 30).toISOString().split('T')[0];
+        
+        // Get the most recent work_log for each work_item
+        const { data: recentLogs } = await supabase
+          .from('work_logs')
+          .select('work_item_id, work_date')
+          .in('work_item_id', workItemIds)
+          .gte('work_date', thirtyDaysAgo);
+        
+        // Create a set of work_item_ids that have been washed in the last 30 days
+        const activeWorkItemIds = new Set(recentLogs?.map(log => log.work_item_id) || []);
+        
+        // Filter to only include vehicles washed within 30 days
+        const activeItems = perUnitItems.filter(item => activeWorkItemIds.has(item.id));
+        
         // Custom sort: PUD first, then alphabetical by type, then by identifier
-        perUnitItems.sort((a, b) => {
+        activeItems.sort((a, b) => {
           const typeA = a.rate_config.work_type.name;
           const typeB = b.rate_config.work_type.name;
           
@@ -87,10 +107,10 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
           return a.identifier.localeCompare(b.identifier);
         });
         
-        setWorkItems(perUnitItems);
+        setWorkItems(activeItems);
         
         // Auto-expand first section
-        const firstType = perUnitItems[0]?.rate_config.work_type.name;
+        const firstType = activeItems[0]?.rate_config.work_type.name;
         if (firstType) {
           setExpandedSections(new Set([firstType]));
         }
