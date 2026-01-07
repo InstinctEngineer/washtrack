@@ -288,15 +288,18 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                     "border-2 border-t-0 border-primary rounded-b-lg p-3 bg-card"
                   )}>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                      {items.map((item) => {
+                      {items.map((item, itemIndex) => {
                         const isSelected = isToggleMode && selectedIds.has(item.id);
                         const isCompleted = completedIds?.has(item.id);
+                        // Add data-demo attribute to the first non-completed item for the guided tour
+                        const isFirstSelectable = itemIndex === items.findIndex(i => !completedIds?.has(i.id));
                         
                         return (
                           <button
                             key={item.id}
                             onClick={() => handleItemClick(item)}
                             disabled={isCompleted}
+                            data-demo={isFirstSelectable && !isCompleted ? "vehicle-card" : undefined}
                             className={cn(
                               "relative flex items-center justify-center p-4 min-h-[64px] rounded-lg",
                               "transition-all duration-150 touch-manipulation",

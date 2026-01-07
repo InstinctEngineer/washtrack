@@ -235,6 +235,21 @@ export function GuidedDemo({ className }: GuidedDemoProps) {
       return;
     }
 
+    // Special handling for vehicle-card: expand the first collapsible section if needed
+    if (currentStep.targetSelector === '[data-demo="vehicle-card"]') {
+      const vehicleCard = document.querySelector('[data-demo="vehicle-card"]');
+      if (!vehicleCard) {
+        // Click the first collapsed section trigger to expand it
+        const firstSectionTrigger = document.querySelector('[data-demo="vehicles-grid"] button[data-state="closed"]');
+        if (firstSectionTrigger instanceof HTMLElement) {
+          firstSectionTrigger.click();
+          // Re-run after a short delay to let the section expand
+          setTimeout(() => updateTargetPosition(), 150);
+          return;
+        }
+      }
+    }
+
     const target = document.querySelector(currentStep.targetSelector);
     if (target) {
       const rect = target.getBoundingClientRect();
