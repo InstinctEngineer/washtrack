@@ -10,6 +10,7 @@ export interface ReportDataRow {
   client_class: string | null;
   client_tax_jurisdiction: string | null;
   client_is_taxable: boolean;
+  client_tax_rate?: number | null;
   location_id: string;
   location_name: string;
   work_type_id: string;

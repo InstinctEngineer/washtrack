@@ -25,6 +25,7 @@ export default function Clients() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [formData, setFormData] = useState<Partial<Client>>({
     is_active: true,
+    is_taxable: false,
   });
   const [sortColumn, setSortColumn] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -65,7 +66,7 @@ export default function Clients() {
 
       toast.success('Client created successfully');
       setShowCreateDialog(false);
-      setFormData({ is_active: true });
+      setFormData({ is_active: true, is_taxable: false });
       fetchClients();
     } catch (error: any) {
       console.error('Error creating client:', error);
@@ -87,7 +88,7 @@ export default function Clients() {
       toast.success('Client updated successfully');
       setShowEditDialog(false);
       setSelectedClient(null);
-      setFormData({ is_active: true });
+      setFormData({ is_active: true, is_taxable: false });
       fetchClients();
     } catch (error: any) {
       console.error('Error updating client:', error);
@@ -249,6 +250,12 @@ export default function Clients() {
                     >
                       <div className="flex items-center">Status{getSortIcon('is_active')}</div>
                     </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none hover:bg-muted/50"
+                      onClick={() => handleSort('tax_rate')}
+                    >
+                      <div className="flex items-center">Tax Rate{getSortIcon('tax_rate')}</div>
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -267,6 +274,11 @@ export default function Clients() {
                         <Badge variant={client.is_active ? 'default' : 'secondary'}>
                           {client.is_active ? 'Active' : 'Inactive'}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {client.tax_rate !== null && client.tax_rate !== undefined 
+                          ? `${client.tax_rate}%` 
+                          : '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -302,7 +314,7 @@ export default function Clients() {
             setShowCreateDialog(false);
             setShowEditDialog(false);
             setSelectedClient(null);
-            setFormData({ is_active: true });
+            setFormData({ is_active: true, is_taxable: false });
           }
         }}>
           <DialogContent className="max-w-md">
@@ -370,6 +382,80 @@ export default function Clients() {
                   placeholder="123 Main St, City, State 12345"
                   rows={2}
                 />
+              </div>
+
+              {/* QuickBooks Settings Section */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-sm font-medium mb-3">QuickBooks Settings</h3>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="default_terms">Default Terms</Label>
+                    <Input
+                      id="default_terms"
+                      value={formData.default_terms || ''}
+                      onChange={(e) => setFormData({ ...formData, default_terms: e.target.value })}
+                      placeholder="Net 30"
+                    />
+                    <p className="text-xs text-muted-foreground">Payment terms</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="default_class">Default Class</Label>
+                    <Input
+                      id="default_class"
+                      value={formData.default_class || ''}
+                      onChange={(e) => setFormData({ ...formData, default_class: e.target.value })}
+                      placeholder="Fleet Services"
+                    />
+                    <p className="text-xs text-muted-foreground">QuickBooks accounting class</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tax Settings Section */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-sm font-medium mb-3">Tax Settings</h3>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is_taxable"
+                      checked={formData.is_taxable ?? false}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_taxable: checked === true })}
+                    />
+                    <Label htmlFor="is_taxable">This client is taxable</Label>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="tax_jurisdiction">Tax Jurisdiction</Label>
+                    <Input
+                      id="tax_jurisdiction"
+                      value={formData.tax_jurisdiction || ''}
+                      onChange={(e) => setFormData({ ...formData, tax_jurisdiction: e.target.value })}
+                      placeholder="MN"
+                    />
+                    <p className="text-xs text-muted-foreground">QuickBooks tax jurisdiction code</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="tax_rate">Tax Rate (%)</Label>
+                    <Input
+                      id="tax_rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.tax_rate ?? ''}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        tax_rate: e.target.value ? parseFloat(e.target.value) : null 
+                      })}
+                      placeholder="8.25"
+                    />
+                    <p className="text-xs text-muted-foreground">Tax percentage (e.g., 8.25 for 8.25%)</p>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center space-x-2">

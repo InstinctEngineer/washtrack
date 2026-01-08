@@ -141,6 +141,8 @@ export default function FinanceDashboard() {
         return row.client_is_taxable ? 'Y' : 'N';
       case 'tax_jurisdiction':
         return row.client_tax_jurisdiction || '';
+      case 'tax_rate':
+        return row.client_tax_rate != null ? row.client_tax_rate.toFixed(2) : '';
       case 'frequency':
         return row.frequency || '';
       default:
