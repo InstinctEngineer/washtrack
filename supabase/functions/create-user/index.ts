@@ -105,15 +105,39 @@ serve(async (req) => {
       );
     }
 
-    const hasAdminRole = callerRoles.some(r => r.role === 'admin' || r.role === 'super_admin');
+    // Check if caller has finance, admin, or super_admin role
+    const hasPermission = callerRoles.some(r => 
+      r.role === 'finance' || r.role === 'admin' || r.role === 'super_admin'
+    );
     
-    if (!hasAdminRole) {
-      console.error('User does not have admin privileges');
+    if (!hasPermission) {
+      console.error('User does not have sufficient privileges');
       return new Response(
-        JSON.stringify({ error: 'Insufficient permissions' }), 
+        JSON.stringify({ error: 'Insufficient permissions. Requires finance, admin, or super_admin role.' }), 
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Get caller's highest role level for hierarchy check
+    const roleHierarchy: Record<string, number> = {
+      employee: 1,
+      manager: 2,
+      finance: 3,
+      admin: 4,
+      super_admin: 5
+    };
+    
+    let callerHighestRoleName = 'employee';
+    let callerHighestLevel = 1;
+    for (const r of callerRoles) {
+      const level = roleHierarchy[r.role] || 0;
+      if (level > callerHighestLevel) {
+        callerHighestRoleName = r.role;
+        callerHighestLevel = level;
+      }
+    }
+
+    console.log('Caller highest role:', callerHighestRoleName);
 
     // Parse request body
     const requestBody = await req.json();
@@ -138,6 +162,16 @@ serve(async (req) => {
 
     const validatedData = createUserSchema.parse(requestBody);
     const { name, email, location_id, role, manager_id, password } = validatedData;
+
+    // Validate that the requested role is not higher than caller's role
+    const requestedRoleLevel = roleHierarchy[role] || 0;
+    if (requestedRoleLevel > callerHighestLevel) {
+      console.error('Attempted to create user with higher role than caller');
+      return new Response(
+        JSON.stringify({ error: `Cannot create user with ${role} role. You can only create users with roles at or below your own level (${callerHighestRoleName}).` }), 
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Generate employee ID
     const employee_id = await generateEmployeeId(supabaseAdmin);

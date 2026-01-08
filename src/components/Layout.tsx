@@ -89,6 +89,19 @@ export const Layout = ({ children }: LayoutProps) => {
       });
     }
 
+    // Finance users can access management features (except Admin Dashboard and Settings)
+    if (hasRoleOrHigher(userRole, 'finance' as UserRole)) {
+      navItems.push(
+        { label: 'Users', icon: Users, path: '/admin/users', section: 'Administration' },
+        { label: 'Clients', icon: Building2, path: '/admin/clients', section: 'Administration' },
+        { label: 'Work Types', icon: Wrench, path: '/admin/work-types', section: 'Administration' },
+        { label: 'Rate Card', icon: DollarSign, path: '/admin/rates', section: 'Administration' },
+        { label: 'Work Items', icon: Package, path: '/admin/items', section: 'Administration' },
+        { label: 'Locations', icon: MapPin, path: '/admin/locations', section: 'Administration' }
+      );
+    }
+
+    // Admin-only features
     if (hasRoleOrHigher(userRole, 'admin' as UserRole)) {
       navItems.push({ 
         label: 'Admin Dashboard', 
@@ -96,15 +109,7 @@ export const Layout = ({ children }: LayoutProps) => {
         path: '/admin/dashboard',
         section: 'Dashboards'
       });
-
-      // Admin-only features
       navItems.push(
-        { label: 'Users', icon: Users, path: '/admin/users', section: 'Administration' },
-        { label: 'Clients', icon: Building2, path: '/admin/clients', section: 'Administration' },
-        { label: 'Work Types', icon: Wrench, path: '/admin/work-types', section: 'Administration' },
-        { label: 'Rate Card', icon: DollarSign, path: '/admin/rates', section: 'Administration' },
-        { label: 'Work Items', icon: Package, path: '/admin/items', section: 'Administration' },
-        { label: 'Locations', icon: MapPin, path: '/admin/locations', section: 'Administration' },
         { label: 'Settings', icon: Settings, path: '/admin/settings', section: 'Administration' }
       );
     }

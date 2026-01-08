@@ -75,3 +75,27 @@ export function getDashboardPath(role: UserRole): string {
 
   return roleRoutes[role] || '/employee/dashboard';
 }
+
+/**
+ * Get roles that the current user can assign to others
+ * Users can only assign roles at or below their own level
+ */
+export function getAssignableRoles(currentRole: UserRole): UserRole[] {
+  const allRoles: UserRole[] = ['employee', 'manager', 'finance', 'admin', 'super_admin'];
+  return allRoles.filter(role => roleHierarchy[role] <= roleHierarchy[currentRole]);
+}
+
+/**
+ * Check if a user can manage another user based on role hierarchy
+ * Returns true if the current user's role is higher than the target user's role
+ */
+export function canManageUser(currentRole: UserRole, targetRole: UserRole): boolean {
+  // Super admin can manage anyone
+  if (currentRole === 'super_admin') return true;
+  // Admin can manage anyone except super_admin
+  if (currentRole === 'admin') return targetRole !== 'super_admin';
+  // Finance can manage finance and below (but not admin/super_admin)
+  if (currentRole === 'finance') return roleHierarchy[targetRole] <= roleHierarchy['finance'];
+  // Others cannot manage users
+  return false;
+}
