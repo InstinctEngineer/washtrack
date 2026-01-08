@@ -27,6 +27,9 @@ export default function Clients() {
   const [formData, setFormData] = useState<Partial<Client>>({
     is_active: true,
     is_taxable: false,
+    default_terms: 'Net 30',
+    default_class: 'Fleet Services',
+    tax_jurisdiction: 'MN',
   });
   const [sortColumn, setSortColumn] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -81,7 +84,7 @@ export default function Clients() {
 
       toast.success('Client created successfully');
       setShowCreateDialog(false);
-      setFormData({ is_active: true, is_taxable: false });
+      setFormData({ is_active: true, is_taxable: false, default_terms: 'Net 30', default_class: 'Fleet Services', tax_jurisdiction: 'MN' });
       fetchClients();
     } catch (error: any) {
       console.error('Error creating client:', error);
@@ -117,7 +120,7 @@ export default function Clients() {
       toast.success('Client updated successfully');
       setShowEditDialog(false);
       setSelectedClient(null);
-      setFormData({ is_active: true, is_taxable: false });
+      setFormData({ is_active: true, is_taxable: false, default_terms: 'Net 30', default_class: 'Fleet Services', tax_jurisdiction: 'MN' });
       fetchClients();
     } catch (error: any) {
       console.error('Error updating client:', error);
@@ -343,7 +346,7 @@ export default function Clients() {
             setShowCreateDialog(false);
             setShowEditDialog(false);
             setSelectedClient(null);
-            setFormData({ is_active: true, is_taxable: false });
+            setFormData({ is_active: true, is_taxable: false, default_terms: 'Net 30', default_class: 'Fleet Services', tax_jurisdiction: 'MN' });
           }
         }}>
           <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
@@ -424,7 +427,7 @@ export default function Clients() {
                       id="default_terms"
                       value={formData.default_terms || ''}
                       onChange={(e) => setFormData({ ...formData, default_terms: e.target.value })}
-                      placeholder="Net 30"
+                      placeholder="e.g., Net 30, Net 15"
                     />
                     <p className="text-xs text-muted-foreground">Payment terms</p>
                   </div>
@@ -435,7 +438,7 @@ export default function Clients() {
                       id="default_class"
                       value={formData.default_class || ''}
                       onChange={(e) => setFormData({ ...formData, default_class: e.target.value })}
-                      placeholder="Fleet Services"
+                      placeholder="e.g., Fleet Services"
                     />
                     <p className="text-xs text-muted-foreground">QuickBooks accounting class</p>
                   </div>
@@ -462,7 +465,7 @@ export default function Clients() {
                       id="tax_jurisdiction"
                       value={formData.tax_jurisdiction || ''}
                       onChange={(e) => setFormData({ ...formData, tax_jurisdiction: e.target.value })}
-                      placeholder="MN"
+                      placeholder="e.g., MN, TX, CA"
                     />
                     <p className="text-xs text-muted-foreground">QuickBooks tax jurisdiction code</p>
                   </div>
