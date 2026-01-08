@@ -76,6 +76,7 @@ export type Database = {
           name: string
           parent_company: string | null
           tax_jurisdiction: string | null
+          tax_rate: number | null
         }
         Insert: {
           billing_address?: string | null
@@ -90,6 +91,7 @@ export type Database = {
           name: string
           parent_company?: string | null
           tax_jurisdiction?: string | null
+          tax_rate?: number | null
         }
         Update: {
           billing_address?: string | null
@@ -104,6 +106,7 @@ export type Database = {
           name?: string
           parent_company?: string | null
           tax_jurisdiction?: string | null
+          tax_rate?: number | null
         }
         Relationships: []
       }
