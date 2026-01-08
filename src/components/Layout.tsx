@@ -41,7 +41,6 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { unreadCount } = useUnreadMessageCount();
 
   const handleSignOut = async () => {
@@ -143,21 +142,11 @@ export const Layout = ({ children }: LayoutProps) => {
       <header className="border-b bg-card sticky top-0 z-50">
         <div className="flex h-16 items-center justify-between px-4 lg:px-8">
           <div className="flex items-center gap-4">
-            {/* Mobile menu button */}
             <Button
               variant="ghost"
               size="icon"
               className="lg:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            {/* Desktop sidebar toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden lg:flex"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             >
               <Menu className="h-5 w-5" />
             </Button>
@@ -209,11 +198,9 @@ export const Layout = ({ children }: LayoutProps) => {
       <div className="flex">
         {/* Side Navigation */}
         <aside className={`
-          fixed lg:sticky top-16 left-0 z-40 h-[calc(100vh-4rem)] 
-          border-r bg-card transition-all duration-300 ease-in-out overflow-hidden
-          ${mobileMenuOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64'}
-          ${sidebarCollapsed ? 'lg:w-0 lg:border-0' : 'lg:w-64'}
-          lg:translate-x-0
+          fixed lg:sticky top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64 
+          border-r bg-card transition-transform lg:translate-x-0
+          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
           <nav className="flex flex-col gap-4 p-4">
             {Object.entries(groupedNavItems).map(([section, items]) => (
