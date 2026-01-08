@@ -21,6 +21,13 @@ export interface Client {
   contact_email: string | null;
   is_active: boolean;
   created_at: string;
+  // QuickBooks Settings
+  default_terms?: string | null;
+  default_class?: string | null;
+  // Tax Settings
+  is_taxable?: boolean | null;
+  tax_jurisdiction?: string | null;
+  tax_rate?: number | null;
 }
 
 export interface Location {

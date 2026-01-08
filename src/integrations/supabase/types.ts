@@ -1041,31 +1041,58 @@ export type Database = {
       }
       get_last_monday: { Args: never; Returns: string }
       get_next_sunday: { Args: never; Returns: string }
-      get_report_data: {
-        Args: {
-          p_client_ids?: string[]
-          p_end_date: string
-          p_location_ids?: string[]
-          p_start_date: string
-          p_work_type_ids?: string[]
-        }
-        Returns: {
-          client_class: string
-          client_email: string
-          client_id: string
-          client_is_taxable: boolean
-          client_name: string
-          client_tax_jurisdiction: string
-          client_terms: string
-          frequency: string
-          location_id: string
-          location_name: string
-          rate: number
-          total_quantity: number
-          work_type_id: string
-          work_type_name: string
-        }[]
-      }
+      get_report_data:
+        | {
+            Args: {
+              p_client_ids?: string[]
+              p_end_date: string
+              p_location_ids?: string[]
+              p_start_date: string
+              p_work_type_ids?: string[]
+            }
+            Returns: {
+              client_class: string
+              client_email: string
+              client_id: string
+              client_is_taxable: boolean
+              client_name: string
+              client_tax_jurisdiction: string
+              client_tax_rate: number
+              client_terms: string
+              frequency: string
+              location_id: string
+              location_name: string
+              rate: number
+              total_quantity: number
+              work_type_id: string
+              work_type_name: string
+            }[]
+          }
+        | {
+            Args: {
+              p_client_ids?: string[]
+              p_end_date: string
+              p_location_ids?: string[]
+              p_start_date: string
+              p_work_type_ids?: string[]
+            }
+            Returns: {
+              client_class: string
+              client_email: string
+              client_id: string
+              client_is_taxable: boolean
+              client_name: string
+              client_tax_jurisdiction: string
+              client_terms: string
+              frequency: string
+              location_id: string
+              location_name: string
+              rate: number
+              total_quantity: number
+              work_type_id: string
+              work_type_name: string
+            }[]
+          }
       get_users_for_managers: {
         Args: never
         Returns: {

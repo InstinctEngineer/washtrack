@@ -55,6 +55,7 @@ export const AVAILABLE_FIELDS: AvailableField[] = [
   { key: 'contact_email', label: 'Contact Email', description: 'Client email address', defaultHeader: 'Email', suggestFirstRowOnly: true },
   { key: 'taxable', label: 'Taxable', description: 'Y/N for tax status', defaultHeader: 'Taxable' },
   { key: 'tax_jurisdiction', label: 'Tax Rate/Jurisdiction', description: 'Tax jurisdiction code', defaultHeader: 'TaxRate' },
+  { key: 'tax_rate', label: 'Tax Rate (%)', description: 'Numeric tax rate percentage (e.g., 8.25)', defaultHeader: 'TaxRate%' },
   { key: 'frequency', label: 'Frequency', description: 'Service frequency', defaultHeader: 'Frequency' },
 ];
 
