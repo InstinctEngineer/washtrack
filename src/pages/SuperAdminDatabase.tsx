@@ -16,18 +16,23 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 const TABLES = [
-  'users',
-  'user_roles',
-  'locations',
+  'audit_log',
   'clients',
-  'client_locations',
-  'vehicles',
-  'vehicle_types',
-  'work_entries',
-  'service_categories',
-  'wash_frequencies',
-  'location_service_rates',
-  'system_settings'
+  'employee_comments',
+  'locations',
+  'manager_approval_requests',
+  'message_reads',
+  'message_replies',
+  'rate_configs',
+  'report_templates',
+  'system_settings',
+  'system_settings_audit',
+  'user_locations',
+  'user_roles',
+  'users',
+  'work_items',
+  'work_logs',
+  'work_types'
 ];
 
 export default function SuperAdminDatabase() {
