@@ -61,7 +61,21 @@ export default function Clients() {
     }
 
     try {
-      const { error } = await supabase.from('clients').insert([formData as any]);
+      const insertData = {
+        name: formData.name,
+        parent_company: formData.parent_company || null,
+        billing_address: formData.billing_address || null,
+        contact_name: formData.contact_name || null,
+        contact_email: formData.contact_email || null,
+        is_active: formData.is_active ?? true,
+        default_terms: formData.default_terms || null,
+        default_class: formData.default_class || null,
+        is_taxable: formData.is_taxable ?? false,
+        tax_jurisdiction: formData.tax_jurisdiction || null,
+        tax_rate: formData.tax_rate ?? null,
+      };
+
+      const { error } = await supabase.from('clients').insert([insertData]);
 
       if (error) throw error;
 
@@ -79,9 +93,23 @@ export default function Clients() {
     if (!selectedClient) return;
 
     try {
+      const updateData = {
+        name: formData.name,
+        parent_company: formData.parent_company || null,
+        billing_address: formData.billing_address || null,
+        contact_name: formData.contact_name || null,
+        contact_email: formData.contact_email || null,
+        is_active: formData.is_active ?? true,
+        default_terms: formData.default_terms || null,
+        default_class: formData.default_class || null,
+        is_taxable: formData.is_taxable ?? false,
+        tax_jurisdiction: formData.tax_jurisdiction || null,
+        tax_rate: formData.tax_rate ?? null,
+      };
+
       const { error } = await supabase
         .from('clients')
-        .update(formData)
+        .update(updateData)
         .eq('id', selectedClient.id);
 
       if (error) throw error;
