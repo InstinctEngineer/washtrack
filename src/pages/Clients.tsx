@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Building2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown } from 'lucide-react';
@@ -318,7 +318,7 @@ export default function Clients() {
             setFormData({ is_active: true, is_taxable: false });
           }
         }}>
-          <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{showEditDialog ? 'Edit Client' : 'Create New Client'}</DialogTitle>
               <DialogDescription>
@@ -326,8 +326,7 @@ export default function Clients() {
               </DialogDescription>
             </DialogHeader>
 
-            <ScrollArea className="flex-1 max-h-[calc(90vh-180px)] pr-4">
-              <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Client Name *</Label>
                 <Input
@@ -468,8 +467,7 @@ export default function Clients() {
                 />
                 <Label htmlFor="is_active">Active</Label>
               </div>
-              </div>
-            </ScrollArea>
+            </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => {
