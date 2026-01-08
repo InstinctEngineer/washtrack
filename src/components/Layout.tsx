@@ -110,7 +110,7 @@ export const Layout = ({ children }: LayoutProps) => {
         section: 'Dashboards'
       });
       navItems.push(
-        { label: 'Settings', icon: Settings, path: '/admin/settings', section: 'Administration' }
+        { label: 'System Settings', icon: Settings, path: '/admin/settings', section: 'Admin Only' }
       );
     }
 
