@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Location, UserRole } from "@/types/database";
+import { getAssignableRoles } from "@/lib/roleUtils";
 import {
   Dialog,
   DialogContent,
@@ -451,15 +452,18 @@ export const CreateUserModal = ({
                   <SelectValue placeholder="Select role..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="finance">Finance</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  {userRole === 'super_admin' && (
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
-                  )}
+                  {getAssignableRoles(userRole as UserRole).map((role) => (
+                    <SelectItem key={role} value={role} className="capitalize">
+                      {role.replace('_', ' ')}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {userRole === 'finance' && (
+                <p className="text-xs text-muted-foreground">
+                  As a Finance user, you can create employees, managers, and finance users.
+                </p>
+              )}
             </div>
 
             {(formData.role === "employee" || formData.role === "manager") && (

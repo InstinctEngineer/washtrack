@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Location, UserRole, UserLocation } from "@/types/database";
+import { getAssignableRoles, canManageUser } from "@/lib/roleUtils";
 import {
   Dialog,
   DialogContent,
@@ -67,6 +68,8 @@ export const EditUserModal = ({
   const isEditingSelf = currentUser?.id === user.id;
   const isEditingSuperAdmin = userRole === 'super_admin';
   const canEditSuperAdmin = currentUserRole === 'super_admin';
+  // Check if the current user can manage the target user based on role hierarchy
+  const canManageTargetUser = canManageUser(currentUserRole as UserRole, userRole as UserRole);
 
   // Fetch locations
   const { data: locations } = useQuery({
@@ -129,11 +132,11 @@ export const EditUserModal = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Prevent non-super-admins from editing super-admin users
-    if (isEditingSuperAdmin && !canEditSuperAdmin) {
+    // Check if user can manage the target user
+    if (!canManageTargetUser) {
       toast({
         title: "Permission Denied",
-        description: "Only Super Admins can edit Super Admin accounts.",
+        description: "You don't have permission to edit this user. You can only edit users with roles at or below your own level.",
         variant: "destructive",
       });
       return;
@@ -488,19 +491,17 @@ export const EditUserModal = ({
                 onValueChange={(value) =>
                   setFormData({ ...formData, role: value as UserRole })
                 }
-                disabled={isEditingSelf || (isEditingSuperAdmin && !canEditSuperAdmin)}
+                disabled={isEditingSelf || !canManageTargetUser}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select role..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="finance">Finance</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  {currentUserRole === 'super_admin' && (
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
-                  )}
+                  {getAssignableRoles(currentUserRole as UserRole).map((role) => (
+                    <SelectItem key={role} value={role} className="capitalize">
+                      {role.replace('_', ' ')}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {isEditingSelf && (
@@ -508,9 +509,9 @@ export const EditUserModal = ({
                   You cannot change your own role
                 </p>
               )}
-              {isEditingSuperAdmin && !canEditSuperAdmin && (
+              {!canManageTargetUser && !isEditingSelf && (
                 <p className="text-xs text-destructive">
-                  Only Super Admins can edit Super Admin accounts
+                  You cannot edit users with higher roles than your own
                 </p>
               )}
             </div>
