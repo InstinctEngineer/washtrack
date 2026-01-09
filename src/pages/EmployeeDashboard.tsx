@@ -779,18 +779,21 @@ export default function EmployeeDashboard() {
 
             {/* Submit Button with underglow effect */}
             <div data-demo="submit-button" ref={submitButtonRef}>
-              {/* Glow wrapper - light source behind button */}
-              <div 
-                className={cn(
-                  "relative rounded-lg p-1",
-                  isSubmitButtonVisible && !isSubmitting && "pending-glow-button"
+              {/* Container for positioning */}
+              <div className="relative">
+                {/* Glow layer - sits behind button, only this animates */}
+                {isSubmitButtonVisible && !isSubmitting && (
+                  <div 
+                    className="pending-glow-layer absolute inset-[-4px] rounded-lg pointer-events-none"
+                    aria-hidden="true"
+                  />
                 )}
-              >
+                {/* Button - static, sits above glow */}
                 <Button
                   onClick={handleBatchSubmit}
                   disabled={isSubmitting}
                   className={cn(
-                    "relative w-full h-14 text-lg font-bold",
+                    "relative z-10 w-full h-14 text-lg font-bold",
                     "bg-green-700 hover:bg-green-800 text-white",
                     "transition-all duration-500"
                   )}
