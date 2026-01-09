@@ -117,6 +117,7 @@ export type Database = {
           employee_id: string
           id: string
           location_id: string | null
+          recipient_id: string | null
           week_start_date: string
           work_log_ids: string[] | null
           work_submission_date: string | null
@@ -127,6 +128,7 @@ export type Database = {
           employee_id: string
           id?: string
           location_id?: string | null
+          recipient_id?: string | null
           week_start_date: string
           work_log_ids?: string[] | null
           work_submission_date?: string | null
@@ -137,6 +139,7 @@ export type Database = {
           employee_id?: string
           id?: string
           location_id?: string | null
+          recipient_id?: string | null
           week_start_date?: string
           work_log_ids?: string[] | null
           work_submission_date?: string | null
@@ -152,6 +155,20 @@ export type Database = {
           {
             foreignKeyName: "employee_comments_employee_id_fkey"
             columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "users_safe_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_comments_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_comments_recipient_id_fkey"
+            columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "users_safe_view"
             referencedColumns: ["id"]
