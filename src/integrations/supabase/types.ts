@@ -1093,6 +1093,7 @@ export type Database = {
           location_name: string
           rate: number
           total_quantity: number
+          work_date: string
           work_type_id: string
           work_type_name: string
           work_type_rate_type: string

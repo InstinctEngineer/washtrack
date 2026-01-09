@@ -2,6 +2,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { UserRole } from '@/types/database';
 
 /**
+ * Parse a YYYY-MM-DD date string as local time instead of UTC.
+ * This prevents timezone-related display bugs where dates shift by one day.
+ */
+export function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/**
  * Get the current cutoff date from system settings
  */
 export async function getCurrentCutoff(): Promise<Date | null> {
