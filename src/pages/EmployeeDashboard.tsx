@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertCircle, Clock, Truck, ChevronLeft, ChevronRight, CalendarDays, Send, X, Loader2, MessageSquare, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { cn } from '@/lib/utils';
@@ -78,6 +79,7 @@ function parseLocalDate(dateStr: string): Date {
 
 export default function EmployeeDashboard() {
   const { user, userLocations } = useAuth();
+  const navigate = useNavigate();
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [hourlyConfigs, setHourlyConfigs] = useState<RateConfigWithDetails[]>([]);
@@ -959,12 +961,12 @@ export default function EmployeeDashboard() {
         onSuccess={handleLogSuccess}
       />
 
-      {/* Floating Comment Button */}
+      {/* Floating Message Button */}
       <button
         data-demo="comment-button"
-        onClick={() => setCommentModalOpen(true)}
-        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center"
-        aria-label="Send message to finance"
+        onClick={() => navigate('/employee/messages')}
+        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-green-600 text-white shadow-lg hover:bg-green-700 transition-all hover:scale-105 flex items-center justify-center"
+        aria-label="View my messages"
       >
         <MessageSquare className="h-6 w-6" />
       </button>
