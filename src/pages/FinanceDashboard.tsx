@@ -362,29 +362,19 @@ export default function FinanceDashboard() {
 
         <Separator />
 
-        {/* Step 1: Date Range */}
+        {/* Report Settings */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Step 1: Select Date Range</CardTitle>
-            <CardDescription>Choose the period for your report</CardDescription>
+            <CardTitle className="text-lg">Report Settings</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             <ReportDateRangePicker
               startDate={startDate}
               endDate={endDate}
               onStartDateChange={setStartDate}
               onEndDateChange={setEndDate}
             />
-          </CardContent>
-        </Card>
-
-        {/* Step 2: Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Step 2: Filter Data</CardTitle>
-            <CardDescription>Narrow down by client, location, or work type (optional)</CardDescription>
-          </CardHeader>
-          <CardContent>
+            <Separator />
             <ReportFilters
               selectedClients={selectedClients}
               selectedLocations={selectedLocations}
@@ -396,64 +386,55 @@ export default function FinanceDashboard() {
           </CardContent>
         </Card>
 
-        {/* Step 3: Preview */}
+        {/* Preview & Export */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg">Step 3: Preview Data</CardTitle>
-              <CardDescription>
-                {reportData.length} line items found
-                {startDate && endDate && (
-                  <> for {format(startDate, 'MMM d')} - {format(endDate, 'MMM d, yyyy')}</>
-                )}
-              </CardDescription>
+              <CardTitle className="text-lg">
+                Preview
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  {reportData.length} items
+                  {startDate && endDate && (
+                    <> • {format(startDate, 'MMM d')} – {format(endDate, 'MMM d, yyyy')}</>
+                  )}
+                </span>
+              </CardTitle>
             </div>
-            <Button variant="outline" onClick={() => setConfigModalOpen(true)}>
+            <Button variant="outline" size="sm" onClick={() => setConfigModalOpen(true)}>
               <Settings2 className="h-4 w-4 mr-2" />
-              Configure Export
+              Configure
             </Button>
           </CardHeader>
-          <CardContent>
-            <ReportPreviewTable data={reportData} loading={loading} columns={columns} />
-          </CardContent>
-        </Card>
-
-        {/* Step 4: Export */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Step 4: Export</CardTitle>
-            <CardDescription>
-              {columns.length} columns configured for export
-            </CardDescription>
-          </CardHeader>
           <CardContent className="space-y-4">
-            {/* Invoice Number Start Setting */}
-            <div className="flex items-center gap-4">
-              <Label htmlFor="invoiceStart" className="whitespace-nowrap">
-                Invoice Number Start:
-              </Label>
-              <Input
-                id="invoiceStart"
-                type="number"
-                value={invoiceStartNumber}
-                onChange={(e) => setInvoiceStartNumber(parseInt(e.target.value) || 1001)}
-                className="w-32"
-                min={1}
-              />
-              <span className="text-sm text-muted-foreground">
-                Invoices will be numbered {invoiceStartNumber}, {invoiceStartNumber + 1}, {invoiceStartNumber + 2}...
-              </span>
-            </div>
+            <ReportPreviewTable data={reportData} loading={loading} columns={columns} />
             
-            <div className="flex gap-4">
-              <Button variant="outline" onClick={handlePreviewCSV} disabled={reportData.length === 0}>
-                <Eye className="h-4 w-4 mr-2" />
-                Preview CSV
-              </Button>
-              <Button onClick={handleExportCSV} disabled={reportData.length === 0}>
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
+            <Separator />
+            
+            {/* Export actions */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="invoiceStart" className="text-sm whitespace-nowrap">
+                  Invoice #:
+                </Label>
+                <Input
+                  id="invoiceStart"
+                  type="number"
+                  value={invoiceStartNumber}
+                  onChange={(e) => setInvoiceStartNumber(parseInt(e.target.value) || 1001)}
+                  className="w-24 h-9"
+                  min={1}
+                />
+              </div>
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" size="sm" onClick={handlePreviewCSV} disabled={reportData.length === 0}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Preview CSV
+                </Button>
+                <Button size="sm" onClick={handleExportCSV} disabled={reportData.length === 0}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
