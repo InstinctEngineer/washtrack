@@ -1099,6 +1099,13 @@ export type Database = {
           work_type_rate_type: string
         }[]
       }
+      get_user_display_info: {
+        Args: { user_ids: string[] }
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
       get_users_for_managers: {
         Args: never
         Returns: {

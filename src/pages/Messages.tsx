@@ -34,8 +34,8 @@ interface EmployeeComment {
   employee?: {
     id: string;
     name: string;
-    email: string;
-    employee_id: string;
+    email?: string;
+    employee_id?: string;
   };
   location?: {
     id: string;
@@ -45,7 +45,7 @@ interface EmployeeComment {
   recipient?: {
     id: string;
     name: string;
-    email: string;
+    email?: string;
   };
 }
 
@@ -230,11 +230,9 @@ export default function Messages() {
       const replyUserIds = rawReplies.map((r) => r.user_id);
       const allUserIds = [...new Set([...employeeIds, ...readUserIds, ...replyUserIds, ...recipientIds])];
 
-      // Fetch all users in a single query
+      // Fetch user display info using security definer function (bypasses RLS for names)
       const { data: usersData } = await supabase
-        .from('users_safe_view')
-        .select('id, name, email, employee_id')
-        .in('id', allUserIds);
+        .rpc('get_user_display_info', { user_ids: allUserIds });
 
       const usersMap = new Map((usersData || []).map(u => [u.id, u]));
 
