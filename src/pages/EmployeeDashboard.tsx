@@ -825,7 +825,7 @@ export default function EmployeeDashboard() {
           <CardContent className="p-4 space-y-3">
             <label htmlFor="work-note" className="text-sm font-medium flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              Message for finance (optional)
+              Message for Office (optional)
             </label>
             <Textarea
               id="work-note"
