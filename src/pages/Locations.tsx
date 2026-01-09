@@ -78,7 +78,7 @@ export default function Locations() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-max">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold">Locations Management</h1>
