@@ -140,34 +140,35 @@ All colors MUST be HSL.
 /* Pending selection green glow animations */
 @keyframes pending-pulse {
   0%, 100% {
-    box-shadow: 0 0 8px 2px hsl(var(--success) / 0.6), 
-                0 0 16px 4px hsl(var(--success) / 0.3);
+    opacity: 0.5;
   }
   50% {
-    box-shadow: 0 0 12px 4px hsl(var(--success) / 0.9), 
-                0 0 24px 8px hsl(var(--success) / 0.5);
+    opacity: 1;
   }
 }
 
 @keyframes bottom-edge-pulse {
   0%, 100% {
-    box-shadow: 
-      0 0 8px 2px hsl(var(--success) / 0.8),
-      0 -4px 16px 4px hsl(var(--success) / 0.4),
-      0 -8px 32px 8px hsl(var(--success) / 0.15);
+    opacity: 0.4;
   }
   50% {
-    box-shadow: 
-      0 0 12px 4px hsl(var(--success) / 1),
-      0 -6px 24px 6px hsl(var(--success) / 0.6),
-      0 -12px 48px 12px hsl(var(--success) / 0.25);
+    opacity: 1;
   }
 }
 
 .pending-glow-edge {
   animation: bottom-edge-pulse 1.5s ease-in-out infinite;
+  box-shadow: 
+    0 -10px 60px rgba(34, 197, 94, 0.4),
+    0 -5px 30px rgba(34, 197, 94, 0.3),
+    0 -2px 15px rgba(34, 197, 94, 0.2);
 }
 
 .pending-glow-button {
   animation: pending-pulse 1.5s ease-in-out infinite;
+  box-shadow: 
+    0 0 80px rgba(34, 197, 94, 0.5),
+    0 0 40px rgba(34, 197, 94, 0.4),
+    0 0 20px rgba(34, 197, 94, 0.3);
+  border-radius: 9999px;
 }
