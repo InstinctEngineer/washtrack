@@ -1084,6 +1084,7 @@ export type Database = {
           client_id: string
           client_is_taxable: boolean
           client_name: string
+          client_parent_company: string
           client_tax_jurisdiction: string
           client_tax_rate: number
           client_terms: string
@@ -1094,6 +1095,7 @@ export type Database = {
           total_quantity: number
           work_type_id: string
           work_type_name: string
+          work_type_rate_type: string
         }[]
       }
       get_users_for_managers: {
