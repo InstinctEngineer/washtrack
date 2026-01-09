@@ -13,7 +13,7 @@ import { ChangePassword } from "./pages/ChangePassword";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
-import FinanceMessages from "./pages/FinanceMessages";
+import Messages from "./pages/Messages";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminSettings from "./pages/AdminSettings";
 import CreateUser from "./pages/CreateUser";
@@ -24,7 +24,6 @@ import SuperAdminDatabase from "./pages/SuperAdminDatabase";
 import WorkTypes from "./pages/WorkTypes";
 import RateCard from "./pages/RateCard";
 import WorkItems from "./pages/WorkItems";
-import EmployeeMessages from "./pages/EmployeeMessages";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
@@ -56,10 +55,10 @@ const App = () => (
               }
             />
             <Route
-              path="/employee/messages"
+              path="/messages"
               element={
                 <ProtectedRoute allowedRoles={['employee', 'manager', 'finance', 'admin']}>
-                  <EmployeeMessages />
+                  <Messages />
                 </ProtectedRoute>
               }
             />
@@ -76,14 +75,6 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['finance', 'admin']}>
                   <FinanceDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/finance/messages"
-              element={
-                <ProtectedRoute allowedRoles={['finance', 'admin']}>
-                  <FinanceMessages />
                 </ProtectedRoute>
               }
             />

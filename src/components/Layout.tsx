@@ -61,11 +61,15 @@ export const Layout = ({ children }: LayoutProps) => {
         path: '/employee/dashboard',
         section: 'Dashboards'
       });
+      
+      // Single Messages link - dynamic label and badge based on role
+      const isOfficeStaff = hasRoleOrHigher(userRole, 'finance' as UserRole);
       navItems.push({ 
-        label: 'My Messages', 
+        label: isOfficeStaff ? 'Messages' : 'My Messages', 
         icon: MessageSquare, 
-        path: '/employee/messages',
-        section: 'Dashboards'
+        path: '/messages',
+        section: 'Dashboards',
+        badge: isOfficeStaff && unreadCount > 0 ? unreadCount : undefined
       });
     }
 
@@ -85,13 +89,6 @@ export const Layout = ({ children }: LayoutProps) => {
         icon: DollarSign, 
         path: '/finance/dashboard',
         section: 'Dashboards'
-      });
-      navItems.push({ 
-        label: 'Messages', 
-        icon: MessageSquare, 
-        path: '/finance/messages',
-        section: 'Dashboards',
-        badge: unreadCount > 0 ? unreadCount : undefined
       });
     }
 
