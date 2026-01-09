@@ -178,6 +178,55 @@ serve(async (req) => {
 
     console.log('Creating user with email:', email, 'and employee_id:', employee_id);
 
+    // Check for existing auth user with this email and handle orphaned users
+    const { data: { users: existingAuthUsers }, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000
+    });
+
+    if (!listError && existingAuthUsers) {
+      const existingAuthUser = existingAuthUsers.find(u => u.email === email);
+      
+      if (existingAuthUser) {
+        // Check if they exist in public.users table
+        const { data: existingProfileUser } = await supabaseAdmin
+          .from('users')
+          .select('id, name, email, employee_id, is_active')
+          .eq('email', email)
+          .maybeSingle();
+        
+        if (!existingProfileUser) {
+          // Orphaned auth user - delete and continue with creation
+          console.log('Found orphaned auth user, cleaning up:', existingAuthUser.id);
+          const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id);
+          
+          if (deleteError) {
+            console.error('Failed to delete orphaned auth user:', deleteError);
+            return new Response(
+              JSON.stringify({ error: 'Failed to clean up orphaned user record. Please contact support.' }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          console.log('Successfully deleted orphaned auth user');
+        } else {
+          // User exists in both tables - return helpful error
+          console.log('User already exists in both auth and users table');
+          return new Response(
+            JSON.stringify({ 
+              error: `A user with email ${email} already exists.`,
+              existingUser: {
+                id: existingProfileUser.id,
+                name: existingProfileUser.name,
+                employee_id: existingProfileUser.employee_id,
+                is_active: existingProfileUser.is_active
+              }
+            }),
+            { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
+
     // Create auth user using admin client (bypasses signup restrictions)
     const { data: authData, error: authCreateError } = await supabaseAdmin.auth.admin.createUser({
       email,
