@@ -10,6 +10,8 @@ export interface User {
   role: UserRole;
   is_active: boolean;
   created_at: string;
+  must_change_password?: boolean;
+  credentials_shared_at?: string | null;
 }
 
 export interface Client {

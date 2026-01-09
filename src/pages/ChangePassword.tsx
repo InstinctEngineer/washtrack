@@ -48,12 +48,27 @@ export const ChangePassword = () => {
 
       if (updateError) throw updateError;
 
-      // Clear the password_reset_required flag
+      // Clear the password_reset_required flag in auth metadata
       const { error: metadataError } = await supabase.auth.updateUser({
         data: { password_reset_required: false }
       });
 
       if (metadataError) throw metadataError;
+
+      // Get user and clear must_change_password flag in users table
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        const { error: flagUpdateError } = await supabase
+          .from('users')
+          .update({ 
+            must_change_password: false,
+          })
+          .eq('id', currentUser.id);
+        
+        if (flagUpdateError) {
+          console.error('Error updating must_change_password flag:', flagUpdateError);
+        }
+      }
 
       toast({
         title: "Password Updated",
@@ -61,12 +76,11 @@ export const ChangePassword = () => {
       });
 
       // Redirect to appropriate dashboard based on role
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      if (currentUser) {
         const { data: roleData } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", user.id)
+          .eq("user_id", currentUser.id)
           .single();
 
         const role = roleData?.role;

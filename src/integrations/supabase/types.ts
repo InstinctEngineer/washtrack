@@ -652,6 +652,7 @@ export type Database = {
           client_access_level: string | null
           commission_percentage: number | null
           created_at: string
+          credentials_shared_at: string | null
           date_of_birth: string | null
           default_shift: string | null
           email: string
@@ -700,6 +701,7 @@ export type Database = {
           client_access_level?: string | null
           commission_percentage?: number | null
           created_at?: string
+          credentials_shared_at?: string | null
           date_of_birth?: string | null
           default_shift?: string | null
           email: string
@@ -748,6 +750,7 @@ export type Database = {
           client_access_level?: string | null
           commission_percentage?: number | null
           created_at?: string
+          credentials_shared_at?: string | null
           date_of_birth?: string | null
           default_shift?: string | null
           email?: string

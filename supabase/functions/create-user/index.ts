@@ -185,7 +185,8 @@ serve(async (req) => {
       email_confirm: true, // Auto-confirm email
       user_metadata: {
         name,
-        employee_id
+        employee_id,
+        password_reset_required: true // Force password change on first login
       }
     });
 
@@ -218,7 +219,8 @@ serve(async (req) => {
         location_id: location_id || null,
         manager_id: manager_id || null,
         role,
-        is_active: true
+        is_active: true,
+        must_change_password: true // Force password change on first login
       });
 
     if (userError) {

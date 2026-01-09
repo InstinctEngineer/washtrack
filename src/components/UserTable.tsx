@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Search, KeyRound, ChevronDown, Copy } from "lucide-react";
+import { Edit, Search, KeyRound, ChevronDown, Copy, Mail } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,8 @@ interface UserTableProps {
     location?: { name: string } | null;
     manager?: { name: string } | null;
     locations?: Array<{ name: string; is_primary: boolean }>;
+    credentials_shared_at?: string | null;
+    must_change_password?: boolean;
   })[];
   roleMap: Map<string, string>;
   isLoading: boolean;
@@ -310,9 +312,17 @@ export const UserTable = ({
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={user.is_active ? "default" : "secondary"}>
-                        {user.is_active ? "Active" : "Inactive"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={user.is_active ? "default" : "secondary"}>
+                          {user.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        {!user.credentials_shared_at && user.must_change_password && (
+                          <Badge variant="outline" className="text-orange-600 border-orange-300 gap-1">
+                            <Mail className="h-3 w-3" />
+                            Pending
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
