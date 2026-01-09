@@ -41,19 +41,14 @@ export const ChangePassword = () => {
     setIsSubmitting(true);
 
     try {
-      // Update the password
+      // Update the password AND clear the reset flag in a single call
+      // to avoid session invalidation issues between separate calls
       const { error: updateError } = await supabase.auth.updateUser({
         password: formData.newPassword,
-      });
-
-      if (updateError) throw updateError;
-
-      // Clear the password_reset_required flag in auth metadata
-      const { error: metadataError } = await supabase.auth.updateUser({
         data: { password_reset_required: false }
       });
 
-      if (metadataError) throw metadataError;
+      if (updateError) throw updateError;
 
       // Get user and clear must_change_password flag in users table
       const { data: { user: currentUser } } = await supabase.auth.getUser();
