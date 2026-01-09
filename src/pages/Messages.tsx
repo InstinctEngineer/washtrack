@@ -16,9 +16,10 @@ import { UserRole } from '@/types/database';
 import { format, startOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { 
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown, MapPin, 
-  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft 
+  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus
 } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
+import { UserSearchInput } from '@/components/UserSearchInput';
 
 interface EmployeeComment {
   id: string;
@@ -37,6 +38,12 @@ interface EmployeeComment {
   location?: {
     id: string;
     name: string;
+  };
+  recipient_id?: string | null;
+  recipient?: {
+    id: string;
+    name: string;
+    email: string;
   };
 }
 
@@ -92,6 +99,16 @@ export default function Messages() {
   const [newMessage, setNewMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
+  
+  // Office staff message state
+  const [officeMessage, setOfficeMessage] = useState('');
+  const [selectedRecipient, setSelectedRecipient] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    employee_id: string;
+  } | null>(null);
+  const [sendingOfficeMessage, setSendingOfficeMessage] = useState(false);
   
   const { markAsRead } = useUnreadMessageCount();
 
@@ -168,8 +185,8 @@ export default function Messages() {
           query = query.eq('location_id', selectedLocation);
         }
       } else {
-        // Employees only see their own messages
-        query = query.eq('employee_id', user.id);
+        // Employees see their own messages AND messages addressed to them
+        query = query.or(`employee_id.eq.${user.id},recipient_id.eq.${user.id}`);
       }
 
       const { data, error } = await query;
@@ -187,6 +204,7 @@ export default function Messages() {
 
       const commentIds = rawComments.map(c => c.id);
       const locationIds = [...new Set(rawComments.map(c => c.location_id).filter(Boolean))] as string[];
+      const recipientIds = [...new Set(rawComments.map(c => c.recipient_id).filter(Boolean))] as string[];
 
       // Fetch locations, replies, and reads in parallel
       const [locationsResult, repliesResult, readsResult] = await Promise.all([
@@ -207,7 +225,7 @@ export default function Messages() {
       const employeeIds = rawComments.map(c => c.employee_id);
       const readUserIds = rawReads.map((r) => r.user_id);
       const replyUserIds = rawReplies.map((r) => r.user_id);
-      const allUserIds = [...new Set([...employeeIds, ...readUserIds, ...replyUserIds])];
+      const allUserIds = [...new Set([...employeeIds, ...readUserIds, ...replyUserIds, ...recipientIds])];
 
       // Fetch all users in a single query
       const { data: usersData } = await supabase
@@ -217,11 +235,12 @@ export default function Messages() {
 
       const usersMap = new Map((usersData || []).map(u => [u.id, u]));
 
-      // Attach employee and location data to comments
+      // Attach employee, recipient, and location data to comments
       const commentsWithData: EmployeeComment[] = rawComments.map(comment => ({
         ...comment,
         employee: usersMap.get(comment.employee_id) || undefined,
         location: comment.location_id ? locationsMap.get(comment.location_id) : undefined,
+        recipient: comment.recipient_id ? usersMap.get(comment.recipient_id) : undefined,
       }));
       setComments(commentsWithData);
 
@@ -351,6 +370,32 @@ export default function Messages() {
       toast.error('Failed to send reply');
     } finally {
       setSubmittingReply(false);
+    }
+  };
+
+  const handleSendOfficeMessage = async () => {
+    if (!user?.id || !officeMessage.trim() || !selectedRecipient) return;
+
+    setSendingOfficeMessage(true);
+    try {
+      const { error } = await supabase.from('employee_comments').insert({
+        employee_id: user.id,
+        recipient_id: selectedRecipient.id,
+        comment_text: officeMessage.trim(),
+        week_start_date: format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+      });
+
+      if (error) throw error;
+
+      toast.success(`Message sent to ${selectedRecipient.name}`);
+      setOfficeMessage('');
+      setSelectedRecipient(null);
+      fetchComments();
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message');
+    } finally {
+      setSendingOfficeMessage(false);
     }
   };
 
@@ -516,6 +561,50 @@ export default function Messages() {
           </Card>
         )}
 
+        {/* Start Conversation - Office staff only, current week only */}
+        {isOfficeStaff && isCurrentWeek && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Start Conversation
+              </CardTitle>
+              <CardDescription>
+                Send a message to any employee
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">To:</label>
+                <UserSearchInput
+                  onUserSelect={setSelectedRecipient}
+                  selectedUser={selectedRecipient}
+                  placeholder="Search for employee by name or email..."
+                  excludeUserId={user?.id}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Message:</label>
+                <Textarea
+                  placeholder="Type your message here..."
+                  value={officeMessage}
+                  onChange={(e) => setOfficeMessage(e.target.value)}
+                  className="min-h-[80px] resize-none"
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button 
+                  onClick={handleSendOfficeMessage} 
+                  disabled={sendingOfficeMessage || !officeMessage.trim() || !selectedRecipient}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {sendingOfficeMessage ? 'Sending...' : 'Send Message'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Messages List */}
         <Card>
           <CardHeader className="pb-3">
@@ -585,8 +674,15 @@ export default function Messages() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium text-sm">
-                                  {isOfficeStaff ? (comment.employee?.name || 'Unknown') : 'You'}
+                                  {isOfficeStaff 
+                                    ? (comment.employee?.name || 'Unknown') 
+                                    : (comment.employee_id === user?.id ? 'You' : (comment.employee?.name || 'Office'))}
                                 </span>
+                                {comment.recipient && (
+                                  <span className="text-xs text-muted-foreground">
+                                    → {comment.recipient_id === user?.id ? 'You' : comment.recipient.name}
+                                  </span>
+                                )}
                                 {comment.location && (
                                   <Badge variant="secondary" className="text-xs px-1.5 py-0">
                                     {comment.location.name}
