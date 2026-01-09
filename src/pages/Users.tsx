@@ -88,6 +88,8 @@ const Users = () => {
         location?: { name: string } | null;
         manager?: { name: string } | null;
         locations?: Array<{ name: string; is_primary: boolean }>;
+        credentials_shared_at?: string | null;
+        must_change_password?: boolean;
       })[];
     },
   });
