@@ -315,17 +315,20 @@ export const CreateUserModal = ({
   };
 
   const getEmailMessage = () => {
-    const domain = window.location.origin;
-    return `Welcome to WashTrack!
+    return `Welcome to WashTrack ${generatedName}!
+Emp ID: ${generatedEmployeeId}
+
 
 Your login credentials:
-Name: ${generatedName}
-Employee ID: ${generatedEmployeeId}
+
+Username: ${generatedEmail}
 Temporary Password: ${generatedPassword}
 
-Login at: ${domain}/login
 
-Please change your password after your first login.`;
+Login at: https://washtracking.com/login
+
+
+You will be asked to set a new password when you first login.`;
   };
 
   const copyEmailMessage = async () => {
