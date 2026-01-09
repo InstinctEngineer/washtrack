@@ -94,6 +94,7 @@ export default function EmployeeDashboard() {
   const [pendingEntries, setPendingEntries] = useState<Map<string, PendingEntry>>(new Map());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [workNote, setWorkNote] = useState('');
+  const [isSendingNote, setIsSendingNote] = useState(false);
   
   // Completed items (already logged today at this location by anyone)
   const [completedWorkItemIds, setCompletedWorkItemIds] = useState<Set<string>>(new Set());
@@ -375,6 +376,29 @@ export default function EmployeeDashboard() {
       toast.error(error.message || 'Failed to submit entries');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Send standalone note without work items
+  const handleSendStandaloneNote = async () => {
+    if (!user || !workNote.trim()) return;
+    
+    setIsSendingNote(true);
+    try {
+      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      await supabase.from('employee_comments').insert({
+        employee_id: user.id,
+        location_id: selectedLocationId || null,
+        comment_text: workNote.trim(),
+        week_start_date: weekStart,
+      });
+      
+      toast.success('Message sent to finance');
+      setWorkNote('');
+    } catch (error: any) {
+      toast.error('Failed to send message');
+    } finally {
+      setIsSendingNote(false);
     }
   };
 
@@ -726,28 +750,6 @@ export default function EmployeeDashboard() {
               </CardContent>
             </Card>
 
-            {/* Optional Note Field */}
-            <Card className="border-muted">
-              <CardContent className="p-4 space-y-2">
-                <label htmlFor="work-note" className="text-sm font-medium">
-                  Add a note for finance (optional)
-                </label>
-                <Textarea
-                  id="work-note"
-                  placeholder="e.g., 'Truck had damage', 'Took extra time due to weather'"
-                  rows={3}
-                  value={workNote}
-                  onChange={(e) => setWorkNote(e.target.value)}
-                  className="resize-none"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {workNote.trim() 
-                    ? '✓ This note will be attached to your work items' 
-                    : 'Leave blank if no note needed'}
-                </p>
-              </CardContent>
-            </Card>
-
             {/* Static Submit Button */}
             <div data-demo="submit-button">
               <Button
@@ -817,6 +819,43 @@ export default function EmployeeDashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* Message/Note Field - Always visible */}
+        <Card className="border-muted">
+          <CardContent className="p-4 space-y-3">
+            <label htmlFor="work-note" className="text-sm font-medium flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Message for finance (optional)
+            </label>
+            <Textarea
+              id="work-note"
+              placeholder="e.g., 'Truck had damage', 'Worked extra due to weather'"
+              rows={3}
+              value={workNote}
+              onChange={(e) => setWorkNote(e.target.value)}
+              className="resize-none"
+            />
+            <p className="text-xs text-muted-foreground">
+              {pendingEntries.size > 0 && workNote.trim()
+                ? `✓ Will be attached to your ${pendingEntries.size} selected item(s) when submitted`
+                : 'Leave blank if no message needed'}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!workNote.trim() || isSendingNote}
+              onClick={handleSendStandaloneNote}
+              className="w-full"
+            >
+              {isSendingNote ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Send Message Now
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Recent Entries Section */}
         <Card data-demo="recent-entries">
