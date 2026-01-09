@@ -24,28 +24,30 @@ export function CSVPreviewModal({ open, onOpenChange, headers, rows, onExport }:
         </DialogHeader>
 
         <ScrollArea className="h-[60vh] border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                {headers.map((header, i) => (
-                  <TableHead key={i} className="whitespace-nowrap font-mono text-xs">
-                    {header}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {previewRows.map((row, rowIndex) => (
-                <TableRow key={rowIndex}>
-                  {row.map((cell, cellIndex) => (
-                    <TableCell key={cellIndex} className="whitespace-nowrap font-mono text-xs">
-                      {cell || '—'}
-                    </TableCell>
+          <div className="overflow-x-auto">
+            <Table className="min-w-max">
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  {headers.map((header, i) => (
+                    <TableHead key={i} className="whitespace-nowrap font-mono text-xs">
+                      {header}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {previewRows.map((row, rowIndex) => (
+                  <TableRow key={rowIndex}>
+                    {row.map((cell, cellIndex) => (
+                      <TableCell key={cellIndex} className="whitespace-nowrap font-mono text-xs">
+                        {cell || '—'}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </ScrollArea>
 
         {hasMoreRows && (
