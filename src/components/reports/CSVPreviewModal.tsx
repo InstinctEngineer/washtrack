@@ -1,6 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Download } from 'lucide-react';
 
@@ -23,32 +22,30 @@ export function CSVPreviewModal({ open, onOpenChange, headers, rows, onExport }:
           <DialogTitle>CSV Preview (First 20 Rows)</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="h-[60vh] border rounded-lg">
-          <div className="overflow-x-auto">
-            <Table className="min-w-max">
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  {headers.map((header, i) => (
-                    <TableHead key={i} className="whitespace-nowrap font-mono text-xs">
-                      {header}
-                    </TableHead>
+        <div className="h-[60vh] border rounded-lg overflow-auto">
+          <Table className="min-w-max">
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                {headers.map((header, i) => (
+                  <TableHead key={i} className="whitespace-nowrap font-mono text-xs">
+                    {header}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {previewRows.map((row, rowIndex) => (
+                <TableRow key={rowIndex}>
+                  {row.map((cell, cellIndex) => (
+                    <TableCell key={cellIndex} className="whitespace-nowrap font-mono text-xs">
+                      {cell || '—'}
+                    </TableCell>
                   ))}
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {previewRows.map((row, rowIndex) => (
-                  <TableRow key={rowIndex}>
-                    {row.map((cell, cellIndex) => (
-                      <TableCell key={cellIndex} className="whitespace-nowrap font-mono text-xs">
-                        {cell || '—'}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </ScrollArea>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
 
         {hasMoreRows && (
           <p className="text-sm text-muted-foreground text-center">
