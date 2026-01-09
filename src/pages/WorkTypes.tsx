@@ -58,7 +58,7 @@ const WorkTypes = () => {
   const { userRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const isAdmin = hasRoleOrHigher(userRole as UserRole, 'admin' as UserRole);
+  const canManageWorkTypes = hasRoleOrHigher(userRole as UserRole, 'finance' as UserRole);
 
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(true);
@@ -236,7 +236,7 @@ const WorkTypes = () => {
               Manage predefined work types like Box Truck, Sprinter, Pressure Washing, etc.
             </p>
           </div>
-          {isAdmin && (
+          {canManageWorkTypes && (
             <Button onClick={openCreateModal}>
               <Plus className="mr-2 h-4 w-4" />
               Add Work Type
@@ -288,7 +288,7 @@ const WorkTypes = () => {
                           <TableHead>Name</TableHead>
                           <TableHead>Rate Type</TableHead>
                           <TableHead>Active</TableHead>
-                          {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+                          {canManageWorkTypes && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -304,12 +304,12 @@ const WorkTypes = () => {
                               <Switch
                                 checked={wt.is_active}
                                 onCheckedChange={(checked) => 
-                                  isAdmin && toggleActiveMutation.mutate({ id: wt.id, is_active: checked })
+                                  canManageWorkTypes && toggleActiveMutation.mutate({ id: wt.id, is_active: checked })
                                 }
-                                disabled={!isAdmin || toggleActiveMutation.isPending}
+                                disabled={!canManageWorkTypes || toggleActiveMutation.isPending}
                               />
                             </TableCell>
-                            {isAdmin && (
+                            {canManageWorkTypes && (
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
                                   <Button
