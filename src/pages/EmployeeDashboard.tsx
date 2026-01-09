@@ -795,7 +795,9 @@ export default function EmployeeDashboard() {
                   className={cn(
                     "relative z-10 w-full h-14 text-lg font-bold",
                     "bg-green-700 hover:bg-green-800 text-white",
-                    "transition-all duration-500"
+                    "transition-all duration-500",
+                    "border-0 outline-none ring-0 ring-offset-0",
+                    "focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
                   )}
                   style={{
                     boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.25)'
