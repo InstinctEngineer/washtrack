@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
+import { parseLocalDate } from '@/lib/cutoff';
 import { Download, Eye, Settings2, FileSpreadsheet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -102,6 +103,27 @@ const buildQBItemName = (
   }
   
   return `${prefix} ${workType} ${freqSuffix}`.trim();
+};
+
+/**
+ * Get the Friday of the week containing the given date.
+ * Week runs Monday-Sunday, so Friday is always within the same week.
+ */
+const getFridayOfWeek = (date: Date): Date => {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+  
+  // For Monday-Sunday week:
+  // Sunday (0): -2 days (back to Friday of same week)
+  // Monday (1): +4 days
+  // Tuesday (2): +3 days
+  // Wednesday (3): +2 days
+  // Thursday (4): +1 day
+  // Friday (5): 0 days
+  // Saturday (6): -1 day
+  const adjustment = day === 0 ? -2 : (5 - day);
+  d.setDate(d.getDate() + adjustment);
+  return d;
 };
 
 export default function FinanceDashboard() {
@@ -236,22 +258,29 @@ export default function FinanceDashboard() {
     const headers = columns.map((col) => col.headerName);
     const rows: string[][] = [];
 
-    // Group data by client + location (each group = one invoice)
+    // Group data by client + location + week (Friday of that week)
+    // Each unique combination = one invoice
     const grouped = new Map<string, ReportDataRow[]>();
     for (const row of reportData) {
-      const key = `${row.client_id}|${row.location_id}`;
+      // Parse the work date and get the Friday of that week
+      const workDate = row.work_date ? parseLocalDate(row.work_date) : (endDate || new Date());
+      const friday = getFridayOfWeek(workDate);
+      const fridayKey = format(friday, 'yyyy-MM-dd');
+      
+      const key = `${row.client_id}|${row.location_id}|${fridayKey}`;
       if (!grouped.has(key)) {
         grouped.set(key, []);
       }
       grouped.get(key)!.push(row);
     }
-
-    const invoiceDate = endDate || new Date();
     
     // Generate rows for each invoice group with auto-incrementing invoice numbers
     let currentInvoiceNumber = invoiceStartNumber;
 
     for (const [key, groupRows] of grouped) {
+      // Extract the Friday from the key for this invoice's date
+      const fridayStr = key.split('|')[2];
+      const invoiceDate = parseLocalDate(fridayStr);
       const invoiceNumber = String(currentInvoiceNumber);
       currentInvoiceNumber++;
 

@@ -21,6 +21,7 @@ export interface ReportDataRow {
   frequency: string | null;
   rate: number | null;
   total_quantity: number;
+  work_date?: string;
 }
 
 interface ReportPreviewTableProps {
