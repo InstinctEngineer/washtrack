@@ -249,91 +249,114 @@ export default function Clients() {
                 </Button>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead 
-                      className="cursor-pointer select-none hover:bg-muted/50"
-                      onClick={() => handleSort('name')}
-                    >
-                      <div className="flex items-center">Client Name{getSortIcon('name')}</div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none hover:bg-muted/50"
-                      onClick={() => handleSort('parent_company')}
-                    >
-                      <div className="flex items-center">Parent Company{getSortIcon('parent_company')}</div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none hover:bg-muted/50"
-                      onClick={() => handleSort('contact_name')}
-                    >
-                      <div className="flex items-center">Contact{getSortIcon('contact_name')}</div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none hover:bg-muted/50"
-                      onClick={() => handleSort('contact_email')}
-                    >
-                      <div className="flex items-center">Email{getSortIcon('contact_email')}</div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none hover:bg-muted/50"
-                      onClick={() => handleSort('is_active')}
-                    >
-                      <div className="flex items-center">Status{getSortIcon('is_active')}</div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none hover:bg-muted/50"
-                      onClick={() => handleSort('tax_rate')}
-                    >
-                      <div className="flex items-center">Tax Rate{getSortIcon('tax_rate')}</div>
-                    </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedClients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell className="font-medium">{client.name}</TableCell>
-                      <TableCell>
-                        {client.parent_company ? (
-                          <Badge variant="outline">{client.parent_company}</Badge>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell>{client.contact_name || '-'}</TableCell>
-                      <TableCell>{client.contact_email || '-'}</TableCell>
-                      <TableCell>
-                        <Badge variant={client.is_active ? 'default' : 'secondary'}>
-                          {client.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {client.tax_rate !== null && client.tax_rate !== undefined 
-                          ? `${client.tax_rate}%` 
-                          : '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditDialog(client)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(client)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead 
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center">Client Name{getSortIcon('name')}</div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('parent_company')}
+                      >
+                        <div className="flex items-center">Parent Company{getSortIcon('parent_company')}</div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('contact_name')}
+                      >
+                        <div className="flex items-center">Contact{getSortIcon('contact_name')}</div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('contact_email')}
+                      >
+                        <div className="flex items-center">Email{getSortIcon('contact_email')}</div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('is_active')}
+                      >
+                        <div className="flex items-center">Status{getSortIcon('is_active')}</div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('default_terms')}
+                      >
+                        <div className="flex items-center">Terms{getSortIcon('default_terms')}</div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('default_class')}
+                      >
+                        <div className="flex items-center">Class{getSortIcon('default_class')}</div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('tax_jurisdiction')}
+                      >
+                        <div className="flex items-center">Tax Jurisdiction{getSortIcon('tax_jurisdiction')}</div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('tax_rate')}
+                      >
+                        <div className="flex items-center">Tax Rate{getSortIcon('tax_rate')}</div>
+                      </TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedClients.map((client) => (
+                      <TableRow key={client.id}>
+                        <TableCell className="font-medium">{client.name}</TableCell>
+                        <TableCell>
+                          {client.parent_company ? (
+                            <Badge variant="outline">{client.parent_company}</Badge>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell>{client.contact_name || '-'}</TableCell>
+                        <TableCell>{client.contact_email || '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant={client.is_active ? 'default' : 'secondary'}>
+                            {client.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{client.default_terms || '-'}</TableCell>
+                        <TableCell>{client.default_class || '-'}</TableCell>
+                        <TableCell>{client.tax_jurisdiction || '-'}</TableCell>
+                        <TableCell>
+                          {client.tax_rate !== null && client.tax_rate !== undefined 
+                            ? `${client.tax_rate}%` 
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditDialog(client)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(client)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
               </CardContent>
             </CollapsibleContent>
