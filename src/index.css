@@ -136,3 +136,34 @@ All colors MUST be HSL.
   animation: spotlight-pulse 1.5s ease-in-out infinite;
   border: 3px solid hsl(var(--primary));
 }
+
+/* Pending selection green glow animations */
+@keyframes pending-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px 8px hsl(var(--success) / 0.4), 
+                0 0 40px 16px hsl(var(--success) / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px 12px hsl(var(--success) / 0.6), 
+                0 0 60px 24px hsl(var(--success) / 0.3);
+  }
+}
+
+@keyframes bottom-edge-pulse {
+  0%, 100% {
+    box-shadow: 0 -4px 20px 4px hsl(var(--success) / 0.5),
+                0 -8px 40px 8px hsl(var(--success) / 0.25);
+  }
+  50% {
+    box-shadow: 0 -6px 30px 6px hsl(var(--success) / 0.7),
+                0 -12px 50px 12px hsl(var(--success) / 0.35);
+  }
+}
+
+.pending-glow-edge {
+  animation: bottom-edge-pulse 2s ease-in-out infinite;
+}
+
+.pending-glow-button {
+  animation: pending-pulse 2s ease-in-out infinite;
+}

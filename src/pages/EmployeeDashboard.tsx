@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { format, subDays, addDays, isToday, isFuture, startOfDay, startOfWeek, parseISO, differenceInDays } from 'date-fns';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -120,11 +120,36 @@ export default function EmployeeDashboard() {
   const [recentComments, setRecentComments] = useState<any[]>([]);
   const [commentReplies, setCommentReplies] = useState<Record<string, any[]>>({});
   
+  // Submit button visibility tracking for glow effect
+  const [isSubmitButtonVisible, setIsSubmitButtonVisible] = useState(false);
+  const submitButtonRef = useRef<HTMLDivElement>(null);
+  
 
   // Fetch cutoff date
   useEffect(() => {
     getCurrentCutoff().then(setCutoffDate);
   }, []);
+
+  // Track submit button visibility for glow transition
+  useEffect(() => {
+    if (!submitButtonRef.current || pendingEntries.size === 0) {
+      setIsSubmitButtonVisible(false);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsSubmitButtonVisible(entry.isIntersecting);
+      },
+      { 
+        threshold: 0.5,
+        rootMargin: '0px' 
+      }
+    );
+
+    observer.observe(submitButtonRef.current);
+    return () => observer.disconnect();
+  }, [pendingEntries.size]);
 
   // Fetch locations for employee
   useEffect(() => {
@@ -752,14 +777,16 @@ export default function EmployeeDashboard() {
               </CardContent>
             </Card>
 
-            {/* Static Submit Button */}
-            <div data-demo="submit-button">
+            {/* Submit Button with glow effect */}
+            <div data-demo="submit-button" ref={submitButtonRef}>
               <Button
                 onClick={handleBatchSubmit}
                 disabled={isSubmitting}
                 className={cn(
                   "w-full h-14 text-lg font-bold",
-                  "bg-green-600 hover:bg-green-700 text-white"
+                  "bg-green-600 hover:bg-green-700 text-white",
+                  "transition-all duration-500",
+                  isSubmitButtonVisible && !isSubmitting && "pending-glow-button"
                 )}
               >
                 {isSubmitting ? (
@@ -779,6 +806,18 @@ export default function EmployeeDashboard() {
               </p>
             </div>
           </div>
+        )}
+
+        {/* Bottom Edge Glow - shows when items selected but Submit button not visible */}
+        {pendingEntries.size > 0 && !isSubmitButtonVisible && (
+          <div 
+            className={cn(
+              "fixed bottom-0 left-0 right-0 h-1",
+              "bg-green-500/60 pending-glow-edge",
+              "transition-opacity duration-500 ease-in-out",
+              "z-40 pointer-events-none"
+            )}
+          />
         )}
 
         {/* Hourly Services Section */}
