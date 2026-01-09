@@ -1,6 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ExportColumn } from './ExportColumnConfigurator';
 
 export interface ReportDataRow {
   client_id: string;
@@ -23,9 +24,67 @@ export interface ReportDataRow {
 interface ReportPreviewTableProps {
   data: ReportDataRow[];
   loading?: boolean;
+  columns?: ExportColumn[];
 }
 
-export function ReportPreviewTable({ data, loading }: ReportPreviewTableProps) {
+const DEFAULT_PREVIEW_COLUMNS: ExportColumn[] = [
+  { id: 'p-1', fieldKey: 'client_name', headerName: 'Client', firstRowOnly: false },
+  { id: 'p-2', fieldKey: 'location_name', headerName: 'Location', firstRowOnly: false },
+  { id: 'p-3', fieldKey: 'work_type_name', headerName: 'Work Type', firstRowOnly: false },
+  { id: 'p-4', fieldKey: 'frequency', headerName: 'Frequency', firstRowOnly: false },
+  { id: 'p-5', fieldKey: 'quantity', headerName: 'Quantity', firstRowOnly: false },
+  { id: 'p-6', fieldKey: 'rate', headerName: 'Rate', firstRowOnly: false },
+  { id: 'p-7', fieldKey: 'line_total', headerName: 'Line Total', firstRowOnly: false },
+];
+
+const getFieldValue = (fieldKey: string, row: ReportDataRow): React.ReactNode => {
+  switch (fieldKey) {
+    case 'client_name':
+      return row.client_name || '—';
+    case 'location_name':
+      return row.location_name || '—';
+    case 'work_type_name':
+      return row.work_type_name || '—';
+    case 'frequency':
+      return row.frequency || '—';
+    case 'quantity':
+      return String(row.total_quantity || 0);
+    case 'rate':
+      if (row.rate === null) {
+        return <span className="text-warning font-medium">Missing</span>;
+      }
+      return `$${Number(row.rate).toFixed(2)}`;
+    case 'line_total':
+      if (row.rate === null) return '—';
+      return `$${(Number(row.total_quantity) * Number(row.rate)).toFixed(2)}`;
+    case 'tax_rate':
+      return row.client_tax_rate != null ? `${row.client_tax_rate.toFixed(2)}%` : '—';
+    case 'tax_jurisdiction':
+      return row.client_tax_jurisdiction || '—';
+    case 'taxable':
+      return row.client_is_taxable ? 'Y' : 'N';
+    case 'terms':
+      return row.client_terms || '—';
+    case 'class':
+      return row.client_class || '—';
+    case 'contact_email':
+      return row.client_email || '—';
+    case 'item_description':
+      return `${row.work_type_name || ''}${row.frequency ? ` - ${row.frequency}` : ''}`;
+    case 'invoice_number':
+    case 'invoice_date':
+    case 'due_date':
+      return <span className="text-muted-foreground italic">(at export)</span>;
+    default:
+      return '—';
+  }
+};
+
+const RIGHT_ALIGNED_FIELDS = ['quantity', 'rate', 'line_total', 'tax_rate'];
+
+export function ReportPreviewTable({ data, loading, columns }: ReportPreviewTableProps) {
+  const displayColumns = columns || DEFAULT_PREVIEW_COLUMNS;
+  
   const totalQuantity = data.reduce((sum, row) => sum + Number(row.total_quantity || 0), 0);
   const totalAmount = data.reduce((sum, row) => {
     const qty = Number(row.total_quantity || 0);
@@ -62,47 +121,39 @@ export function ReportPreviewTable({ data, loading }: ReportPreviewTableProps) {
         </div>
       )}
 
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border rounded-lg overflow-hidden overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead>Client</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Work Type</TableHead>
-              <TableHead>Frequency</TableHead>
-              <TableHead className="text-right">Quantity</TableHead>
-              <TableHead className="text-right">Rate</TableHead>
-              <TableHead className="text-right">Line Total</TableHead>
+              {displayColumns.map((col) => (
+                <TableHead
+                  key={col.id}
+                  className={cn(RIGHT_ALIGNED_FIELDS.includes(col.fieldKey) && 'text-right')}
+                >
+                  {col.headerName}
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((row, index) => {
-              const lineTotal = Number(row.total_quantity || 0) * Number(row.rate || 0);
-              const isMissingRate = row.rate === null;
-
-              return (
-                <TableRow
-                  key={`${row.client_id}-${row.location_id}-${row.work_type_id}-${row.frequency}-${index}`}
-                  className={cn(isMissingRate && 'bg-warning/10')}
-                >
-                  <TableCell className="font-medium">{row.client_name || '—'}</TableCell>
-                  <TableCell>{row.location_name || '—'}</TableCell>
-                  <TableCell>{row.work_type_name || '—'}</TableCell>
-                  <TableCell>{row.frequency || '—'}</TableCell>
-                  <TableCell className="text-right">{row.total_quantity}</TableCell>
-                  <TableCell className="text-right">
-                    {isMissingRate ? (
-                      <span className="text-warning font-medium">Missing</span>
-                    ) : (
-                      `$${Number(row.rate).toFixed(2)}`
+            {data.map((row, index) => (
+              <TableRow
+                key={`${row.client_id}-${row.location_id}-${row.work_type_id}-${row.frequency}-${index}`}
+                className={cn(row.rate === null && 'bg-warning/10')}
+              >
+                {displayColumns.map((col) => (
+                  <TableCell
+                    key={col.id}
+                    className={cn(
+                      RIGHT_ALIGNED_FIELDS.includes(col.fieldKey) && 'text-right',
+                      col.fieldKey === 'client_name' && 'font-medium'
                     )}
+                  >
+                    {getFieldValue(col.fieldKey, row)}
                   </TableCell>
-                  <TableCell className="text-right">
-                    {isMissingRate ? '—' : `$${lineTotal.toFixed(2)}`}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                ))}
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>

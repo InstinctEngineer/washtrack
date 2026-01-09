@@ -306,7 +306,7 @@ export default function FinanceDashboard() {
             </Button>
           </CardHeader>
           <CardContent>
-            <ReportPreviewTable data={reportData} loading={loading} />
+            <ReportPreviewTable data={reportData} loading={loading} columns={columns} />
           </CardContent>
         </Card>
 
