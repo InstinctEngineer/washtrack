@@ -447,19 +447,27 @@ Please change your password after your first login.`;
                           checked={isSelected}
                           onChange={(e) => {
                             if (e.target.checked) {
+                              // If this is the first/only location, make it primary
+                              const newLocations = [
+                                ...formData.locations,
+                                { location_id: location.id, is_primary: formData.locations.length === 0 },
+                              ];
                               setFormData({
                                 ...formData,
-                                locations: [
-                                  ...formData.locations,
-                                  { location_id: location.id, is_primary: false },
-                                ],
+                                locations: newLocations,
                               });
                             } else {
+                              const newLocations = formData.locations.filter(
+                                (l) => l.location_id !== location.id
+                              );
+                              // If removing the primary and there's still one left, make that one primary
+                              const wasPrimary = formData.locations.find(l => l.location_id === location.id)?.is_primary;
+                              if (wasPrimary && newLocations.length === 1) {
+                                newLocations[0].is_primary = true;
+                              }
                               setFormData({
                                 ...formData,
-                                locations: formData.locations.filter(
-                                  (l) => l.location_id !== location.id
-                                ),
+                                locations: newLocations,
                               });
                             }
                           }}
