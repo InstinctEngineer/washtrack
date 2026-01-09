@@ -793,18 +793,11 @@ export default function EmployeeDashboard() {
                   onClick={handleBatchSubmit}
                   disabled={isSubmitting}
                   className={cn(
+                    "submit-button-clean",
                     "relative z-10 w-full h-14 text-lg font-bold",
                     "bg-green-700 hover:bg-green-800 text-white",
-                    "transition-all duration-500",
-                    "border-0 border-none outline-none ring-0 ring-offset-0",
-                    "focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none",
-                    "focus:ring-0 focus:ring-offset-0 focus:outline-none"
+                    "transition-all duration-500"
                   )}
-                  style={{
-                    boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.25)',
-                    border: 'none',
-                    outline: 'none'
-                  }}
                 >
                   {isSubmitting ? (
                     <>
