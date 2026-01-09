@@ -18,7 +18,7 @@ import { UserRole } from '@/types/database';
 import { format, startOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { 
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown, MapPin, 
-  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus, User, X
+  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus, User, X, FileText
 } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { UserSearchInput } from '@/components/UserSearchInput';
@@ -770,16 +770,43 @@ export default function Messages() {
                             <div className="bg-accent/30 rounded-lg p-3">
                               <p className="text-sm whitespace-pre-wrap">{comment.comment_text}</p>
                               {comment.work_log_ids && comment.work_log_ids.length > 0 && (
-                                <p className="text-xs text-muted-foreground mt-2">
-                                  📎 Linked to {comment.work_log_ids.length} work {comment.work_log_ids.length === 1 ? 'item' : 'items'}
-                                </p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className="text-xs text-muted-foreground">
+                                    📎 Linked to {comment.work_log_ids.length} work {comment.work_log_ids.length === 1 ? 'item' : 'items'}
+                                  </span>
+                                  {isOfficeStaff && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 text-xs"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/finance/this-week?workLogIds=${comment.work_log_ids!.join(',')}`);
+                                      }}
+                                    >
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      View Items
+                                    </Button>
+                                  )}
+                                </div>
                               )}
                             </div>
 
-                            {/* Employee ID - Office staff only */}
+                            {/* Employee ID with view work link - Office staff only */}
                             {isOfficeStaff && (
-                              <div className="text-xs text-muted-foreground">
-                                Employee ID: {comment.employee?.employee_id || 'N/A'}
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>Employee ID: {comment.employee?.employee_id || 'N/A'}</span>
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  className="h-auto p-0 text-xs text-primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/finance/this-week?employeeId=${comment.employee_id}`);
+                                  }}
+                                >
+                                  View all work →
+                                </Button>
                               </div>
                             )}
                             

@@ -14,6 +14,7 @@ import EmployeeDashboard from "./pages/EmployeeDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import FinanceDashboard from "./pages/FinanceDashboard";
 import Messages from "./pages/Messages";
+import FinanceThisWeek from "./pages/FinanceThisWeek";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminSettings from "./pages/AdminSettings";
 import CreateUser from "./pages/CreateUser";
@@ -75,6 +76,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['finance', 'admin']}>
                   <FinanceDashboard />
+              </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/finance/this-week"
+              element={
+                <ProtectedRoute allowedRoles={['finance', 'admin']}>
+                  <FinanceThisWeek />
                 </ProtectedRoute>
               }
             />
