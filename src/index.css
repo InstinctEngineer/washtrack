@@ -172,3 +172,16 @@ All colors MUST be HSL.
     0 0 40px rgba(74, 222, 128, 0.6),
     0 0 20px rgba(74, 222, 128, 0.5);
 }
+
+/* Clean submit button - removes all borders/outlines with !important */
+.submit-button-clean,
+.submit-button-clean:hover,
+.submit-button-clean:focus,
+.submit-button-clean:focus-visible,
+.submit-button-clean:active {
+  border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+}
