@@ -813,10 +813,13 @@ export default function EmployeeDashboard() {
           <div 
             className={cn(
               "fixed bottom-0 left-0 right-0 h-1",
-              "bg-green-500/60 pending-glow-edge",
+              "pending-glow-edge",
               "transition-opacity duration-500 ease-in-out",
               "z-40 pointer-events-none"
             )}
+            style={{
+              background: 'radial-gradient(ellipse 50% 100% at 50% 100%, hsl(142 71% 45% / 0.7) 0%, hsl(142 71% 45% / 0.3) 40%, transparent 80%)'
+            }}
           />
         )}
 
