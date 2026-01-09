@@ -217,7 +217,7 @@ const Users = () => {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-max">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">User Management</h1>
