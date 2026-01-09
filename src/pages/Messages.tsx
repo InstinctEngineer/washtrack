@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -109,6 +111,7 @@ export default function Messages() {
     employee_id: string;
   } | null>(null);
   const [sendingOfficeMessage, setSendingOfficeMessage] = useState(false);
+  const [showComposeDialog, setShowComposeDialog] = useState(false);
   
   const { markAsRead } = useUnreadMessageCount();
 
@@ -390,6 +393,7 @@ export default function Messages() {
       toast.success(`Message sent to ${selectedRecipient.name}`);
       setOfficeMessage('');
       setSelectedRecipient(null);
+      setShowComposeDialog(false);
       fetchComments();
     } catch (error: any) {
       console.error('Error sending message:', error);
@@ -439,10 +443,23 @@ export default function Messages() {
               </p>
             </div>
           </div>
-          <Button variant="outline" onClick={fetchComments} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            {isOfficeStaff && isCurrentWeek && (
+              <Button onClick={() => setShowComposeDialog(true)} size="sm">
+                <UserPlus className="h-4 w-4 mr-2" />
+                New Message
+              </Button>
+            )}
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={fetchComments} 
+              disabled={loading}
+              title="Refresh"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
 
         {/* Filters Card */}
@@ -561,77 +578,78 @@ export default function Messages() {
           </Card>
         )}
 
-        {/* Start Conversation - Office staff only, current week only */}
-        {isOfficeStaff && isCurrentWeek && (
-          <Card className="overflow-hidden">
-            {!selectedRecipient ? (
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <UserPlus className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                  <div className="flex-1">
-                    <UserSearchInput
-                      onUserSelect={setSelectedRecipient}
-                      selectedUser={selectedRecipient}
-                      placeholder="Start a conversation... search by name or email"
-                      excludeUserId={user?.id}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            ) : (
-              <>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <UserPlus className="h-4 w-4" />
-                    Message to {selectedRecipient.name}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 pt-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">To:</span>
-                    <Badge variant="secondary" className="flex items-center gap-2">
-                      <User className="h-3 w-3" />
-                      {selectedRecipient.name}
-                      <button 
-                        onClick={() => setSelectedRecipient(null)}
-                        className="hover:text-destructive transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  </div>
+        {/* Compose Message Dialog - Office staff */}
+        <Dialog open={showComposeDialog} onOpenChange={setShowComposeDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Start Conversation
+              </DialogTitle>
+              <DialogDescription>
+                Send a message to any employee
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>To:</Label>
+                {selectedRecipient ? (
+                  <Badge variant="secondary" className="flex items-center gap-2 w-fit">
+                    <User className="h-3 w-3" />
+                    {selectedRecipient.name}
+                    <button 
+                      onClick={() => setSelectedRecipient(null)}
+                      className="hover:text-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ) : (
+                  <UserSearchInput
+                    onUserSelect={setSelectedRecipient}
+                    selectedUser={selectedRecipient}
+                    placeholder="Search by name or email..."
+                    excludeUserId={user?.id}
+                  />
+                )}
+              </div>
+              
+              {selectedRecipient && (
+                <div className="space-y-2">
+                  <Label>Message:</Label>
                   <Textarea
                     placeholder="Type your message..."
                     value={officeMessage}
                     onChange={(e) => setOfficeMessage(e.target.value)}
-                    className="min-h-[80px] resize-none"
+                    className="min-h-[100px]"
                     autoFocus
                   />
-                  <div className="flex justify-end gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setSelectedRecipient(null);
-                        setOfficeMessage("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      size="sm"
-                      onClick={handleSendOfficeMessage} 
-                      disabled={sendingOfficeMessage || !officeMessage.trim()}
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      {sendingOfficeMessage ? 'Sending...' : 'Send Message'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </>
-            )}
-          </Card>
-        )}
+                </div>
+              )}
+            </div>
+            
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowComposeDialog(false);
+                  setSelectedRecipient(null);
+                  setOfficeMessage("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSendOfficeMessage}
+                disabled={!selectedRecipient || !officeMessage.trim() || sendingOfficeMessage}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Send
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Messages List */}
         <Card>
