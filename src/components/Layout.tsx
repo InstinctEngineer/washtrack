@@ -24,7 +24,8 @@ import {
   Building2,
   MessageSquare,
   Wrench,
-  Package
+  Package,
+  Calendar
 } from 'lucide-react';
 import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
@@ -88,6 +89,12 @@ export const Layout = ({ children }: LayoutProps) => {
         label: 'Reports & Tables', 
         icon: DollarSign, 
         path: '/finance/dashboard',
+        section: 'Dashboards'
+      });
+      navItems.push({ 
+        label: 'This Week', 
+        icon: Calendar, 
+        path: '/finance/this-week',
         section: 'Dashboards'
       });
     }
