@@ -1,24 +1,19 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { ReportDateRangePicker } from '@/components/reports/ReportDateRangePicker';
-import { exportToExcel } from '@/lib/excelExporter';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, startOfWeek, endOfWeek, parseISO } from 'date-fns';
-import { 
-  Calendar, Search, Download, ChevronLeft, ChevronRight, 
-  Check, ChevronsUpDown, RefreshCw, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown
-} from 'lucide-react';
+import { Download, Filter, ChevronUp, ChevronDown, ChevronsUpDown, X, Calendar as CalendarIcon } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Layout } from '@/components/Layout';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { exportToExcel } from '@/lib/excelExporter';
+import { toast } from 'sonner';
 
 interface FilterOption {
   id: string;
@@ -27,392 +22,284 @@ interface FilterOption {
 
 interface WorkLogEntry {
   id: string;
-  work_date: string;
+  workDate: string;
+  employeeName: string;
+  employeeId: string;
+  employeeUserId: string;
+  clientName: string;
+  clientId: string;
+  locationName: string;
+  locationId: string;
+  workTypeName: string;
+  workTypeId: string;
+  frequency: string;
+  workItemIdentifier: string;
   quantity: number;
-  notes: string | null;
-  created_at: string;
-  employee_name: string;
-  employee_code: string;
-  employee_id: string;
-  work_item_identifier: string | null;
-  work_type_name: string;
-  rate_type: string;
-  frequency: string | null;
-  rate: number | null;
-  location_name: string;
-  location_id: string;
-  client_name: string;
-  client_id: string;
+  rate: number;
+  lineTotal: number;
+  notes: string;
+  createdAt: string;
 }
 
-type SortField = 'work_date' | 'employee_name' | 'client_name' | 'location_name' | 'work_type_name' | 'quantity' | 'rate' | 'line_total' | 'created_at';
+type SortField = 'workDate' | 'employeeName' | 'clientName' | 'locationName' | 'workTypeName' | 'quantity' | 'lineTotal' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
 
 export default function FinanceThisWeek() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  
-  // Parse URL params for deep linking
+
+  // URL params for deep linking
   const urlWorkLogIds = searchParams.get('workLogIds')?.split(',').filter(Boolean) || [];
   const urlEmployeeId = searchParams.get('employeeId') || '';
   const urlStartDate = searchParams.get('startDate') || '';
   const urlEndDate = searchParams.get('endDate') || '';
 
-  // Date range state - default to current week
   const today = new Date();
   const defaultStart = startOfWeek(today, { weekStartsOn: 1 });
   const defaultEnd = endOfWeek(today, { weekStartsOn: 1 });
-  
-  const [startDate, setStartDate] = useState<Date>(
-    urlStartDate ? parseISO(urlStartDate) : defaultStart
-  );
-  const [endDate, setEndDate] = useState<Date>(
-    urlEndDate ? parseISO(urlEndDate) : defaultEnd
-  );
 
-  // Filter options
-  const [clients, setClients] = useState<FilterOption[]>([]);
-  const [locations, setLocations] = useState<FilterOption[]>([]);
-  const [workTypes, setWorkTypes] = useState<FilterOption[]>([]);
-  const [employees, setEmployees] = useState<FilterOption[]>([]);
-
-  // Selected filters
-  const [selectedClients, setSelectedClients] = useState<string[]>([]);
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [selectedWorkTypes, setSelectedWorkTypes] = useState<string[]>([]);
-  const [selectedEmployees, setSelectedEmployees] = useState<string[]>(
-    urlEmployeeId ? [urlEmployeeId] : []
-  );
-
-  // Popover open states
-  const [clientsOpen, setClientsOpen] = useState(false);
-  const [locationsOpen, setLocationsOpen] = useState(false);
-  const [workTypesOpen, setWorkTypesOpen] = useState(false);
-  const [employeesOpen, setEmployeesOpen] = useState(false);
-
-  // Data state
+  // State
+  const [startDate, setStartDate] = useState<Date>(urlStartDate ? parseISO(urlStartDate) : defaultStart);
+  const [endDate, setEndDate] = useState<Date>(urlEndDate ? parseISO(urlEndDate) : defaultEnd);
   const [workLogs, setWorkLogs] = useState<WorkLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
-
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
+  // Filter options
+  const [employees, setEmployees] = useState<FilterOption[]>([]);
+  const [clients, setClients] = useState<FilterOption[]>([]);
+  const [locations, setLocations] = useState<FilterOption[]>([]);
+  const [workTypes, setWorkTypes] = useState<FilterOption[]>([]);
+
+  // Selected filters
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>(urlEmployeeId ? [urlEmployeeId] : []);
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [selectedWorkTypes, setSelectedWorkTypes] = useState<string[]>([]);
+
   // Sorting
-  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortField, setSortField] = useState<SortField>('createdAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  // Search
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // Deep link mode
+  const isDeepLinked = urlWorkLogIds.length > 0 || !!urlEmployeeId;
 
-  // Debounce search
+  // Fetch filter options
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      setCurrentPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    const fetchFilters = async () => {
+      const [employeesRes, clientsRes, locationsRes, workTypesRes] = await Promise.all([
+        supabase.from('users').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('clients').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('locations').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('work_types').select('id, name').eq('is_active', true).order('name'),
+      ]);
 
-  // Fetch filter options on mount
-  useEffect(() => {
-    fetchFilterOptions();
+      if (employeesRes.data) setEmployees(employeesRes.data);
+      if (clientsRes.data) setClients(clientsRes.data);
+      if (locationsRes.data) setLocations(locationsRes.data);
+      if (workTypesRes.data) setWorkTypes(workTypesRes.data);
+    };
+    fetchFilters();
   }, []);
 
-  // Fetch locations when clients change
+  // Fetch work logs
   useEffect(() => {
-    fetchLocations();
-  }, [selectedClients]);
+    const fetchWorkLogs = async () => {
+      setLoading(true);
+      try {
+        const startStr = format(startDate, 'yyyy-MM-dd');
+        const endStr = format(endDate, 'yyyy-MM-dd');
+        const offset = (currentPage - 1) * pageSize;
 
-  // Fetch data when filters change
-  useEffect(() => {
-    fetchWorkLogs();
-  }, [startDate, endDate, selectedClients, selectedLocations, selectedWorkTypes, selectedEmployees, currentPage, pageSize, sortField, sortDirection, urlWorkLogIds.join(',')]);
+        let query = supabase
+          .from('work_logs')
+          .select('id, work_date, quantity, notes, created_at, employee_id, work_item_id, rate_config_id', { count: 'exact' })
+          .gte('work_date', startStr)
+          .lte('work_date', endStr);
 
-  const fetchFilterOptions = async () => {
-    const [clientsRes, workTypesRes, employeesRes] = await Promise.all([
-      supabase.from('clients').select('id, name').eq('is_active', true).order('name'),
-      supabase.from('work_types').select('id, name').eq('is_active', true).order('name'),
-      supabase.from('users_safe_view').select('id, name').order('name')
-    ]);
+        // Apply deep link filter for specific work log IDs
+        if (urlWorkLogIds.length > 0) {
+          query = query.in('id', urlWorkLogIds);
+        }
 
-    setClients(clientsRes.data || []);
-    setWorkTypes(workTypesRes.data || []);
-    setEmployees(employeesRes.data || []);
-  };
+        const { data: logsData, count, error } = await query
+          .order('created_at', { ascending: false })
+          .range(offset, offset + pageSize - 1);
 
-  const fetchLocations = async () => {
-    let query = supabase
-      .from('locations')
-      .select('id, name')
-      .eq('is_active', true)
-      .order('name');
+        if (error) throw error;
+        setTotalCount(count || 0);
 
-    if (selectedClients.length > 0) {
-      query = query.in('client_id', selectedClients);
-    }
+        if (!logsData || logsData.length === 0) {
+          setWorkLogs([]);
+          setLoading(false);
+          return;
+        }
 
-    const { data } = await query;
-    setLocations(data || []);
-  };
+        // Batch fetch related data
+        const employeeIds = [...new Set(logsData.map(l => l.employee_id))];
+        const workItemIds = [...new Set(logsData.map(l => l.work_item_id).filter(Boolean))];
+        const rateConfigIds = [...new Set(logsData.map(l => l.rate_config_id).filter(Boolean))];
 
-  const fetchWorkLogs = async () => {
-    setLoading(true);
-    try {
-      const startStr = format(startDate, 'yyyy-MM-dd');
-      const endStr = format(endDate, 'yyyy-MM-dd');
+        const [usersRes, workItemsRes, rateConfigsRes] = await Promise.all([
+          supabase.from('users').select('id, name, employee_id').in('id', employeeIds),
+          workItemIds.length > 0 
+            ? supabase.from('work_items').select('id, identifier, rate_config_id').in('id', workItemIds)
+            : Promise.resolve({ data: [] }),
+          rateConfigIds.length > 0
+            ? supabase.from('rate_configs').select('id, rate, frequency, client_id, location_id, work_type_id').in('id', rateConfigIds)
+            : Promise.resolve({ data: [] }),
+        ]);
 
-      // Build query for work_logs with all joins
-      let query = supabase
-        .from('work_logs')
-        .select(`
-          id,
-          work_date,
-          quantity,
-          notes,
-          created_at,
-          employee_id,
-          work_item_id,
-          rate_config_id
-        `, { count: 'exact' })
-        .gte('work_date', startStr)
-        .lte('work_date', endStr);
+        const usersMap = new Map((usersRes.data || []).map(u => [u.id, u]));
+        const workItemsMap = new Map((workItemsRes.data || []).map(w => [w.id, w]));
+        
+        // Get all rate config IDs including from work items
+        const allRateConfigIds = new Set(rateConfigIds);
+        (workItemsRes.data || []).forEach(w => {
+          if (w.rate_config_id) allRateConfigIds.add(w.rate_config_id);
+        });
 
-      // Filter by specific work log IDs if provided via deep link
-      if (urlWorkLogIds.length > 0) {
-        query = query.in('id', urlWorkLogIds);
-      }
+        // Fetch rate configs for work items if needed
+        const additionalRateConfigIds = [...allRateConfigIds].filter(id => !rateConfigIds.includes(id));
+        let allRateConfigs = rateConfigsRes.data || [];
+        
+        if (additionalRateConfigIds.length > 0) {
+          const { data: additionalConfigs } = await supabase
+            .from('rate_configs')
+            .select('id, rate, frequency, client_id, location_id, work_type_id')
+            .in('id', additionalRateConfigIds);
+          if (additionalConfigs) {
+            allRateConfigs = [...allRateConfigs, ...additionalConfigs];
+          }
+        }
 
-      // Apply employee filter
-      if (selectedEmployees.length > 0) {
-        query = query.in('employee_id', selectedEmployees);
-      }
+        const rateConfigsMap = new Map(allRateConfigs.map(r => [r.id, r]));
 
-      // Sort
-      const ascending = sortDirection === 'asc';
-      if (sortField === 'work_date' || sortField === 'created_at') {
-        query = query.order(sortField, { ascending });
-      } else {
-        query = query.order('created_at', { ascending: false });
-      }
+        // Fetch clients, locations, work types for rate configs
+        const clientIds = [...new Set(allRateConfigs.map(r => r.client_id))];
+        const locationIds = [...new Set(allRateConfigs.map(r => r.location_id))];
+        const workTypeIds = [...new Set(allRateConfigs.map(r => r.work_type_id))];
 
-      // Pagination
-      const from = (currentPage - 1) * pageSize;
-      const to = from + pageSize - 1;
-      query = query.range(from, to);
+        const [clientsRes, locationsRes, workTypesRes] = await Promise.all([
+          clientIds.length > 0 ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [] }),
+          locationIds.length > 0 ? supabase.from('locations').select('id, name').in('id', locationIds) : Promise.resolve({ data: [] }),
+          workTypeIds.length > 0 ? supabase.from('work_types').select('id, name').in('id', workTypeIds) : Promise.resolve({ data: [] }),
+        ]);
 
-      const { data: rawLogs, error, count } = await query;
+        const clientsMap = new Map((clientsRes.data || []).map(c => [c.id, c]));
+        const locationsMap = new Map((locationsRes.data || []).map(l => [l.id, l]));
+        const workTypesMap = new Map((workTypesRes.data || []).map(w => [w.id, w]));
 
-      if (error) throw error;
-      if (!rawLogs || rawLogs.length === 0) {
-        setWorkLogs([]);
-        setTotalCount(0);
+        // Build entries
+        const entries: WorkLogEntry[] = logsData.map(log => {
+          const user = usersMap.get(log.employee_id);
+          const workItem = log.work_item_id ? workItemsMap.get(log.work_item_id) : null;
+          const rateConfigId = workItem?.rate_config_id || log.rate_config_id;
+          const rateConfig = rateConfigId ? rateConfigsMap.get(rateConfigId) : null;
+          const client = rateConfig ? clientsMap.get(rateConfig.client_id) : null;
+          const location = rateConfig ? locationsMap.get(rateConfig.location_id) : null;
+          const workType = rateConfig ? workTypesMap.get(rateConfig.work_type_id) : null;
+
+          const rate = rateConfig?.rate || 0;
+          const lineTotal = log.quantity * rate;
+
+          return {
+            id: log.id,
+            workDate: log.work_date,
+            employeeName: user?.name || 'Unknown',
+            employeeId: user?.employee_id || '',
+            employeeUserId: log.employee_id,
+            clientName: client?.name || 'Unknown',
+            clientId: client?.id || '',
+            locationName: location?.name || 'Unknown',
+            locationId: location?.id || '',
+            workTypeName: workType?.name || 'Unknown',
+            workTypeId: workType?.id || '',
+            frequency: rateConfig?.frequency || '',
+            workItemIdentifier: workItem?.identifier || '-',
+            quantity: log.quantity,
+            rate,
+            lineTotal,
+            notes: log.notes || '',
+            createdAt: log.created_at,
+          };
+        });
+
+        setWorkLogs(entries);
+      } catch (error) {
+        console.error('Error fetching work logs:', error);
+        toast.error('Failed to load work logs');
+      } finally {
         setLoading(false);
-        return;
       }
+    };
 
-      setTotalCount(count || 0);
+    fetchWorkLogs();
+  }, [startDate, endDate, currentPage, pageSize, urlWorkLogIds.join(',')]);
 
-      // Collect IDs for batch fetching
-      const employeeIds = [...new Set(rawLogs.map(l => l.employee_id))];
-      const workItemIds = [...new Set(rawLogs.filter(l => l.work_item_id).map(l => l.work_item_id!))];
-      const rateConfigIds = [...new Set(rawLogs.filter(l => l.rate_config_id).map(l => l.rate_config_id!))];
+  // Filter and sort logs
+  const filteredAndSortedLogs = useMemo(() => {
+    let result = [...workLogs];
 
-      // Batch fetch related data
-      const [employeesRes, workItemsRes, directRateConfigsRes] = await Promise.all([
-        supabase.from('users_safe_view').select('id, name, employee_id').in('id', employeeIds),
-        workItemIds.length > 0 
-          ? supabase.from('work_items').select('id, identifier, rate_config_id').in('id', workItemIds)
-          : Promise.resolve({ data: [] }),
-        rateConfigIds.length > 0
-          ? supabase.from('rate_configs').select('id, rate, frequency, work_type_id, location_id, client_id').in('id', rateConfigIds)
-          : Promise.resolve({ data: [] })
-      ]);
-
-      // Get rate_config_ids from work_items too
-      const workItemRateConfigIds = (workItemsRes.data || []).map(wi => wi.rate_config_id);
-      const allRateConfigIds = [...new Set([...rateConfigIds, ...workItemRateConfigIds])];
-
-      // Fetch all rate configs
-      const { data: allRateConfigs } = allRateConfigIds.length > 0
-        ? await supabase.from('rate_configs').select('id, rate, frequency, work_type_id, location_id, client_id').in('id', allRateConfigIds)
-        : { data: [] };
-
-      // Get work type, location, client IDs
-      const workTypeIds = [...new Set((allRateConfigs || []).map(rc => rc.work_type_id))];
-      const locationIds = [...new Set((allRateConfigs || []).map(rc => rc.location_id))];
-      const clientIds = [...new Set((allRateConfigs || []).map(rc => rc.client_id))];
-
-      // Batch fetch work types, locations, clients
-      const [workTypesRes, locationsRes, clientsRes] = await Promise.all([
-        workTypeIds.length > 0 
-          ? supabase.from('work_types').select('id, name, rate_type').in('id', workTypeIds)
-          : Promise.resolve({ data: [] }),
-        locationIds.length > 0
-          ? supabase.from('locations').select('id, name').in('id', locationIds)
-          : Promise.resolve({ data: [] }),
-        clientIds.length > 0
-          ? supabase.from('clients').select('id, name').in('id', clientIds)
-          : Promise.resolve({ data: [] })
-      ]);
-
-      // Create lookup maps
-      const employeesMap = new Map((employeesRes.data || []).map(e => [e.id, e]));
-      const workItemsMap = new Map((workItemsRes.data || []).map(wi => [wi.id, wi]));
-      const rateConfigsMap = new Map((allRateConfigs || []).map(rc => [rc.id, rc]));
-      const workTypesMap = new Map((workTypesRes.data || []).map(wt => [wt.id, wt]));
-      const locationsMap = new Map((locationsRes.data || []).map(l => [l.id, l]));
-      const clientsMap = new Map((clientsRes.data || []).map(c => [c.id, c]));
-
-      // Transform data
-      const entries: WorkLogEntry[] = rawLogs.map(log => {
-        const employee = employeesMap.get(log.employee_id);
-        const workItem = log.work_item_id ? workItemsMap.get(log.work_item_id) : null;
-        const rateConfigId = workItem?.rate_config_id || log.rate_config_id;
-        const rateConfig = rateConfigId ? rateConfigsMap.get(rateConfigId) : null;
-        const workType = rateConfig ? workTypesMap.get(rateConfig.work_type_id) : null;
-        const location = rateConfig ? locationsMap.get(rateConfig.location_id) : null;
-        const client = rateConfig ? clientsMap.get(rateConfig.client_id) : null;
-
-        return {
-          id: log.id,
-          work_date: log.work_date,
-          quantity: log.quantity,
-          notes: log.notes,
-          created_at: log.created_at,
-          employee_name: employee?.name || 'Unknown',
-          employee_code: employee?.employee_id || 'N/A',
-          employee_id: log.employee_id,
-          work_item_identifier: workItem?.identifier || null,
-          work_type_name: workType?.name || 'Unknown',
-          rate_type: workType?.rate_type || 'per_unit',
-          frequency: rateConfig?.frequency || null,
-          rate: rateConfig?.rate || null,
-          location_name: location?.name || 'Unknown',
-          location_id: location?.id || '',
-          client_name: client?.name || 'Unknown',
-          client_id: client?.id || ''
-        };
-      });
-
-      // Apply client-side filters for client, location, work type
-      let filtered = entries;
-      if (selectedClients.length > 0) {
-        filtered = filtered.filter(e => selectedClients.includes(e.client_id));
-      }
-      if (selectedLocations.length > 0) {
-        filtered = filtered.filter(e => selectedLocations.includes(e.location_id));
-      }
-      if (selectedWorkTypes.length > 0) {
-        // Get work type IDs by name match
-        const selectedWTNames = workTypes.filter(wt => selectedWorkTypes.includes(wt.id)).map(wt => wt.name);
-        filtered = filtered.filter(e => selectedWTNames.includes(e.work_type_name));
-      }
-
-      setWorkLogs(filtered);
-    } catch (error: any) {
-      console.error('Error fetching work logs:', error);
-      toast.error('Failed to load work logs');
-    } finally {
-      setLoading(false);
+    // Apply filters
+    if (selectedEmployees.length > 0) {
+      result = result.filter(log => selectedEmployees.includes(log.employeeUserId));
     }
-  };
-
-  // Apply search filter
-  const filteredLogs = useMemo(() => {
-    if (!debouncedSearch) return workLogs;
-    const query = debouncedSearch.toLowerCase();
-    return workLogs.filter(log => 
-      log.employee_name.toLowerCase().includes(query) ||
-      log.employee_code.toLowerCase().includes(query) ||
-      log.client_name.toLowerCase().includes(query) ||
-      log.location_name.toLowerCase().includes(query) ||
-      log.work_type_name.toLowerCase().includes(query) ||
-      log.work_item_identifier?.toLowerCase().includes(query) ||
-      log.notes?.toLowerCase().includes(query)
-    );
-  }, [workLogs, debouncedSearch]);
-
-  // Client-side sorting for non-date fields
-  const sortedLogs = useMemo(() => {
-    if (sortField === 'work_date' || sortField === 'created_at') {
-      return filteredLogs; // Already sorted server-side
+    if (selectedClients.length > 0) {
+      result = result.filter(log => selectedClients.includes(log.clientId));
+    }
+    if (selectedLocations.length > 0) {
+      result = result.filter(log => selectedLocations.includes(log.locationId));
+    }
+    if (selectedWorkTypes.length > 0) {
+      result = result.filter(log => selectedWorkTypes.includes(log.workTypeId));
     }
 
-    return [...filteredLogs].sort((a, b) => {
-      let aVal: any, bVal: any;
-      
+    // Sort
+    result.sort((a, b) => {
+      let comparison = 0;
       switch (sortField) {
-        case 'employee_name':
-          aVal = a.employee_name;
-          bVal = b.employee_name;
+        case 'workDate':
+          comparison = a.workDate.localeCompare(b.workDate);
           break;
-        case 'client_name':
-          aVal = a.client_name;
-          bVal = b.client_name;
+        case 'employeeName':
+          comparison = a.employeeName.localeCompare(b.employeeName);
           break;
-        case 'location_name':
-          aVal = a.location_name;
-          bVal = b.location_name;
+        case 'clientName':
+          comparison = a.clientName.localeCompare(b.clientName);
           break;
-        case 'work_type_name':
-          aVal = a.work_type_name;
-          bVal = b.work_type_name;
+        case 'locationName':
+          comparison = a.locationName.localeCompare(b.locationName);
+          break;
+        case 'workTypeName':
+          comparison = a.workTypeName.localeCompare(b.workTypeName);
           break;
         case 'quantity':
-          aVal = a.quantity;
-          bVal = b.quantity;
+          comparison = a.quantity - b.quantity;
           break;
-        case 'rate':
-          aVal = a.rate || 0;
-          bVal = b.rate || 0;
+        case 'lineTotal':
+          comparison = a.lineTotal - b.lineTotal;
           break;
-        case 'line_total':
-          aVal = (a.rate || 0) * a.quantity;
-          bVal = (b.rate || 0) * b.quantity;
+        case 'createdAt':
+          comparison = a.createdAt.localeCompare(b.createdAt);
           break;
-        default:
-          return 0;
       }
-
-      if (typeof aVal === 'string') {
-        return sortDirection === 'asc' 
-          ? aVal.localeCompare(bVal) 
-          : bVal.localeCompare(aVal);
-      }
-      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [filteredLogs, sortField, sortDirection]);
 
-  // Calculate summary stats
+    return result;
+  }, [workLogs, selectedEmployees, selectedClients, selectedLocations, selectedWorkTypes, sortField, sortDirection]);
+
+  // Summary stats
   const summaryStats = useMemo(() => {
-    const totalQty = sortedLogs.reduce((sum, log) => sum + log.quantity, 0);
-    const totalValue = sortedLogs.reduce((sum, log) => sum + (log.rate || 0) * log.quantity, 0);
-    return { count: sortedLogs.length, totalQty, totalValue };
-  }, [sortedLogs]);
+    const totalQty = filteredAndSortedLogs.reduce((sum, log) => sum + log.quantity, 0);
+    const totalValue = filteredAndSortedLogs.reduce((sum, log) => sum + log.lineTotal, 0);
+    return { count: filteredAndSortedLogs.length, totalQty, totalValue };
+  }, [filteredAndSortedLogs]);
 
-  // Toggle selection helper
-  const toggleSelection = (value: string, selected: string[], onChange: (values: string[]) => void) => {
-    if (selected.includes(value)) {
-      onChange(selected.filter(v => v !== value));
-    } else {
-      onChange([...selected, value]);
-    }
-  };
+  const totalPages = Math.ceil(totalCount / pageSize);
 
-  // Get label for selected items
-  const getSelectedLabel = (selected: string[], options: FilterOption[], singular: string) => {
-    if (selected.length === 0) return `All ${singular}s`;
-    if (selected.length === 1) {
-      const item = options.find(o => o.id === selected[0]);
-      return item?.name || `1 ${singular}`;
-    }
-    return `${selected.length} ${singular}s`;
-  };
-
-  // Handle sort
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -420,484 +307,349 @@ export default function FinanceThisWeek() {
       setSortField(field);
       setSortDirection('desc');
     }
-    setCurrentPage(1);
   };
 
-  // Handle export
-  const handleExport = () => {
-    if (sortedLogs.length === 0) {
-      toast.error('No data to export');
-      return;
-    }
-
-    if (sortedLogs.length > 5000) {
-      toast.warning('Large export may take a moment...', { duration: 3000 });
-    }
-
-    const exportData = sortedLogs.map(log => ({
-      'Work Date': format(new Date(log.work_date), 'MM/dd/yyyy'),
-      'Employee': log.employee_name,
-      'Employee ID': log.employee_code,
-      'Client': log.client_name,
-      'Location': log.location_name,
-      'Work Type': log.work_type_name,
-      'Frequency': log.frequency || '-',
-      'Item ID': log.work_item_identifier || '-',
-      'Quantity': log.quantity,
-      'Rate': log.rate !== null ? `$${log.rate.toFixed(2)}` : 'TBD',
-      'Line Total': log.rate !== null ? `$${(log.rate * log.quantity).toFixed(2)}` : 'TBD',
-      'Notes': log.notes || '-',
-      'Submitted': format(new Date(log.created_at), 'MM/dd/yyyy h:mm a')
-    }));
-
-    try {
-      const dateRange = `${format(startDate, 'MMM_d')}-${format(endDate, 'MMM_d_yyyy')}`;
-      exportToExcel(exportData, `WorkLogs_${dateRange}`, 'Work Logs');
-      toast.success('Export complete');
-    } catch (error) {
-      toast.error('Export failed');
-    }
+  const toggleFilter = (list: string[], setList: (v: string[]) => void, value: string) => {
+    setList(list.includes(value) ? list.filter(v => v !== value) : [...list, value]);
   };
 
-  // Clear deep link filters
+  const clearAllFilters = () => {
+    setSelectedEmployees([]);
+    setSelectedClients([]);
+    setSelectedLocations([]);
+    setSelectedWorkTypes([]);
+  };
+
   const clearDeepLink = () => {
     setSearchParams({});
     setSelectedEmployees([]);
   };
 
-  // Render sort icon
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 text-muted-foreground/50" />;
-    return sortDirection === 'asc' 
-      ? <ArrowUp className="h-4 w-4 text-primary" />
-      : <ArrowDown className="h-4 w-4 text-primary" />;
+  const handleExport = () => {
+    if (filteredAndSortedLogs.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    if (filteredAndSortedLogs.length > 5000) {
+      toast.warning('Large export - this may take a moment');
+    }
+
+    const exportData = filteredAndSortedLogs.map(log => ({
+      'Date': log.workDate,
+      'Employee': log.employeeName,
+      'Emp ID': log.employeeId,
+      'Client': log.clientName,
+      'Location': log.locationName,
+      'Type': log.workTypeName,
+      'Frequency': log.frequency,
+      'Item': log.workItemIdentifier,
+      'Qty': log.quantity,
+      'Rate': log.rate,
+      'Total': log.lineTotal,
+      'Notes': log.notes,
+    }));
+
+    exportToExcel(exportData, `work-logs-${format(startDate, 'yyyy-MM-dd')}-to-${format(endDate, 'yyyy-MM-dd')}`);
+    toast.success('Export complete');
   };
 
-  const totalPages = Math.ceil(totalCount / pageSize);
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ChevronsUpDown className="h-3 w-3 text-muted-foreground" />;
+    return sortDirection === 'asc' 
+      ? <ChevronUp className="h-3 w-3" /> 
+      : <ChevronDown className="h-3 w-3" />;
+  };
+
+  const FilterPopover = ({ 
+    options, 
+    selected, 
+    onToggle, 
+    label 
+  }: { 
+    options: FilterOption[]; 
+    selected: string[]; 
+    onToggle: (id: string) => void; 
+    label: string;
+  }) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className={cn("h-5 w-5 p-0", selected.length > 0 && "text-primary")}>
+          <Filter className="h-3 w-3" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-2" align="start">
+        <div className="text-xs font-medium text-muted-foreground mb-2">Filter {label}</div>
+        <ScrollArea className="h-48">
+          <div className="space-y-1">
+            {options.map(opt => (
+              <label 
+                key={opt.id} 
+                className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer text-sm"
+              >
+                <Checkbox 
+                  checked={selected.includes(opt.id)} 
+                  onCheckedChange={() => onToggle(opt.id)}
+                />
+                <span className="truncate">{opt.name}</span>
+              </label>
+            ))}
+          </div>
+        </ScrollArea>
+        {selected.length > 0 && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="w-full mt-2 text-xs"
+            onClick={() => options.forEach(opt => {
+              if (selected.includes(opt.id)) onToggle(opt.id);
+            })}
+          >
+            Clear
+          </Button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+
+  const activeFiltersCount = selectedEmployees.length + selectedClients.length + selectedLocations.length + selectedWorkTypes.length;
 
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Calendar className="h-6 w-6" />
-              This Week's Work Logs
-            </h1>
-            <p className="text-muted-foreground">
-              Detailed view of all submitted work
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="icon"
-              onClick={fetchWorkLogs} 
-              disabled={loading}
-              title="Refresh"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button onClick={handleExport} disabled={loading || sortedLogs.length === 0}>
-              <Download className="h-4 w-4 mr-2" />
-              Export Excel
+      <div className="h-full flex flex-col">
+        {/* Minimal Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
+          <h1 className="text-lg font-semibold">Work Logs</h1>
+
+          <div className="flex items-center gap-4">
+            {/* Compact date range */}
+            <div className="flex items-center gap-1 text-sm">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-sm font-normal">
+                    <CalendarIcon className="h-3 w-3 mr-1" />
+                    {format(startDate, 'MMM d')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={(date) => date && setStartDate(date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <span className="text-muted-foreground">→</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-sm font-normal">
+                    <CalendarIcon className="h-3 w-3 mr-1" />
+                    {format(endDate, 'MMM d, yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={(date) => date && setEndDate(date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Summary */}
+            <div className="text-sm text-muted-foreground">
+              {summaryStats.count.toLocaleString()} entries
+              <span className="mx-1">|</span>
+              <span className="text-green-600 font-medium">${summaryStats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+
+            {/* Clear filters */}
+            {activeFiltersCount > 0 && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-7 text-xs"
+                onClick={clearAllFilters}
+              >
+                Clear {activeFiltersCount} filter{activeFiltersCount > 1 ? 's' : ''}
+              </Button>
+            )}
+
+            {/* Export */}
+            <Button variant="outline" size="sm" className="h-7" onClick={handleExport}>
+              <Download className="h-3 w-3" />
             </Button>
           </div>
         </div>
 
         {/* Deep link notice */}
-        {(urlWorkLogIds.length > 0 || urlEmployeeId) && (
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-primary" />
-              <span className="text-sm">
-                {urlWorkLogIds.length > 0 
-                  ? `Showing ${urlWorkLogIds.length} specific work items from message`
-                  : `Filtered to show work from a specific employee`}
-              </span>
-            </div>
-            <Button variant="outline" size="sm" onClick={clearDeepLink}>
-              Clear Filter
+        {isDeepLinked && (
+          <div className="flex items-center justify-between px-4 py-2 bg-blue-50 dark:bg-blue-950 border-b text-sm">
+            <span className="text-blue-700 dark:text-blue-300">
+              {urlWorkLogIds.length > 0 
+                ? `Showing ${urlWorkLogIds.length} linked work items` 
+                : 'Filtered by employee from message'}
+            </span>
+            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={clearDeepLink}>
+              <X className="h-3 w-3 mr-1" /> Clear
             </Button>
           </div>
         )}
 
-        {/* Date Range */}
-        <Card>
-          <CardContent className="p-4">
-            <ReportDateRangePicker
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={(date) => {
-                setStartDate(date);
-                setCurrentPage(1);
-              }}
-              onEndDateChange={(date) => {
-                setEndDate(date);
-                setCurrentPage(1);
-              }}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Filters */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-4">
-              {/* Clients */}
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-muted-foreground">Clients</label>
-                <Popover open={clientsOpen} onOpenChange={setClientsOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[180px] justify-between">
-                      <span className="truncate">{getSelectedLabel(selectedClients, clients, 'Client')}</span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0 bg-popover">
-                    <Command>
-                      <CommandInput placeholder="Search clients..." />
-                      <CommandList>
-                        <CommandEmpty>No clients found.</CommandEmpty>
-                        <CommandGroup>
-                          {clients.map(client => (
-                            <CommandItem
-                              key={client.id}
-                              value={client.name}
-                              onSelect={() => toggleSelection(client.id, selectedClients, setSelectedClients)}
-                            >
-                              <Check className={cn('mr-2 h-4 w-4', selectedClients.includes(client.id) ? 'opacity-100' : 'opacity-0')} />
-                              {client.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                    {selectedClients.length > 0 && (
-                      <div className="border-t p-2">
-                        <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectedClients([])}>
-                          Clear
-                        </Button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Locations */}
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-muted-foreground">Locations</label>
-                <Popover open={locationsOpen} onOpenChange={setLocationsOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[180px] justify-between">
-                      <span className="truncate">{getSelectedLabel(selectedLocations, locations, 'Location')}</span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0 bg-popover">
-                    <Command>
-                      <CommandInput placeholder="Search locations..." />
-                      <CommandList>
-                        <CommandEmpty>No locations found.</CommandEmpty>
-                        <CommandGroup>
-                          {locations.map(location => (
-                            <CommandItem
-                              key={location.id}
-                              value={location.name}
-                              onSelect={() => toggleSelection(location.id, selectedLocations, setSelectedLocations)}
-                            >
-                              <Check className={cn('mr-2 h-4 w-4', selectedLocations.includes(location.id) ? 'opacity-100' : 'opacity-0')} />
-                              {location.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                    {selectedLocations.length > 0 && (
-                      <div className="border-t p-2">
-                        <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectedLocations([])}>
-                          Clear
-                        </Button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Work Types */}
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-muted-foreground">Work Types</label>
-                <Popover open={workTypesOpen} onOpenChange={setWorkTypesOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[180px] justify-between">
-                      <span className="truncate">{getSelectedLabel(selectedWorkTypes, workTypes, 'Type')}</span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0 bg-popover">
-                    <Command>
-                      <CommandInput placeholder="Search work types..." />
-                      <CommandList>
-                        <CommandEmpty>No work types found.</CommandEmpty>
-                        <CommandGroup>
-                          {workTypes.map(wt => (
-                            <CommandItem
-                              key={wt.id}
-                              value={wt.name}
-                              onSelect={() => toggleSelection(wt.id, selectedWorkTypes, setSelectedWorkTypes)}
-                            >
-                              <Check className={cn('mr-2 h-4 w-4', selectedWorkTypes.includes(wt.id) ? 'opacity-100' : 'opacity-0')} />
-                              {wt.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                    {selectedWorkTypes.length > 0 && (
-                      <div className="border-t p-2">
-                        <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectedWorkTypes([])}>
-                          Clear
-                        </Button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Employees */}
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-muted-foreground">Employees</label>
-                <Popover open={employeesOpen} onOpenChange={setEmployeesOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[180px] justify-between">
-                      <span className="truncate">{getSelectedLabel(selectedEmployees, employees, 'Employee')}</span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0 bg-popover">
-                    <Command>
-                      <CommandInput placeholder="Search employees..." />
-                      <CommandList>
-                        <CommandEmpty>No employees found.</CommandEmpty>
-                        <CommandGroup>
-                          {employees.map(emp => (
-                            <CommandItem
-                              key={emp.id}
-                              value={emp.name}
-                              onSelect={() => toggleSelection(emp.id, selectedEmployees, setSelectedEmployees)}
-                            >
-                              <Check className={cn('mr-2 h-4 w-4', selectedEmployees.includes(emp.id) ? 'opacity-100' : 'opacity-0')} />
-                              {emp.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                    {selectedEmployees.length > 0 && (
-                      <div className="border-t p-2">
-                        <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectedEmployees([])}>
-                          Clear
-                        </Button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Clear all */}
-              {(selectedClients.length > 0 || selectedLocations.length > 0 || selectedWorkTypes.length > 0 || selectedEmployees.length > 0) && (
-                <div className="flex items-end">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => {
-                      setSelectedClients([]);
-                      setSelectedLocations([]);
-                      setSelectedWorkTypes([]);
-                      setSelectedEmployees([]);
-                    }}
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Summary Stats + Search + Pagination Controls */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              {/* Stats */}
-              <div className="flex items-center gap-4 text-sm">
-                <span className="font-medium">{summaryStats.count.toLocaleString()} entries</span>
-                <span className="text-muted-foreground">|</span>
-                <span>Qty: <span className="font-medium">{summaryStats.totalQty.toLocaleString()}</span></span>
-                <span className="text-muted-foreground">|</span>
-                <span>Value: <span className="font-medium text-green-600">${summaryStats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
-              </div>
-
-              {/* Search + Page Size */}
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 w-[200px]"
-                  />
-                </div>
-                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
-                  <SelectTrigger className="w-[100px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="20">20 rows</SelectItem>
-                    <SelectItem value="50">50 rows</SelectItem>
-                    <SelectItem value="100">100 rows</SelectItem>
-                    <SelectItem value="200">200 rows</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Data Table */}
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('work_date')}>
-                      <div className="flex items-center gap-1">Date <SortIcon field="work_date" /></div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('employee_name')}>
-                      <div className="flex items-center gap-1">Employee <SortIcon field="employee_name" /></div>
-                    </TableHead>
-                    <TableHead>Emp ID</TableHead>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('client_name')}>
-                      <div className="flex items-center gap-1">Client <SortIcon field="client_name" /></div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('location_name')}>
-                      <div className="flex items-center gap-1">Location <SortIcon field="location_name" /></div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('work_type_name')}>
-                      <div className="flex items-center gap-1">Type <SortIcon field="work_type_name" /></div>
-                    </TableHead>
-                    <TableHead>Freq</TableHead>
-                    <TableHead>Item</TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('quantity')}>
-                      <div className="flex items-center justify-end gap-1">Qty <SortIcon field="quantity" /></div>
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('rate')}>
-                      <div className="flex items-center justify-end gap-1">Rate <SortIcon field="rate" /></div>
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('line_total')}>
-                      <div className="flex items-center justify-end gap-1">Total <SortIcon field="line_total" /></div>
-                    </TableHead>
-                    <TableHead>Notes</TableHead>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('created_at')}>
-                      <div className="flex items-center gap-1">Submitted <SortIcon field="created_at" /></div>
-                    </TableHead>
+        {/* Table */}
+        <div className="flex-1 overflow-auto">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background z-10">
+              <TableRow>
+                <TableHead className="w-24">
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleSort('workDate')} className="flex items-center gap-1 hover:text-foreground">
+                      Date <SortIcon field="workDate" />
+                    </button>
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleSort('employeeName')} className="flex items-center gap-1 hover:text-foreground">
+                      Employee <SortIcon field="employeeName" />
+                    </button>
+                    <FilterPopover 
+                      options={employees} 
+                      selected={selectedEmployees} 
+                      onToggle={(id) => toggleFilter(selectedEmployees, setSelectedEmployees, id)}
+                      label="Employee"
+                    />
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleSort('clientName')} className="flex items-center gap-1 hover:text-foreground">
+                      Client <SortIcon field="clientName" />
+                    </button>
+                    <FilterPopover 
+                      options={clients} 
+                      selected={selectedClients} 
+                      onToggle={(id) => toggleFilter(selectedClients, setSelectedClients, id)}
+                      label="Client"
+                    />
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleSort('locationName')} className="flex items-center gap-1 hover:text-foreground">
+                      Location <SortIcon field="locationName" />
+                    </button>
+                    <FilterPopover 
+                      options={locations} 
+                      selected={selectedLocations} 
+                      onToggle={(id) => toggleFilter(selectedLocations, setSelectedLocations, id)}
+                      label="Location"
+                    />
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleSort('workTypeName')} className="flex items-center gap-1 hover:text-foreground">
+                      Type <SortIcon field="workTypeName" />
+                    </button>
+                    <FilterPopover 
+                      options={workTypes} 
+                      selected={selectedWorkTypes} 
+                      onToggle={(id) => toggleFilter(selectedWorkTypes, setSelectedWorkTypes, id)}
+                      label="Type"
+                    />
+                  </div>
+                </TableHead>
+                <TableHead className="w-20">Freq</TableHead>
+                <TableHead className="w-24">Item</TableHead>
+                <TableHead className="w-16 text-right">
+                  <button onClick={() => handleSort('quantity')} className="flex items-center gap-1 hover:text-foreground ml-auto">
+                    Qty <SortIcon field="quantity" />
+                  </button>
+                </TableHead>
+                <TableHead className="w-20 text-right">Rate</TableHead>
+                <TableHead className="w-24 text-right">
+                  <button onClick={() => handleSort('lineTotal')} className="flex items-center gap-1 hover:text-foreground ml-auto">
+                    Total <SortIcon field="lineTotal" />
+                  </button>
+                </TableHead>
+                <TableHead>Notes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              ) : filteredAndSortedLogs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    No work logs found for this period
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAndSortedLogs.map(log => (
+                  <TableRow key={log.id}>
+                    <TableCell className="font-mono text-xs">{log.workDate}</TableCell>
+                    <TableCell>{log.employeeName}</TableCell>
+                    <TableCell>{log.clientName}</TableCell>
+                    <TableCell>{log.locationName}</TableCell>
+                    <TableCell>{log.workTypeName}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{log.frequency || '-'}</TableCell>
+                    <TableCell className="font-mono text-xs">{log.workItemIdentifier}</TableCell>
+                    <TableCell className="text-right">{log.quantity}</TableCell>
+                    <TableCell className="text-right font-mono text-xs">${log.rate.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium">${log.lineTotal.toFixed(2)}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs max-w-32 truncate">{log.notes || '-'}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
-                        Loading...
-                      </TableCell>
-                    </TableRow>
-                  ) : sortedLogs.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
-                        No work logs found for this date range
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    sortedLogs.map((log, index) => {
-                      const lineTotal = log.rate !== null ? log.rate * log.quantity : null;
-                      return (
-                        <TableRow key={log.id} className={index % 2 === 0 ? '' : 'bg-muted/30'}>
-                          <TableCell className="whitespace-nowrap">{format(new Date(log.work_date), 'MM/dd')}</TableCell>
-                          <TableCell className="font-medium">{log.employee_name}</TableCell>
-                          <TableCell className="text-muted-foreground text-xs">{log.employee_code}</TableCell>
-                          <TableCell>{log.client_name}</TableCell>
-                          <TableCell>{log.location_name}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="text-xs">
-                              {log.work_type_name}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-xs">{log.frequency || '-'}</TableCell>
-                          <TableCell className="font-mono text-xs">{log.work_item_identifier || '-'}</TableCell>
-                          <TableCell className="text-right font-medium">{log.quantity}</TableCell>
-                          <TableCell className="text-right">
-                            {log.rate !== null ? (
-                              `$${log.rate.toFixed(2)}`
-                            ) : (
-                              <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">TBD</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {lineTotal !== null ? (
-                              <span className="text-green-600">${lineTotal.toFixed(2)}</span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="max-w-[150px] truncate text-xs text-muted-foreground" title={log.notes || ''}>
-                            {log.notes || '-'}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                            {format(new Date(log.created_at), 'MM/dd h:mma')}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} of {totalCount.toLocaleString()}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
-              </Button>
-              <span className="text-sm px-2">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
+        {/* Compact Pagination Footer */}
+        <div className="flex items-center justify-between px-4 py-2 border-t bg-background text-sm">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => p - 1)}
+            >
+              ← Prev
+            </Button>
+            <span className="text-muted-foreground">
+              Page {currentPage} of {totalPages || 1}
+            </span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(p => p + 1)}
+            >
+              Next →
+            </Button>
           </div>
-        )}
+          <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
+            <SelectTrigger className="w-20 h-7">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+              <SelectItem value="200">200</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </Layout>
   );
