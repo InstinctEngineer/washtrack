@@ -167,6 +167,8 @@ All colors MUST be HSL.
 .pending-glow-layer {
   z-index: 0;
   animation: pending-pulse 1.5s ease-in-out infinite;
+  border: none !important;
+  border-width: 0 !important;
   box-shadow: 
     0 0 80px rgba(74, 222, 128, 0.7),
     0 0 40px rgba(74, 222, 128, 0.6),
