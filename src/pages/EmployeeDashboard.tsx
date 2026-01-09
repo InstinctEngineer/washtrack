@@ -777,30 +777,40 @@ export default function EmployeeDashboard() {
               </CardContent>
             </Card>
 
-            {/* Submit Button with glow effect */}
+            {/* Submit Button with underglow effect */}
             <div data-demo="submit-button" ref={submitButtonRef}>
-              <Button
-                onClick={handleBatchSubmit}
-                disabled={isSubmitting}
+              {/* Glow wrapper - light source behind button */}
+              <div 
                 className={cn(
-                  "w-full h-14 text-lg font-bold",
-                  "bg-green-600 hover:bg-green-700 text-white",
-                  "transition-all duration-500",
+                  "relative rounded-lg p-1",
                   isSubmitButtonVisible && !isSubmitting && "pending-glow-button"
                 )}
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-5 w-5 mr-2" />
-                    SUBMIT {pendingEntries.size} {pendingEntries.size === 1 ? 'ENTRY' : 'ENTRIES'}
-                  </>
-                )}
-              </Button>
+                <Button
+                  onClick={handleBatchSubmit}
+                  disabled={isSubmitting}
+                  className={cn(
+                    "relative w-full h-14 text-lg font-bold",
+                    "bg-green-700 hover:bg-green-800 text-white",
+                    "transition-all duration-500"
+                  )}
+                  style={{
+                    boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.25)'
+                  }}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-5 w-5 mr-2" />
+                      SUBMIT {pendingEntries.size} {pendingEntries.size === 1 ? 'ENTRY' : 'ENTRIES'}
+                    </>
+                  )}
+                </Button>
+              </div>
               <p className="text-center text-sm text-muted-foreground mt-2">
                 For {format(selectedDate, 'EEEE, MMMM d, yyyy')}
               </p>
