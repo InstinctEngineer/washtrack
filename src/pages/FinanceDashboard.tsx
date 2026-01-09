@@ -24,7 +24,7 @@ const DEFAULT_COLUMNS: ExportColumn[] = [
   { id: 'qb-3', fieldKey: 'invoice_date', headerName: '*InvoiceDate', firstRowOnly: true },
   { id: 'qb-4', fieldKey: 'due_date', headerName: '*DueDate', firstRowOnly: true },
   { id: 'qb-5', fieldKey: 'terms', headerName: 'Terms', firstRowOnly: true },
-  { id: 'qb-6', fieldKey: 'work_type_name', headerName: 'Item(Product/Service)', firstRowOnly: false },
+  { id: 'qb-6', fieldKey: 'qb_item_name', headerName: 'Item(Product/Service)', firstRowOnly: false },
   { id: 'qb-7', fieldKey: 'item_description', headerName: 'ItemDescription', firstRowOnly: false },
   { id: 'qb-8', fieldKey: 'quantity', headerName: 'ItemQuantity', firstRowOnly: false },
   { id: 'qb-9', fieldKey: 'rate', headerName: 'ItemRate', firstRowOnly: false },
@@ -34,6 +34,75 @@ const DEFAULT_COLUMNS: ExportColumn[] = [
   { id: 'qb-13', fieldKey: 'taxable', headerName: 'Taxable', firstRowOnly: false },
   { id: 'qb-14', fieldKey: 'tax_jurisdiction', headerName: 'TaxRate', firstRowOnly: false },
 ];
+
+// Helper: Convert frequency to QuickBooks format with exact spacing
+const convertFrequencyToQBFormat = (frequency: string | null, workTypeName: string): string => {
+  if (!frequency) return '';
+  const freq = frequency.toLowerCase();
+  const endsWithLetter = /[a-zA-Z]$/.test(workTypeName);
+  
+  // 1x weekly: "1 X / Wk" (space before /)
+  if (freq === 'weekly' || freq === '1x/week') return '1 X / Wk';
+  
+  // 2x weekly: spacing depends on work type ending
+  if (freq === '2x/week') {
+    // Alphabetic work types (PUD): "2 X /Wk" (NO space before /)
+    // Numeric work types (W900): "2 X / Wk" (WITH space before /)
+    return endsWithLetter ? '2 X /Wk' : '2 X / Wk';
+  }
+  
+  // Monthly: "1 X / MO" (space before /)
+  if (freq === 'monthly' || freq === '1x/month') return '1 X / MO';
+  if (freq === '2x/month') {
+    return endsWithLetter ? '2 X /MO' : '2 X / MO';
+  }
+  
+  return frequency; // Fallback to original
+};
+
+// Helper: Check if work type name should be pluralized (ends with letter)
+const shouldPluralize = (workTypeName: string): boolean => {
+  // Only pluralize if name ends with a letter (not a number)
+  // "PUD" → "PUDs" but "W900" stays "W900"
+  return /[a-zA-Z]$/.test(workTypeName);
+};
+
+// Helper: Build QuickBooks Item name with correct syntax
+const buildQBItemName = (
+  parentCompany: string | null | undefined,
+  clientName: string,
+  workTypeName: string,
+  rateType: 'per_unit' | 'hourly' | string,
+  frequency: string | null
+): string => {
+  // Fallback: use client_name if parent_company is null
+  const prefix = parentCompany || clientName || '';
+  
+  // Special case: EPA Charges stands alone (no prefix)
+  if (workTypeName === 'EPA Charges') {
+    return 'EPA Charges';
+  }
+  
+  // Hourly work types get special suffixes
+  if (rateType === 'hourly') {
+    if (workTypeName.toLowerCase() === 'janitorial') {
+      return `${prefix}-Jani`;
+    }
+    // All other hourly types (Skid Loader, etc.)
+    return `${prefix}-Addi`;
+  }
+  
+  // Per-unit work types: "Parent WorkType Frequency"
+  let workType = workTypeName;
+  const freqSuffix = convertFrequencyToQBFormat(frequency, workTypeName);
+  
+  // Add 's' for 2x frequencies, but only for alphabetic names
+  if (frequency?.toLowerCase().includes('2x') && shouldPluralize(workTypeName)) {
+    workType = workTypeName + 's';
+  }
+  
+  return `${prefix} ${workType} ${freqSuffix}`.trim();
+};
 
 export default function FinanceDashboard() {
   // Date range state
@@ -123,6 +192,14 @@ export default function FinanceDashboard() {
         return calculateDueDate(invoiceDate, row.client_terms || 'Net 30');
       case 'terms':
         return row.client_terms || 'Net 30';
+      case 'qb_item_name':
+        return buildQBItemName(
+          row.client_parent_company,
+          row.client_name,
+          row.work_type_name,
+          row.work_type_rate_type || 'per_unit',
+          row.frequency
+        );
       case 'work_type_name':
         return row.work_type_name || '';
       case 'item_description':

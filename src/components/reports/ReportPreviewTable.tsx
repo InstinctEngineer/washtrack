@@ -12,10 +12,12 @@ export interface ReportDataRow {
   client_tax_jurisdiction: string | null;
   client_is_taxable: boolean;
   client_tax_rate?: number | null;
+  client_parent_company?: string | null;
   location_id: string;
   location_name: string;
   work_type_id: string;
   work_type_name: string;
+  work_type_rate_type?: 'per_unit' | 'hourly' | string;
   frequency: string | null;
   rate: number | null;
   total_quantity: number;
@@ -37,12 +39,71 @@ const DEFAULT_PREVIEW_COLUMNS: ExportColumn[] = [
   { id: 'p-7', fieldKey: 'line_total', headerName: 'Line Total', firstRowOnly: false },
 ];
 
+// Helper functions for QB Item Name generation (mirrored from FinanceDashboard)
+const convertFrequencyToQBFormat = (frequency: string | null, workTypeName: string): string => {
+  if (!frequency) return '';
+  const freq = frequency.toLowerCase();
+  const endsWithLetter = /[a-zA-Z]$/.test(workTypeName);
+  
+  if (freq === 'weekly' || freq === '1x/week') return '1 X / Wk';
+  if (freq === '2x/week') {
+    return endsWithLetter ? '2 X /Wk' : '2 X / Wk';
+  }
+  if (freq === 'monthly' || freq === '1x/month') return '1 X / MO';
+  if (freq === '2x/month') {
+    return endsWithLetter ? '2 X /MO' : '2 X / MO';
+  }
+  return frequency;
+};
+
+const shouldPluralize = (workTypeName: string): boolean => {
+  return /[a-zA-Z]$/.test(workTypeName);
+};
+
+const buildQBItemName = (
+  parentCompany: string | null | undefined,
+  clientName: string,
+  workTypeName: string,
+  rateType: 'per_unit' | 'hourly' | string,
+  frequency: string | null
+): string => {
+  const prefix = parentCompany || clientName || '';
+  
+  if (workTypeName === 'EPA Charges') {
+    return 'EPA Charges';
+  }
+  
+  if (rateType === 'hourly') {
+    if (workTypeName.toLowerCase() === 'janitorial') {
+      return `${prefix}-Jani`;
+    }
+    return `${prefix}-Addi`;
+  }
+  
+  let workType = workTypeName;
+  const freqSuffix = convertFrequencyToQBFormat(frequency, workTypeName);
+  
+  if (frequency?.toLowerCase().includes('2x') && shouldPluralize(workTypeName)) {
+    workType = workTypeName + 's';
+  }
+  
+  return `${prefix} ${workType} ${freqSuffix}`.trim();
+};
+
 const getFieldValue = (fieldKey: string, row: ReportDataRow): React.ReactNode => {
   switch (fieldKey) {
     case 'client_name':
       return row.client_name || '—';
     case 'location_name':
       return row.location_name || '—';
+    case 'qb_item_name':
+      return buildQBItemName(
+        row.client_parent_company,
+        row.client_name,
+        row.work_type_name,
+        row.work_type_rate_type || 'per_unit',
+        row.frequency
+      );
     case 'work_type_name':
       return row.work_type_name || '—';
     case 'frequency':
