@@ -195,7 +195,9 @@ export default function FinanceDashboard() {
   };
 
   const handlePreviewCSV = () => {
+    console.log('handlePreviewCSV - current columns:', columns.map(c => ({ key: c.fieldKey, header: c.headerName })));
     const { headers, rows } = generateCSVData();
+    console.log('handlePreviewCSV - generated headers:', headers);
     if (rows.length === 0) return;
     setCsvHeaders(headers);
     setCsvRows(rows);
