@@ -24,6 +24,7 @@ import SuperAdminDatabase from "./pages/SuperAdminDatabase";
 import WorkTypes from "./pages/WorkTypes";
 import RateCard from "./pages/RateCard";
 import WorkItems from "./pages/WorkItems";
+import EmployeeMessages from "./pages/EmployeeMessages";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
@@ -51,6 +52,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['employee', 'manager', 'finance', 'admin']}>
                   <EmployeeDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/employee/messages"
+              element={
+                <ProtectedRoute allowedRoles={['employee', 'manager', 'finance', 'admin']}>
+                  <EmployeeMessages />
                 </ProtectedRoute>
               }
             />

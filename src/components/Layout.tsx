@@ -61,6 +61,12 @@ export const Layout = ({ children }: LayoutProps) => {
         path: '/employee/dashboard',
         section: 'Dashboards'
       });
+      navItems.push({ 
+        label: 'My Messages', 
+        icon: MessageSquare, 
+        path: '/employee/messages',
+        section: 'Dashboards'
+      });
     }
 
     // Manager Dashboard temporarily hidden - uncomment when ready
