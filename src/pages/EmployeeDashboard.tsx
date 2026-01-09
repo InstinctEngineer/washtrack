@@ -812,9 +812,10 @@ export default function EmployeeDashboard() {
         {pendingEntries.size > 0 && !isSubmitButtonVisible && (
           <div 
             className={cn(
-              "fixed bottom-0 left-0 right-0 h-1",
+              "fixed -bottom-2 left-0 right-0 h-6",
               "pending-glow-edge",
-              "z-40 pointer-events-none"
+              "z-40 pointer-events-none",
+              "bg-green-500"
             )}
           />
         )}
