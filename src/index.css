@@ -159,16 +159,16 @@ All colors MUST be HSL.
 .pending-glow-edge {
   animation: bottom-edge-pulse 1.5s ease-in-out infinite;
   box-shadow: 
-    0 -22px 120px rgba(34, 197, 94, 0.9),
-    0 -12px 60px rgba(34, 197, 94, 0.75),
-    0 -5px 30px rgba(34, 197, 94, 0.6);
+    0 -18px 70px rgba(34, 197, 94, 1),
+    0 -10px 40px rgba(34, 197, 94, 0.9),
+    0 -4px 20px rgba(34, 197, 94, 0.8);
 }
 
 .pending-glow-button {
   animation: pending-pulse 1.5s ease-in-out infinite;
   box-shadow: 
-    0 0 150px rgba(34, 197, 94, 1),
-    0 0 75px rgba(34, 197, 94, 0.75),
-    0 0 38px rgba(34, 197, 94, 0.6);
+    0 0 100px rgba(34, 197, 94, 1),
+    0 0 50px rgba(34, 197, 94, 0.9),
+    0 0 25px rgba(34, 197, 94, 0.8);
   border-radius: 9999px;
 }
