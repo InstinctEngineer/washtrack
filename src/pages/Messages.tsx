@@ -16,7 +16,7 @@ import { UserRole } from '@/types/database';
 import { format, startOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { 
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown, MapPin, 
-  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus
+  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus, User, X
 } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { UserSearchInput } from '@/components/UserSearchInput';
@@ -563,45 +563,73 @@ export default function Messages() {
 
         {/* Start Conversation - Office staff only, current week only */}
         {isOfficeStaff && isCurrentWeek && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <UserPlus className="h-4 w-4" />
-                Start Conversation
-              </CardTitle>
-              <CardDescription>
-                Send a message to any employee
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">To:</label>
-                <UserSearchInput
-                  onUserSelect={setSelectedRecipient}
-                  selectedUser={selectedRecipient}
-                  placeholder="Search for employee by name or email..."
-                  excludeUserId={user?.id}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Message:</label>
-                <Textarea
-                  placeholder="Type your message here..."
-                  value={officeMessage}
-                  onChange={(e) => setOfficeMessage(e.target.value)}
-                  className="min-h-[80px] resize-none"
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button 
-                  onClick={handleSendOfficeMessage} 
-                  disabled={sendingOfficeMessage || !officeMessage.trim() || !selectedRecipient}
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  {sendingOfficeMessage ? 'Sending...' : 'Send Message'}
-                </Button>
-              </div>
-            </CardContent>
+          <Card className="overflow-hidden">
+            {!selectedRecipient ? (
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <UserPlus className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  <div className="flex-1">
+                    <UserSearchInput
+                      onUserSelect={setSelectedRecipient}
+                      selectedUser={selectedRecipient}
+                      placeholder="Start a conversation... search by name or email"
+                      excludeUserId={user?.id}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            ) : (
+              <>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    Message to {selectedRecipient.name}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">To:</span>
+                    <Badge variant="secondary" className="flex items-center gap-2">
+                      <User className="h-3 w-3" />
+                      {selectedRecipient.name}
+                      <button 
+                        onClick={() => setSelectedRecipient(null)}
+                        className="hover:text-destructive transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  </div>
+                  <Textarea
+                    placeholder="Type your message..."
+                    value={officeMessage}
+                    onChange={(e) => setOfficeMessage(e.target.value)}
+                    className="min-h-[80px] resize-none"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedRecipient(null);
+                        setOfficeMessage("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      size="sm"
+                      onClick={handleSendOfficeMessage} 
+                      disabled={sendingOfficeMessage || !officeMessage.trim()}
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {sendingOfficeMessage ? 'Sending...' : 'Send Message'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </>
+            )}
           </Card>
         )}
 
