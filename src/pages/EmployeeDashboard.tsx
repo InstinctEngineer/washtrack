@@ -93,6 +93,7 @@ export default function EmployeeDashboard() {
   // Pending entries for batch submit
   const [pendingEntries, setPendingEntries] = useState<Map<string, PendingEntry>>(new Map());
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [workNote, setWorkNote] = useState('');
   
   // Completed items (already logged today at this location by anyone)
   const [completedWorkItemIds, setCompletedWorkItemIds] = useState<Set<string>>(new Set());
@@ -323,16 +324,22 @@ export default function EmployeeDashboard() {
     
     setIsSubmitting(true);
     try {
+      const noteText = workNote.trim() || null;
+      const workDateStr = format(selectedDate, 'yyyy-MM-dd');
+      
       const entries = Array.from(pendingEntries.values()).map(entry => ({
         work_item_id: entry.workItemId,
         rate_config_id: null,
         employee_id: user.id,
-        work_date: format(selectedDate, 'yyyy-MM-dd'),
+        work_date: workDateStr,
         quantity: entry.quantity,
-        notes: null,
+        notes: noteText,
       }));
       
-      const { error } = await supabase.from('work_logs').insert(entries);
+      const { data: insertedLogs, error } = await supabase
+        .from('work_logs')
+        .insert(entries)
+        .select('id');
       
       if (error) {
         // Handle unique constraint violation
@@ -345,8 +352,23 @@ export default function EmployeeDashboard() {
         throw error;
       }
       
-      toast.success(`Submitted ${pendingEntries.size} ${pendingEntries.size === 1 ? 'entry' : 'entries'}`);
+      // If there was a note, also create employee_comments entry for finance visibility
+      if (noteText && insertedLogs && insertedLogs.length > 0) {
+        const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+        await supabase.from('employee_comments').insert({
+          employee_id: user.id,
+          location_id: selectedLocationId || null,
+          comment_text: noteText,
+          week_start_date: weekStart,
+          work_submission_date: workDateStr,
+          work_log_ids: insertedLogs.map(l => l.id),
+        });
+      }
+      
+      const noteMsg = noteText ? ' with note' : '';
+      toast.success(`Submitted ${pendingEntries.size} ${pendingEntries.size === 1 ? 'entry' : 'entries'}${noteMsg}`);
       setPendingEntries(new Map());
+      setWorkNote('');
       fetchRecentLogs();
       fetchCompletedItems();
     } catch (error: any) {
@@ -701,6 +723,28 @@ export default function EmployeeDashboard() {
                     Clear
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Optional Note Field */}
+            <Card className="border-muted">
+              <CardContent className="p-4 space-y-2">
+                <label htmlFor="work-note" className="text-sm font-medium">
+                  Add a note for finance (optional)
+                </label>
+                <Textarea
+                  id="work-note"
+                  placeholder="e.g., 'Truck had damage', 'Took extra time due to weather'"
+                  rows={3}
+                  value={workNote}
+                  onChange={(e) => setWorkNote(e.target.value)}
+                  className="resize-none"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {workNote.trim() 
+                    ? '✓ This note will be attached to your work items' 
+                    : 'Leave blank if no note needed'}
+                </p>
               </CardContent>
             </Card>
 

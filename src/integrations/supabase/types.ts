@@ -118,6 +118,8 @@ export type Database = {
           id: string
           location_id: string | null
           week_start_date: string
+          work_log_ids: string[] | null
+          work_submission_date: string | null
         }
         Insert: {
           comment_text: string
@@ -126,6 +128,8 @@ export type Database = {
           id?: string
           location_id?: string | null
           week_start_date: string
+          work_log_ids?: string[] | null
+          work_submission_date?: string | null
         }
         Update: {
           comment_text?: string
@@ -134,6 +138,8 @@ export type Database = {
           id?: string
           location_id?: string | null
           week_start_date?: string
+          work_log_ids?: string[] | null
+          work_submission_date?: string | null
         }
         Relationships: [
           {
