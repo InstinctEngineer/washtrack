@@ -463,6 +463,25 @@ export default function EmployeeDashboard() {
     return { label: 'Unknown', typeName: null, isHourly: false, workItemId: null };
   };
 
+  // Compute weekly statistics for the summary card
+  const weeklyStats = useMemo(() => {
+    const perUnitLogs = recentLogs.filter(log => log.work_item_id !== null);
+    const myLogs = perUnitLogs.filter(log => (log as any).employee_id === user?.id);
+    
+    // Group by work type
+    const byType: Record<string, number> = {};
+    perUnitLogs.forEach(log => {
+      const typeName = log.work_item?.rate_config?.work_type?.name || 'Unknown';
+      byType[typeName] = (byType[typeName] || 0) + 1;
+    });
+    
+    return {
+      total: perUnitLogs.length,
+      myTotal: myLogs.length,
+      byType
+    };
+  }, [recentLogs, user?.id]);
+
   // Compute back-to-back day flags for work items
   const backToBackFlags = useMemo(() => {
     const flags = new Set<string>(); // Set of work_log IDs that are back-to-back
@@ -720,6 +739,67 @@ export default function EmployeeDashboard() {
             </Select>
           </div>
         )}
+
+        {/* Weekly Stats Summary Card */}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-4">
+            {loadingLogs ? (
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-4 w-48" />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
+                      <Truck className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-bold">{weeklyStats.total}</span>
+                        <span className="text-lg text-muted-foreground">
+                          {weeklyStats.total === 1 ? 'Wash' : 'Washes'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        This week at {locations.find(l => l.id === selectedLocationId)?.name || 'this location'}
+                      </p>
+                    </div>
+                  </div>
+                  {weeklyStats.myTotal > 0 && (
+                    <Badge variant="secondary" className="text-sm">
+                      {weeklyStats.myTotal} by you
+                    </Badge>
+                  )}
+                </div>
+                {Object.keys(weeklyStats.byType).length > 1 && (
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
+                    {Object.entries(weeklyStats.byType)
+                      .sort(([a], [b]) => {
+                        if (a === 'PUD') return -1;
+                        if (b === 'PUD') return 1;
+                        return a.localeCompare(b);
+                      })
+                      .map(([typeName, count]) => (
+                        <Badge key={typeName} variant="outline" className="text-xs">
+                          {typeName}: {count}
+                        </Badge>
+                      ))}
+                  </div>
+                )}
+                {weeklyStats.total === 0 && (
+                  <p className="text-sm text-muted-foreground italic">
+                    No washes logged this week yet. Tap vehicles below to get started!
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Vehicles / Equipment Section */}
         <Card data-demo="vehicles-grid">
