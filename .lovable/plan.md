@@ -1,64 +1,84 @@
-# Plan: Fix Clients Dialog Scrolling
 
-## Problem
-The create/edit client dialog in `src/pages/Clients.tsx` has too many fields and they don't fit on screen. The current implementation uses `ScrollArea` which doesn't work properly with the flex layout constraints.
+## Add Total Washes Tracker to Employee Dashboard
 
-## Root Cause
-The `ScrollArea` component (Radix ScrollAreaPrimitive) uses `overflow-hidden` on the Root and relies on the Viewport having proper height constraints. When combined with `flex-1` and calculated max-heights, it doesn't scroll correctly.
+### Overview
+Add a prominent summary card to the Employee Dashboard that shows the total number of washes (work logs) completed at the employee's assigned locations for the current week. This gives employees visibility into overall team productivity.
 
-## Solution
-Use the same pattern as other dialogs in the codebase: apply `overflow-y-auto` directly to `DialogContent`. This is simpler and more reliable.
+### Current Behavior
+- The dashboard already fetches `recentLogs` for the current week at the selected location
+- These logs include work from ALL employees at that location (not just the current user)
+- The data is displayed in a table but lacks a summary statistic
 
-### Evidence from Codebase
-Other modals already use this pattern successfully:
-- `CreateUserModal.tsx` (line 312): `max-h-[90vh] overflow-y-auto`
-- `EditUserModal.tsx` (line 314): `max-h-[90vh] overflow-y-auto`
-- `SuperAdminDatabase.tsx` (line 318): `max-h-[80vh] overflow-y-auto`
+### Implementation
 
-## Implementation Steps
+#### 1. Add Summary Card Above Vehicle Grid
+Insert a new Card component between the location selector and the Vehicles/Equipment section that displays:
+- **Total washes this week** at the selected location (count of all per-unit work logs)
+- **Breakdown by work type** (optional - e.g., "12 PUD, 5 Box Truck")
+- **My contributions** - how many the current user logged
 
-### Step 1: Remove ScrollArea import
-Remove the unused `ScrollArea` import from line 9:
-```tsx
-// Remove this line:
-import { ScrollArea } from '@/components/ui/scroll-area';
+#### 2. Compute Statistics
+Add a `useMemo` hook to calculate:
+```typescript
+const weeklyStats = useMemo(() => {
+  const perUnitLogs = recentLogs.filter(log => log.work_item_id !== null);
+  const myLogs = perUnitLogs.filter(log => log.employee_id === user?.id);
+  
+  // Group by work type
+  const byType: Record<string, number> = {};
+  perUnitLogs.forEach(log => {
+    const typeName = log.work_item?.rate_config?.work_type?.name || 'Unknown';
+    byType[typeName] = (byType[typeName] || 0) + 1;
+  });
+  
+  return {
+    total: perUnitLogs.length,
+    myTotal: myLogs.length,
+    byType
+  };
+}, [recentLogs, user?.id]);
 ```
 
-### Step 2: Simplify DialogContent (line 321)
-Change from:
-```tsx
-<DialogContent className="max-w-md max-h-[90vh] flex flex-col">
-```
-To:
-```tsx
-<DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-```
-
-### Step 3: Remove ScrollArea wrapper (lines 329 and 472)
-Replace:
-```tsx
-<ScrollArea className="flex-1 max-h-[calc(90vh-180px)] pr-4">
-  <div className="space-y-4 py-4">
-    {/* form fields */}
-  </div>
-</ScrollArea>
-```
-With just:
-```tsx
-<div className="space-y-4 py-4">
-  {/* form fields */}
-</div>
+#### 3. UI Design
+```text
++----------------------------------------------+
+| This Week at [Location Name]                 |
++----------------------------------------------+
+|                                              |
+|    [ICON]  45 Washes          [12 by you]    |
+|                                              |
+|    PUD: 30  |  Box Truck: 10  |  Trailer: 5  |
++----------------------------------------------+
 ```
 
-## Files to Modify
-- `src/pages/Clients.tsx`
+- Large, prominent number for total
+- Subtle highlight showing the user's contribution
+- Breakdown by work type using badges
 
-## Result
-- The entire dialog content will scroll when it exceeds viewport height
-- Matches the pattern used in CreateUserModal, EditUserModal, and SuperAdminDatabase
-- Simpler implementation without extra wrapper components
+#### 4. Add Missing Data to Work Logs Query
+The current `fetchRecentLogs` query needs to include `employee_id` to identify who performed each wash. Looking at line 262, it already includes `employee_id` in the select - good!
 
-## Critical Files for Implementation
-- `src/pages/Clients.tsx` - Apply the fix (lines 9, 321, 329, 472)
-- `src/components/CreateUserModal.tsx` - Reference pattern (line 312)
-- `src/components/EditUserModal.tsx` - Reference pattern (line 314)
+#### 5. Handle Multiple Locations
+If the user has multiple assigned locations:
+- Show stats for the **currently selected location** (matches existing behavior)
+- The card updates when they switch locations via the dropdown
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/pages/EmployeeDashboard.tsx` | Add `weeklyStats` useMemo, add summary Card component |
+
+### UI Placement
+The summary card will be inserted after the location selector (around line 722) and before the Vehicles/Equipment section (line 725). This puts it in a prominent position that employees will see immediately.
+
+### Visual Styling
+- Use existing Card component with a subtle highlight color (e.g., `border-primary/20`)
+- Large, bold total number with Truck icon
+- "by you" portion in a subtle secondary color
+- Work type breakdown using Badge components in a flex row
+
+### Edge Cases
+- **No washes this week**: Show "0 Washes" with encouraging message
+- **Loading state**: Show skeleton while `loadingLogs` is true
+- **Single work type**: Don't show breakdown row if only one type exists
