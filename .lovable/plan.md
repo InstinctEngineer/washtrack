@@ -1,84 +1,58 @@
 
-## Add Total Washes Tracker to Employee Dashboard
+
+## Simplify Weekly Stats Card
 
 ### Overview
-Add a prominent summary card to the Employee Dashboard that shows the total number of washes (work logs) completed at the employee's assigned locations for the current week. This gives employees visibility into overall team productivity.
+Strip the weekly stats card down to its essential element: the total wash count. Remove all extraneous text and visual elements.
 
-### Current Behavior
-- The dashboard already fetches `recentLogs` for the current week at the selected location
-- These logs include work from ALL employees at that location (not just the current user)
-- The data is displayed in a table but lacks a summary statistic
+### Current State (Too Cluttered)
+- Large number + "Washes" label
+- "This week at [location name]" subtitle
+- "X by you" badge
+- Work type breakdown badges
+- Empty state message
+- Truck icon in circle
 
-### Implementation
-
-#### 1. Add Summary Card Above Vehicle Grid
-Insert a new Card component between the location selector and the Vehicles/Equipment section that displays:
-- **Total washes this week** at the selected location (count of all per-unit work logs)
-- **Breakdown by work type** (optional - e.g., "12 PUD, 5 Box Truck")
-- **My contributions** - how many the current user logged
-
-#### 2. Compute Statistics
-Add a `useMemo` hook to calculate:
-```typescript
-const weeklyStats = useMemo(() => {
-  const perUnitLogs = recentLogs.filter(log => log.work_item_id !== null);
-  const myLogs = perUnitLogs.filter(log => log.employee_id === user?.id);
-  
-  // Group by work type
-  const byType: Record<string, number> = {};
-  perUnitLogs.forEach(log => {
-    const typeName = log.work_item?.rate_config?.work_type?.name || 'Unknown';
-    byType[typeName] = (byType[typeName] || 0) + 1;
-  });
-  
-  return {
-    total: perUnitLogs.length,
-    myTotal: myLogs.length,
-    byType
-  };
-}, [recentLogs, user?.id]);
-```
-
-#### 3. UI Design
+### Simplified Design
 ```text
-+----------------------------------------------+
-| This Week at [Location Name]                 |
-+----------------------------------------------+
-|                                              |
-|    [ICON]  45 Washes          [12 by you]    |
-|                                              |
-|    PUD: 30  |  Box Truck: 10  |  Trailer: 5  |
-+----------------------------------------------+
++---------------------------+
+|   Total Washed: 45        |
++---------------------------+
 ```
 
-- Large, prominent number for total
-- Subtle highlight showing the user's contribution
-- Breakdown by work type using badges
+Single line, clean and minimal:
+- Label: "Total Washed"
+- Value: The number
+- No icon, no badges, no breakdown, no subtitle
 
-#### 4. Add Missing Data to Work Logs Query
-The current `fetchRecentLogs` query needs to include `employee_id` to identify who performed each wash. Looking at line 262, it already includes `employee_id` in the select - good!
+### Changes to `src/pages/EmployeeDashboard.tsx`
 
-#### 5. Handle Multiple Locations
-If the user has multiple assigned locations:
-- Show stats for the **currently selected location** (matches existing behavior)
-- The card updates when they switch locations via the dropdown
+Replace the current verbose card (lines 742-805) with:
 
-### Files to Modify
+```tsx
+{/* Weekly Stats Summary */}
+<Card className="border-primary/20">
+  <CardContent className="p-4">
+    {loadingLogs ? (
+      <Skeleton className="h-6 w-32" />
+    ) : (
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground">Total Washed:</span>
+        <span className="text-2xl font-bold">{weeklyStats.total}</span>
+      </div>
+    )}
+  </CardContent>
+</Card>
+```
 
-| File | Changes |
-|------|---------|
-| `src/pages/EmployeeDashboard.tsx` | Add `weeklyStats` useMemo, add summary Card component |
+### What Gets Removed
+- Truck icon circle
+- "This week at [location]" text
+- "by you" badge
+- Work type breakdown row
+- Empty state encouragement message
+- Background color styling
 
-### UI Placement
-The summary card will be inserted after the location selector (around line 722) and before the Vehicles/Equipment section (line 725). This puts it in a prominent position that employees will see immediately.
+### Result
+A clean, single-line stat that employees can glance at instantly without reading through clutter.
 
-### Visual Styling
-- Use existing Card component with a subtle highlight color (e.g., `border-primary/20`)
-- Large, bold total number with Truck icon
-- "by you" portion in a subtle secondary color
-- Work type breakdown using Badge components in a flex row
-
-### Edge Cases
-- **No washes this week**: Show "0 Washes" with encouraging message
-- **Loading state**: Show skeleton while `loadingLogs` is true
-- **Single work type**: Don't show breakdown row if only one type exists
