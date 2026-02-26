@@ -154,18 +154,37 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
       errors.push("Rate must be a valid number");
     }
 
+    // Normalize helper: strip non-alphanumeric, lowercase
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
     // Client lookup maps
     const clientMap = new Map(clientsData.map((c) => [c.name.toLowerCase(), c]));
 
     // Resolve client
     let client_id = resolvedClientId;
     if (!client_id && client_name) {
+      // 1. Exact case-insensitive match
       const client = clientMap.get(client_name.toLowerCase());
-      if (!client) {
-        clientError = `Client "${client_name}" not found`;
-        clientSuggestions = findSimilarMatches(client_name, clientsData, 0.4, 3);
-      } else {
+      if (client) {
         client_id = client.id;
+      } else {
+        // 2. Normalized match (handles "FedEx RST" vs "Fed Ex RST")
+        const normalizedInput = normalize(client_name);
+        const normalizedClient = clientsData.find(c => normalize(c.name) === normalizedInput);
+        if (normalizedClient) {
+          client_id = normalizedClient.id;
+        } else {
+          // 3. Fuzzy match - auto-accept high confidence >= 0.85
+          const fuzzyMatches = findSimilarMatches(client_name, clientsData, 0.4, 3);
+          if (fuzzyMatches.length > 0 && fuzzyMatches[0].score >= 0.85) {
+            client_id = fuzzyMatches[0].item.id;
+            row.resolvedClientId = client_id;
+            row.resolvedClientName = fuzzyMatches[0].name;
+          } else {
+            clientError = `Client "${client_name}" not found`;
+            clientSuggestions = fuzzyMatches;
+          }
+        }
       }
     }
 
@@ -181,14 +200,30 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
     let location_id = resolvedLocationId;
     if (!location_id && client_id && location_name) {
       const clientLocations = locationsByClient.get(client_id) || [];
+      // 1. Exact case-insensitive match
       const location = clientLocations.find(
         (l) => l.name.toLowerCase() === location_name.toLowerCase()
       );
-      if (!location) {
-        locationError = `Location "${location_name}" not found for this client`;
-        locationSuggestions = findSimilarMatches(location_name, clientLocations, 0.4, 3);
-      } else {
+      if (location) {
         location_id = location.id;
+      } else {
+        // 2. Normalized match
+        const normalizedInput = normalize(location_name);
+        const normalizedLocation = clientLocations.find(l => normalize(l.name) === normalizedInput);
+        if (normalizedLocation) {
+          location_id = normalizedLocation.id;
+        } else {
+          // 3. Fuzzy match - auto-accept high confidence >= 0.85
+          const fuzzyMatches = findSimilarMatches(location_name, clientLocations, 0.4, 3);
+          if (fuzzyMatches.length > 0 && fuzzyMatches[0].score >= 0.85) {
+            location_id = fuzzyMatches[0].item.id;
+            row.resolvedLocationId = location_id;
+            row.resolvedLocationName = fuzzyMatches[0].name;
+          } else {
+            locationError = `Location "${location_name}" not found for this client`;
+            locationSuggestions = fuzzyMatches;
+          }
+        }
       }
     }
 
