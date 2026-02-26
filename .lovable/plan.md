@@ -1,58 +1,39 @@
 
 
-## Simplify Weekly Stats Card
+## Fix: Duplicate Location Creation During CSV Bulk Upload
 
-### Overview
-Strip the weekly stats card down to its essential element: the total wash count. Remove all extraneous text and visual elements.
+### Root Cause
+The CSV import modal includes a "Create new location" button (line 649) in the validation UI. When a location name doesn't match exactly, users see an error with suggestions AND a "Create new" option. Clicking "Create new" calls `CreateLocationInlineModal`, which INSERTs a new location — even if one with the same name already exists for that client. There's no duplicate check in `CreateLocationInlineModal.handleSubmit`.
 
-### Current State (Too Cluttered)
-- Large number + "Washes" label
-- "This week at [location name]" subtitle
-- "X by you" badge
-- Work type breakdown badges
-- Empty state message
-- Truck icon in circle
+The `handleImport` function itself is clean — it only does SELECT lookups for locations, never INSERT.
 
-### Simplified Design
-```text
-+---------------------------+
-|   Total Washed: 45        |
-+---------------------------+
+### Data Cleanup
+Delete the duplicate ABR location (`ddd6e9de-2d30-4c14-97fb-ff67122f5c89`) and its 3 orphaned `user_locations` entries.
+
+### Code Fix
+
+**File: `src/components/CreateLocationInlineModal.tsx`**
+Add a duplicate check before INSERT: query `locations` for matching name + client_id. If found, show error "Location already exists" instead of creating a duplicate.
+
+```typescript
+// Before INSERT, check for existing
+const { data: existing } = await supabase
+  .from("locations")
+  .select("id, name")
+  .eq("client_id", clientId)
+  .ilike("name", name.trim())
+  .maybeSingle();
+
+if (existing) {
+  toast({ title: "Error", description: `Location "${existing.name}" already exists for this client`, variant: "destructive" });
+  return;
+}
 ```
 
-Single line, clean and minimal:
-- Label: "Total Washed"
-- Value: The number
-- No icon, no badges, no breakdown, no subtitle
+### Files to Modify
 
-### Changes to `src/pages/EmployeeDashboard.tsx`
-
-Replace the current verbose card (lines 742-805) with:
-
-```tsx
-{/* Weekly Stats Summary */}
-<Card className="border-primary/20">
-  <CardContent className="p-4">
-    {loadingLogs ? (
-      <Skeleton className="h-6 w-32" />
-    ) : (
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground">Total Washed:</span>
-        <span className="text-2xl font-bold">{weeklyStats.total}</span>
-      </div>
-    )}
-  </CardContent>
-</Card>
-```
-
-### What Gets Removed
-- Truck icon circle
-- "This week at [location]" text
-- "by you" badge
-- Work type breakdown row
-- Empty state encouragement message
-- Background color styling
-
-### Result
-A clean, single-line stat that employees can glance at instantly without reading through clutter.
+| File | Change |
+|------|--------|
+| `src/components/CreateLocationInlineModal.tsx` | Add duplicate name check before INSERT |
+| Database cleanup | Delete duplicate ABR location + orphaned user_locations |
 
