@@ -70,6 +70,24 @@ export function CreateLocationInlineModal({
 
     setIsSubmitting(true);
     try {
+      // Check for existing location with same name for this client
+      const { data: existing } = await supabase
+        .from("locations")
+        .select("id, name")
+        .eq("client_id", clientId)
+        .ilike("name", name.trim())
+        .maybeSingle();
+
+      if (existing) {
+        toast({
+          title: "Error",
+          description: `Location "${existing.name}" already exists for this client`,
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("locations")
         .insert({
