@@ -225,8 +225,8 @@ export const Layout = ({ children }: LayoutProps) => {
           border-r bg-card transition-transform lg:translate-x-0
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
-          <nav className="flex flex-col h-full p-4">
-            <div className="flex-1 flex flex-col gap-4">
+          <nav className="h-full p-4 overflow-y-auto">
+            <div className="flex flex-col gap-4">
               {Object.entries(groupedNavItems).map(([section, items]) => (
                 <div key={section} className="space-y-1">
                   <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -262,27 +262,27 @@ export const Layout = ({ children }: LayoutProps) => {
                   })}
                 </div>
               ))}
-            </div>
 
-            {!isInstalled && (
-              <div className="border-t pt-4 mt-4 pb-[env(safe-area-inset-bottom,1rem)]">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-3"
-                  onClick={async () => {
-                    const result = await promptInstall();
-                    if (result === 'ios') {
-                      setShowIOSDialog(true);
-                    } else if (result === 'unsupported') {
-                      setShowUnsupportedDialog(true);
-                    }
-                  }}
-                >
-                  <Smartphone className="h-4 w-4" />
-                  Install App
-                </Button>
-              </div>
-            )}
+              {!isInstalled && (
+                <div className="border-t pt-4 mt-2">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-3"
+                    onClick={async () => {
+                      const result = await promptInstall();
+                      if (result === 'ios') {
+                        setShowIOSDialog(true);
+                      } else if (result === 'unsupported') {
+                        setShowUnsupportedDialog(true);
+                      }
+                    }}
+                  >
+                    <Smartphone className="h-4 w-4" />
+                    Install App
+                  </Button>
+                </div>
+              )}
+            </div>
           </nav>
         </aside>
 
