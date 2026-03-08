@@ -54,7 +54,8 @@ export const Layout = ({ children }: LayoutProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showIOSDialog, setShowIOSDialog] = useState(false);
   const { unreadCount } = useUnreadMessageCount();
-  const { canInstall, isIOS, promptInstall } = usePWAInstall();
+  const { canInstall, isIOS, isMobile, isInstalled, promptInstall } = usePWAInstall();
+  const [showUnsupportedDialog, setShowUnsupportedDialog] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
