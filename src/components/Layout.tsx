@@ -25,13 +25,23 @@ import {
   MessageSquare,
   Wrench,
   Package,
-  Calendar
+  Calendar,
+  Smartphone,
+  Share
 } from 'lucide-react';
 import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
 import esAndDLogo from '@/assets/es-d-logo.png';
 import { UserRole } from '@/types/database';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -42,7 +52,9 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showIOSDialog, setShowIOSDialog] = useState(false);
   const { unreadCount } = useUnreadMessageCount();
+  const { canInstall, isIOS, promptInstall } = usePWAInstall();
 
   const handleSignOut = async () => {
     await signOut();
@@ -212,42 +224,62 @@ export const Layout = ({ children }: LayoutProps) => {
           border-r bg-card transition-transform lg:translate-x-0
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
-          <nav className="flex flex-col gap-4 p-4">
-            {Object.entries(groupedNavItems).map(([section, items]) => (
-              <div key={section} className="space-y-1">
-                <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {section}
-                </h3>
-                {items.map((item) => {
-                  const isActive = location.pathname === item.path;
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      className={`
-                        flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors
-                        ${isActive 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'hover:bg-accent hover:text-accent-foreground'
-                        }
-                      `}
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                      {item.badge && (
-                        <Badge 
-                          variant="destructive" 
-                          className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1.5"
-                        >
-                          {item.badge > 99 ? '99+' : item.badge}
-                        </Badge>
-                      )}
-                    </Link>
-                  );
-                })}
+          <nav className="flex flex-col h-full p-4">
+            <div className="flex-1 flex flex-col gap-4">
+              {Object.entries(groupedNavItems).map(([section, items]) => (
+                <div key={section} className="space-y-1">
+                  <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {section}
+                  </h3>
+                  {items.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={`
+                          flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+                          ${isActive 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'hover:bg-accent hover:text-accent-foreground'
+                          }
+                        `}
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                        {item.badge && (
+                          <Badge 
+                            variant="destructive" 
+                            className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1.5"
+                          >
+                            {item.badge > 99 ? '99+' : item.badge}
+                          </Badge>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {canInstall && (
+              <div className="border-t pt-4 mt-4">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-3"
+                  onClick={async () => {
+                    const result = await promptInstall();
+                    if (result === 'ios') {
+                      setShowIOSDialog(true);
+                    }
+                  }}
+                >
+                  <Smartphone className="h-4 w-4" />
+                  Install App
+                </Button>
               </div>
-            ))}
+            )}
           </nav>
         </aside>
 
@@ -264,6 +296,32 @@ export const Layout = ({ children }: LayoutProps) => {
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
+
+      {/* iOS Install Instructions Dialog */}
+      <Dialog open={showIOSDialog} onOpenChange={setShowIOSDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Install WashTrack</DialogTitle>
+            <DialogDescription>
+              To install WashTrack on your device, follow these steps:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
+              <p className="text-sm">Tap the <Share className="inline h-4 w-4 mx-1" /> <strong>Share</strong> button in your browser's toolbar</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
+              <p className="text-sm">Scroll down and tap <strong>"Add to Home Screen"</strong></p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
+              <p className="text-sm">Tap <strong>"Add"</strong> to confirm</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

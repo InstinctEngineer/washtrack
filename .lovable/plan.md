@@ -1,52 +1,71 @@
 
 
-## Plan: Add "Install App" PWA Button to Sidebar
+## Fix: CSV Smart Mapping for Work Items
 
-### What We're Building
-A button in the left sidebar (below Messages) that lets users install WashTrack to their phone's home screen with one tap. This uses the Progressive Web App (PWA) standard — no app store needed, works on iOS Safari, Android Chrome, and desktop browsers.
+### Root Cause
+The validation logic requires **exact** string match (after lowercasing) for clients and locations. Any minor variation (extra/missing spaces, punctuation differences) triggers an error with suggestions — even when the match is obviously correct. High-confidence fuzzy matches should be auto-accepted.
 
-### Steps
+### Changes to `src/components/CSVImportModal.tsx`
 
-**1. Install `vite-plugin-pwa`** — enables service worker and manifest generation.
+#### 1. Auto-accept high-confidence fuzzy matches in `validateRow`
+When exact match fails but fuzzy match scores >= 0.85, auto-resolve it instead of showing an error:
 
-**2. Create PWA icon assets in `public/`:**
-- `pwa-192x192.png` and `pwa-512x512.png` — generated from the existing WashTrack gradient logo (WT text on blue gradient background)
-- We'll create these as simple SVG-to-PNG or inline them via the manifest
+**Client resolution (lines 162-170):**
+```typescript
+let client_id = resolvedClientId;
+if (!client_id && client_name) {
+  const client = clientMap.get(client_name.toLowerCase());
+  if (client) {
+    client_id = client.id;
+  } else {
+    // Try fuzzy match - auto-accept high confidence
+    const fuzzyMatches = findSimilarMatches(client_name, clientsData, 0.4, 3);
+    if (fuzzyMatches.length > 0 && fuzzyMatches[0].score >= 0.85) {
+      client_id = fuzzyMatches[0].item.id;
+      // Set resolved name so UI shows the mapping
+      row.resolvedClientId = client_id;
+      row.resolvedClientName = fuzzyMatches[0].name;
+    } else {
+      clientError = `Client "${client_name}" not found`;
+      clientSuggestions = fuzzyMatches;
+    }
+  }
+}
+```
 
-**3. Configure `vite.config.ts`:**
-- Add `VitePWA` plugin with manifest (name: "WashTrack", theme color `#1e3a5f`, icons)
-- Add `navigateFallbackDenylist: [/^\/~oauth/]` to prevent caching auth redirects
-- Register service worker in auto mode
+**Location resolution (lines 181-193):** Same pattern — auto-accept >= 0.85 score.
 
-**4. Update `index.html`:**
-- Add PWA meta tags: `<meta name="apple-mobile-web-app-capable">`, `<meta name="theme-color">`, `<link rel="apple-touch-icon">`
+#### 2. Add normalized matching before fuzzy matching
+Before calling `findSimilarMatches`, try a normalized comparison that strips extra spaces and common punctuation:
 
-**5. Create `src/hooks/usePWAInstall.ts`:**
-- Listen for the `beforeinstallprompt` event (Chrome/Android)
-- Expose `canInstall` boolean and `promptInstall()` function
-- Track whether app is already installed (via `display-mode: standalone` media query)
-- For iOS Safari (which doesn't fire `beforeinstallprompt`), detect via user agent and show manual instructions in a dialog
+```typescript
+// Normalize: collapse spaces, remove punctuation
+const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-**6. Update `src/components/Layout.tsx`:**
-- Add an "Install App" button at the bottom of the sidebar nav (below all nav sections, pushed to bottom with `mt-auto`)
-- Uses `Download` or `Smartphone` icon from lucide
-- Only visible when `canInstall` is true or on iOS Safari
-- On click: triggers native install prompt (Android/desktop) or shows a dialog with iOS instructions ("Tap Share → Add to Home Screen")
-- Hidden once the app is already installed
+// Try normalized exact match
+const normalizedName = normalize(client_name);
+const normalizedClient = clientsData.find(c => normalize(c.name) === normalizedName);
+if (normalizedClient) {
+  client_id = normalizedClient.id;
+}
+```
 
-### Files to Create/Modify
+This handles "FedEx RST" matching "Fed Ex RST", "fedex rst", etc.
 
-| File | Action |
+### Files to Modify
+
+| File | Change |
 |------|--------|
-| `vite.config.ts` | Add vite-plugin-pwa config |
-| `index.html` | Add PWA meta tags + apple-touch-icon |
-| `public/pwa-192x192.png` | App icon (will generate) |
-| `public/pwa-512x512.png` | App icon (will generate) |
-| `src/hooks/usePWAInstall.ts` | Create — install prompt logic |
-| `src/components/Layout.tsx` | Add install button to sidebar bottom |
+| `src/components/CSVImportModal.tsx` | Add normalized matching + auto-accept high-confidence fuzzy matches in `validateRow` |
 
-### Technical Notes
-- The `beforeinstallprompt` event works on Chrome, Edge, Samsung Internet, Opera (Android + desktop). On iOS Safari, we detect the platform and show manual "Add to Home Screen" instructions since Apple doesn't support the Web App Install API.
-- The button auto-hides when the app is already running in standalone mode (installed).
-- The service worker enables offline caching so the app loads instantly from the home screen.
+### Validation Order (unchanged, already correct)
+1. Client validated first (line 161)
+2. Location validated only if client resolved (line 182: `if (!location_id && client_id && location_name)`)
+3. Work type + frequency validated during import (line 406)
+
+### What This Fixes
+- "FedEx RST" → auto-matches "Fed Ex RST" (normalized match)
+- "rst" → auto-matches "RST" location (already works via toLowerCase, but normalized match adds safety)
+- High-confidence fuzzy matches auto-resolve with green indicator instead of red error
+- Valid exact matches remain untouched (no "reassignment")
 
