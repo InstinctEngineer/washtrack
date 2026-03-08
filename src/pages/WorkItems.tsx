@@ -654,7 +654,17 @@ const WorkItems = () => {
                   <Label>Work Type *</Label>
                   <Select 
                     value={formWorkTypeId} 
-                    onValueChange={(v) => { setFormWorkTypeId(v); setFormFrequency(''); }}
+                    onValueChange={(v) => {
+                      setFormWorkTypeId(v);
+                      setFormFrequency('');
+                      // Auto-select frequency if only one rate config matches
+                      const matching = rateConfigs.filter(
+                        rc => rc.location_id === formLocationId && rc.work_type_id === v
+                      );
+                      if (matching.length === 1) {
+                        setFormFrequency(matching[0].frequency || '');
+                      }
+                    }}
                     disabled={!formLocationId}
                   >
                     <SelectTrigger>
