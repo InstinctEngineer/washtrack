@@ -265,7 +265,7 @@ export const Layout = ({ children }: LayoutProps) => {
             </div>
 
             {!isInstalled && (
-              <div className="border-t pt-4 mt-4">
+              <div className="border-t pt-4 mt-4 pb-[env(safe-area-inset-bottom,1rem)]">
                 <Button
                   variant="outline"
                   className="w-full justify-start gap-3"
