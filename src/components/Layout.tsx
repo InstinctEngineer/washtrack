@@ -273,6 +273,8 @@ export const Layout = ({ children }: LayoutProps) => {
                       const result = await promptInstall();
                       if (result === 'ios') {
                         setShowIOSDialog(true);
+                      } else if (result === 'android') {
+                        setShowAndroidDialog(true);
                       } else if (result === 'unsupported') {
                         setShowUnsupportedDialog(true);
                       }
