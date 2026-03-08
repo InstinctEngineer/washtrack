@@ -325,6 +325,31 @@ export const Layout = ({ children }: LayoutProps) => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Generic Install Instructions Dialog */}
+      <Dialog open={showUnsupportedDialog} onOpenChange={setShowUnsupportedDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Install WashTrack</DialogTitle>
+            <DialogDescription>
+              Use your browser's menu to install this app:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
+              <p className="text-sm">Open the browser menu (⋮ or ⋯)</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
+              <p className="text-sm">Look for <strong>"Install app"</strong> or <strong>"Add to Home Screen"</strong></p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
+              <p className="text-sm">Tap to confirm the installation</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
