@@ -55,7 +55,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const [showIOSDialog, setShowIOSDialog] = useState(false);
   const [showAndroidDialog, setShowAndroidDialog] = useState(false);
   const { unreadCount } = useUnreadMessageCount();
-  const { canInstall, isIOS, isAndroid, isMobile, isInstalled, promptInstall } = usePWAInstall();
+  const { canInstall, isIOS, isAndroid, isMobile, isInstalled, promptInstall, androidBrowser } = usePWAInstall();
   const [showUnsupportedDialog, setShowUnsupportedDialog] = useState(false);
 
   const handleSignOut = async () => {
