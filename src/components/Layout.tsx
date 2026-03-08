@@ -328,6 +328,31 @@ export const Layout = ({ children }: LayoutProps) => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Android Install Instructions Dialog */}
+      <Dialog open={showAndroidDialog} onOpenChange={setShowAndroidDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Install WashTrack</DialogTitle>
+            <DialogDescription>
+              To install WashTrack on your Android device:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
+              <p className="text-sm">Tap the <strong>⋮ menu</strong> (three dots) at the top right of Chrome</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
+              <p className="text-sm">Tap <strong>"Install app"</strong> or <strong>"Add to Home Screen"</strong></p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
+              <p className="text-sm">Tap <strong>"Install"</strong> to confirm</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* Generic Install Instructions Dialog */}
       <Dialog open={showUnsupportedDialog} onOpenChange={setShowUnsupportedDialog}>
         <DialogContent className="sm:max-w-md">
