@@ -243,9 +243,11 @@ const WorkItems = () => {
   const selectedRateConfig = rateConfigs.find(rc => {
     if (formRateConfigId) return rc.id === formRateConfigId;
     if (formLocationId && formWorkTypeId) {
-      return rc.location_id === formLocationId && 
-             rc.work_type_id === formWorkTypeId &&
-             rc.frequency === (formFrequency || null);
+      const matchesBase = rc.location_id === formLocationId && rc.work_type_id === formWorkTypeId;
+      if (!matchesBase) return false;
+      // If only one frequency available (dropdown hidden), auto-match it
+      if (availableFrequencies.length <= 1) return true;
+      return rc.frequency === (formFrequency || null);
     }
     return false;
   });
@@ -652,7 +654,17 @@ const WorkItems = () => {
                   <Label>Work Type *</Label>
                   <Select 
                     value={formWorkTypeId} 
-                    onValueChange={(v) => { setFormWorkTypeId(v); setFormFrequency(''); }}
+                    onValueChange={(v) => {
+                      setFormWorkTypeId(v);
+                      setFormFrequency('');
+                      // Auto-select frequency if only one rate config matches
+                      const matching = rateConfigs.filter(
+                        rc => rc.location_id === formLocationId && rc.work_type_id === v
+                      );
+                      if (matching.length === 1) {
+                        setFormFrequency(matching[0].frequency || '');
+                      }
+                    }}
                     disabled={!formLocationId}
                   >
                     <SelectTrigger>
