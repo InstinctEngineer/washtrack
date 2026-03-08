@@ -63,6 +63,8 @@ export default function FinanceThisWeek() {
   const [workLogs, setWorkLogs] = useState<WorkLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalQuantity, setTotalQuantity] = useState(0);
+  const [totalValue, setTotalValue] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
