@@ -194,6 +194,40 @@ export default function FinanceThisWeek() {
         }
         const { data: aggData } = await aggQuery;
 
+        // Compute cross-page totals from aggregate data
+        if (aggData && aggData.length > 0) {
+          const aggTotalQty = aggData.reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+          setTotalQuantity(aggTotalQty);
+
+          const aggRcIdsSet = [...new Set(aggData.map(r => r.rate_config_id).filter(Boolean))] as string[];
+          const aggWiIdsSet = [...new Set(aggData.map(r => r.work_item_id).filter(Boolean))] as string[];
+          
+          const [aggRcRes, aggWiRes] = await Promise.all([
+            aggRcIdsSet.length > 0 ? supabase.from('rate_configs').select('id, rate').in('id', aggRcIdsSet) : Promise.resolve({ data: [] as { id: string; rate: number }[] }),
+            aggWiIdsSet.length > 0 ? supabase.from('work_items').select('id, rate_config_id').in('id', aggWiIdsSet) : Promise.resolve({ data: [] as { id: string; rate_config_id: string }[] }),
+          ]);
+          const aggRateMap = new Map((aggRcRes.data || []).map(r => [r.id, Number(r.rate || 0)]));
+          const aggWiRcMap = new Map((aggWiRes.data || []).map(w => [w.id, w.rate_config_id]));
+          
+          const missingAggRcIds = [...new Set(
+            (aggWiRes.data || []).map(w => w.rate_config_id).filter((id): id is string => !!id && !aggRateMap.has(id))
+          )];
+          if (missingAggRcIds.length > 0) {
+            const { data: moreRcs } = await supabase.from('rate_configs').select('id, rate').in('id', missingAggRcIds);
+            (moreRcs || []).forEach(r => aggRateMap.set(r.id, Number(r.rate || 0)));
+          }
+
+          const aggTotalVal = aggData.reduce((sum, r) => {
+            const rcId = r.rate_config_id || (r.work_item_id ? aggWiRcMap.get(r.work_item_id) : null);
+            const rate = rcId ? (aggRateMap.get(rcId) || 0) : 0;
+            return sum + Number(r.quantity || 0) * rate;
+          }, 0);
+          setTotalValue(aggTotalVal);
+        } else {
+          setTotalQuantity(0);
+          setTotalValue(0);
+        }
+
         // Batch fetch related data
         const employeeIds = [...new Set(logsData.map(l => l.employee_id))];
         const workItemIds = [...new Set(logsData.map(l => l.work_item_id).filter(Boolean))];
