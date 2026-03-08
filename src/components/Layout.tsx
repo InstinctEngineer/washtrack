@@ -334,7 +334,7 @@ export const Layout = ({ children }: LayoutProps) => {
           <DialogHeader>
             <DialogTitle>Install WashTrack</DialogTitle>
             <DialogDescription>
-              To install WashTrack on your Android device:
+              If App Doesn't Automatically Download, Follow these Instructions
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
