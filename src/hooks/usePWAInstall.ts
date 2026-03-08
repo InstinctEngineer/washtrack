@@ -55,10 +55,11 @@ export function usePWAInstall() {
       return outcome;
     }
     if (isIOS) return 'ios';
+    if (isAndroid) return 'android';
     return 'unsupported';
-  }, [deferredPrompt, isIOS]);
+  }, [deferredPrompt, isIOS, isAndroid]);
 
-  const canInstall = !isInstalled && (!!deferredPrompt || isIOS);
+  const canInstall = !isInstalled && (!!deferredPrompt || isIOS || isAndroid);
 
-  return { canInstall, isIOS, isMobile, isInstalled, promptInstall };
+  return { canInstall, isIOS, isAndroid, isMobile, isInstalled, promptInstall };
 }
