@@ -45,7 +45,7 @@ export function usePWAInstall() {
     };
   }, []);
 
-  const promptInstall = useCallback(async (): Promise<'accepted' | 'dismissed' | 'ios' | 'unsupported'> => {
+  const promptInstall = useCallback(async (): Promise<'accepted' | 'dismissed' | 'ios' | 'android' | 'unsupported'> => {
     if (deferredPrompt) {
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
