@@ -1,71 +1,77 @@
 
 
-## Fix: CSV Smart Mapping for Work Items
+## Fix: Work Logs Server-Side Filtering
 
-### Root Cause
-The validation logic requires **exact** string match (after lowercasing) for clients and locations. Any minor variation (extra/missing spaces, punctuation differences) triggers an error with suggestions — even when the match is obviously correct. High-confidence fuzzy matches should be auto-accepted.
+### Problem
+The query on line 115-128 fetches a page of `pageSize` rows from ALL work_logs, then filters by employee/client/location/work type client-side (lines 246-257). When an employee has 52 logs but the page size is 50, the unfiltered query returns 50 mixed rows — after client-side employee filtering, some of that employee's logs are on later pages and get excluded.
 
-### Changes to `src/components/CSVImportModal.tsx`
+### Solution
+Push all four filters into the database query so pagination operates on the already-filtered dataset. This is the correct long-term approach.
 
-#### 1. Auto-accept high-confidence fuzzy matches in `validateRow`
-When exact match fails but fuzzy match scores >= 0.85, auto-resolve it instead of showing an error:
+### Changes to `src/pages/FinanceThisWeek.tsx`
 
-**Client resolution (lines 162-170):**
+**1. Add server-side filters to the query (after line 119, before `.order()`):**
+
 ```typescript
-let client_id = resolvedClientId;
-if (!client_id && client_name) {
-  const client = clientMap.get(client_name.toLowerCase());
-  if (client) {
-    client_id = client.id;
-  } else {
-    // Try fuzzy match - auto-accept high confidence
-    const fuzzyMatches = findSimilarMatches(client_name, clientsData, 0.4, 3);
-    if (fuzzyMatches.length > 0 && fuzzyMatches[0].score >= 0.85) {
-      client_id = fuzzyMatches[0].item.id;
-      // Set resolved name so UI shows the mapping
-      row.resolvedClientId = client_id;
-      row.resolvedClientName = fuzzyMatches[0].name;
-    } else {
-      clientError = `Client "${client_name}" not found`;
-      clientSuggestions = fuzzyMatches;
-    }
+// Employee filter
+if (selectedEmployees.length > 0) {
+  query = query.in('employee_id', selectedEmployees);
+}
+```
+
+For client, location, and work type filters — these require joining through `rate_configs` which isn't possible with simple `.in()` on `work_logs`. Instead, pre-fetch matching work_item_ids and rate_config_ids:
+
+```typescript
+// If client/location/workType filters are active, resolve matching rate_config_ids first
+if (selectedClients.length > 0 || selectedLocations.length > 0 || selectedWorkTypes.length > 0) {
+  let rcQuery = supabase.from('rate_configs').select('id');
+  if (selectedClients.length > 0) rcQuery = rcQuery.in('client_id', selectedClients);
+  if (selectedLocations.length > 0) rcQuery = rcQuery.in('location_id', selectedLocations);
+  if (selectedWorkTypes.length > 0) rcQuery = rcQuery.in('work_type_id', selectedWorkTypes);
+  const { data: matchingRcs } = await rcQuery;
+  const rcIds = (matchingRcs || []).map(r => r.id);
+
+  if (rcIds.length === 0) {
+    // No matching configs — no results possible
+    setWorkLogs([]); setTotalCount(0); setLoading(false); return;
   }
+
+  // Get work_item_ids for these rate_configs
+  const { data: matchingWis } = await supabase
+    .from('work_items').select('id').in('rate_config_id', rcIds);
+  const wiIds = (matchingWis || []).map(w => w.id);
+
+  // Filter work_logs: rate_config_id in rcIds OR work_item_id in wiIds
+  // Supabase doesn't support OR across columns easily, so use .or()
+  const orParts: string[] = [];
+  if (rcIds.length > 0) orParts.push(`rate_config_id.in.(${rcIds.join(',')})`);
+  if (wiIds.length > 0) orParts.push(`work_item_id.in.(${wiIds.join(',')})`);
+  if (orParts.length > 0) query = query.or(orParts.join(','));
 }
 ```
 
-**Location resolution (lines 181-193):** Same pattern — auto-accept >= 0.85 score.
-
-#### 2. Add normalized matching before fuzzy matching
-Before calling `findSimilarMatches`, try a normalized comparison that strips extra spaces and common punctuation:
-
+**2. Add filter states to useEffect dependency array (line 239):**
 ```typescript
-// Normalize: collapse spaces, remove punctuation
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-// Try normalized exact match
-const normalizedName = normalize(client_name);
-const normalizedClient = clientsData.find(c => normalize(c.name) === normalizedName);
-if (normalizedClient) {
-  client_id = normalizedClient.id;
-}
+}, [startDate, endDate, currentPage, pageSize, urlWorkLogIds.join(','),
+    selectedEmployees.join(','), selectedClients.join(','),
+    selectedLocations.join(','), selectedWorkTypes.join(',')]);
 ```
 
-This handles "FedEx RST" matching "Fed Ex RST", "fedex rst", etc.
+**3. Reset page to 1 when filters change — add a separate useEffect:**
+```typescript
+useEffect(() => {
+  setCurrentPage(1);
+}, [selectedEmployees, selectedClients, selectedLocations, selectedWorkTypes]);
+```
+
+**4. Update `totalPages` calculation (line 301):**
+Keep using `totalCount` from the server (already correct since `{ count: 'exact' }` reflects the filtered count).
+
+**5. Update summary stats to use `totalCount` for the count display** since `filteredAndSortedLogs` will now equal the page of data (client-side filters become no-ops as a safety net — keep them).
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/CSVImportModal.tsx` | Add normalized matching + auto-accept high-confidence fuzzy matches in `validateRow` |
-
-### Validation Order (unchanged, already correct)
-1. Client validated first (line 161)
-2. Location validated only if client resolved (line 182: `if (!location_id && client_id && location_name)`)
-3. Work type + frequency validated during import (line 406)
-
-### What This Fixes
-- "FedEx RST" → auto-matches "Fed Ex RST" (normalized match)
-- "rst" → auto-matches "RST" location (already works via toLowerCase, but normalized match adds safety)
-- High-confidence fuzzy matches auto-resolve with green indicator instead of red error
-- Valid exact matches remain untouched (no "reassignment")
+| `src/pages/FinanceThisWeek.tsx` | Push employee/client/location/workType filters into the DB query; add deps to useEffect; reset page on filter change |
 
