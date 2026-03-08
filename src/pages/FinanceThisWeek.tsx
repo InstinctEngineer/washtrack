@@ -167,9 +167,28 @@ export default function FinanceThisWeek() {
 
         if (!logsData || logsData.length === 0) {
           setWorkLogs([]);
+          setTotalQuantity(0);
+          setTotalValue(0);
           setLoading(false);
           return;
         }
+
+        // Run a lightweight aggregate query (same filters, no pagination) for cross-page totals
+        let aggQuery = supabase
+          .from('work_logs')
+          .select('quantity, rate_config_id, work_item_id')
+          .gte('work_date', startStr)
+          .lte('work_date', endStr);
+        if (urlWorkLogIds.length > 0) aggQuery = aggQuery.in('id', urlWorkLogIds);
+        if (selectedEmployees.length > 0) aggQuery = aggQuery.in('employee_id', selectedEmployees);
+        if (selectedClients.length > 0 || selectedLocations.length > 0 || selectedWorkTypes.length > 0) {
+          // Reuse rcIds/wiIds from above
+          const orPartsAgg: string[] = [];
+          if (rcIds.length > 0) orPartsAgg.push(`rate_config_id.in.(${rcIds.join(',')})`);
+          if (wiIds.length > 0) orPartsAgg.push(`work_item_id.in.(${wiIds.join(',')})`);
+          if (orPartsAgg.length > 0) aggQuery = aggQuery.or(orPartsAgg.join(','));
+        }
+        const { data: aggData } = await aggQuery;
 
         // Batch fetch related data
         const employeeIds = [...new Set(logsData.map(l => l.employee_id))];
