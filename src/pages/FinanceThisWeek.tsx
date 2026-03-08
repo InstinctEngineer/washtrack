@@ -63,6 +63,8 @@ export default function FinanceThisWeek() {
   const [workLogs, setWorkLogs] = useState<WorkLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalQuantity, setTotalQuantity] = useState(0);
+  const [totalValue, setTotalValue] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
@@ -129,17 +131,21 @@ export default function FinanceThisWeek() {
         }
 
         // Server-side client/location/workType filters via rate_configs
+        let rcIds: string[] = [];
+        let wiIds: string[] = [];
         if (selectedClients.length > 0 || selectedLocations.length > 0 || selectedWorkTypes.length > 0) {
           let rcQuery = supabase.from('rate_configs').select('id');
           if (selectedClients.length > 0) rcQuery = rcQuery.in('client_id', selectedClients);
           if (selectedLocations.length > 0) rcQuery = rcQuery.in('location_id', selectedLocations);
           if (selectedWorkTypes.length > 0) rcQuery = rcQuery.in('work_type_id', selectedWorkTypes);
           const { data: matchingRcs } = await rcQuery;
-          const rcIds = (matchingRcs || []).map(r => r.id);
+          rcIds = (matchingRcs || []).map(r => r.id);
 
           if (rcIds.length === 0) {
             setWorkLogs([]);
             setTotalCount(0);
+            setTotalQuantity(0);
+            setTotalValue(0);
             setLoading(false);
             return;
           }
@@ -147,7 +153,7 @@ export default function FinanceThisWeek() {
           // Get work_item_ids for these rate_configs
           const { data: matchingWis } = await supabase
             .from('work_items').select('id').in('rate_config_id', rcIds);
-          const wiIds = (matchingWis || []).map(w => w.id);
+          wiIds = (matchingWis || []).map(w => w.id);
 
           // Filter work_logs by rate_config_id OR work_item_id
           const orParts: string[] = [];
@@ -165,8 +171,61 @@ export default function FinanceThisWeek() {
 
         if (!logsData || logsData.length === 0) {
           setWorkLogs([]);
+          setTotalQuantity(0);
+          setTotalValue(0);
           setLoading(false);
           return;
+        }
+
+        // Run a lightweight aggregate query (same filters, no pagination) for cross-page totals
+        let aggQuery = supabase
+          .from('work_logs')
+          .select('quantity, rate_config_id, work_item_id')
+          .gte('work_date', startStr)
+          .lte('work_date', endStr);
+        if (urlWorkLogIds.length > 0) aggQuery = aggQuery.in('id', urlWorkLogIds);
+        if (selectedEmployees.length > 0) aggQuery = aggQuery.in('employee_id', selectedEmployees);
+        if (selectedClients.length > 0 || selectedLocations.length > 0 || selectedWorkTypes.length > 0) {
+          // Reuse rcIds/wiIds from above
+          const orPartsAgg: string[] = [];
+          if (rcIds.length > 0) orPartsAgg.push(`rate_config_id.in.(${rcIds.join(',')})`);
+          if (wiIds.length > 0) orPartsAgg.push(`work_item_id.in.(${wiIds.join(',')})`);
+          if (orPartsAgg.length > 0) aggQuery = aggQuery.or(orPartsAgg.join(','));
+        }
+        const { data: aggData } = await aggQuery;
+
+        // Compute cross-page totals from aggregate data
+        if (aggData && aggData.length > 0) {
+          const aggTotalQty = aggData.reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+          setTotalQuantity(aggTotalQty);
+
+          const aggRcIdsSet = [...new Set(aggData.map(r => r.rate_config_id).filter(Boolean))] as string[];
+          const aggWiIdsSet = [...new Set(aggData.map(r => r.work_item_id).filter(Boolean))] as string[];
+          
+          const [aggRcRes, aggWiRes] = await Promise.all([
+            aggRcIdsSet.length > 0 ? supabase.from('rate_configs').select('id, rate').in('id', aggRcIdsSet) : Promise.resolve({ data: [] as { id: string; rate: number }[] }),
+            aggWiIdsSet.length > 0 ? supabase.from('work_items').select('id, rate_config_id').in('id', aggWiIdsSet) : Promise.resolve({ data: [] as { id: string; rate_config_id: string }[] }),
+          ]);
+          const aggRateMap = new Map((aggRcRes.data || []).map(r => [r.id, Number(r.rate || 0)]));
+          const aggWiRcMap = new Map((aggWiRes.data || []).map(w => [w.id, w.rate_config_id]));
+          
+          const missingAggRcIds = [...new Set(
+            (aggWiRes.data || []).map(w => w.rate_config_id).filter((id): id is string => !!id && !aggRateMap.has(id))
+          )];
+          if (missingAggRcIds.length > 0) {
+            const { data: moreRcs } = await supabase.from('rate_configs').select('id, rate').in('id', missingAggRcIds);
+            (moreRcs || []).forEach(r => aggRateMap.set(r.id, Number(r.rate || 0)));
+          }
+
+          const aggTotalVal = aggData.reduce((sum, r) => {
+            const rcId = r.rate_config_id || (r.work_item_id ? aggWiRcMap.get(r.work_item_id) : null);
+            const rate = rcId ? (aggRateMap.get(rcId) || 0) : 0;
+            return sum + Number(r.quantity || 0) * rate;
+          }, 0);
+          setTotalValue(aggTotalVal);
+        } else {
+          setTotalQuantity(0);
+          setTotalValue(0);
         }
 
         // Batch fetch related data
@@ -331,10 +390,8 @@ export default function FinanceThisWeek() {
 
   // Summary stats
   const summaryStats = useMemo(() => {
-    const totalQty = filteredAndSortedLogs.reduce((sum, log) => sum + log.quantity, 0);
-    const totalValue = filteredAndSortedLogs.reduce((sum, log) => sum + log.lineTotal, 0);
-    return { count: filteredAndSortedLogs.length, totalQty, totalValue };
-  }, [filteredAndSortedLogs]);
+    return { count: totalCount, totalQty: totalQuantity, totalValue };
+  }, [totalCount, totalQuantity, totalValue]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
