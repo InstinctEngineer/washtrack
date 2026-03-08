@@ -42,7 +42,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 
 interface LayoutProps {
   children: React.ReactNode;
