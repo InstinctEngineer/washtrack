@@ -10,6 +10,7 @@ export function usePWAInstall() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
@@ -17,12 +18,13 @@ export function usePWAInstall() {
     setIsInstalled(isStandalone);
 
     const ua = navigator.userAgent;
-    // Detect ALL iOS browsers, not just Safari
     const isiOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     setIsIOS(isiOS && !isStandalone);
 
-    // Detect mobile (iOS or Android)
-    const mobile = isiOS || /Android/i.test(ua);
+    const android = /Android/i.test(ua);
+    setIsAndroid(android && !isStandalone);
+
+    const mobile = isiOS || android;
     setIsMobile(mobile);
 
     const handler = (e: Event) => {
