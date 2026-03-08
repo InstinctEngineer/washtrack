@@ -217,20 +217,25 @@ export default function EmployeeDashboard() {
     
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     
+    // First get work_item_ids at this location
+    const { data: locationWorkItems } = await supabase
+      .from('work_items')
+      .select('id, rate_config:rate_configs!inner(location_id)')
+      .eq('rate_config.location_id', selectedLocationId);
+    
+    const locationWorkItemIds = locationWorkItems?.map(wi => wi.id) || [];
+    
+    if (locationWorkItemIds.length === 0) {
+      setCompletedWorkItemIds(new Set());
+      return;
+    }
+    
     const { data, error } = await supabase
       .from('work_logs')
       .select('work_item_id')
       .eq('work_date', dateStr)
       .not('work_item_id', 'is', null)
-      .in('work_item_id', 
-        (await supabase
-          .from('work_items')
-          .select('id')
-          .eq('rate_config.location_id', selectedLocationId)
-          .select('id, rate_config:rate_configs!inner(location_id)')
-          .eq('rate_config.location_id', selectedLocationId)
-        ).data?.map(wi => wi.id) || []
-      );
+      .in('work_item_id', locationWorkItemIds);
     
     if (!error && data) {
       setCompletedWorkItemIds(new Set(data.map(d => d.work_item_id).filter(Boolean) as string[]));
