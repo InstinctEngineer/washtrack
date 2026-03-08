@@ -390,10 +390,8 @@ export default function FinanceThisWeek() {
 
   // Summary stats
   const summaryStats = useMemo(() => {
-    const totalQty = filteredAndSortedLogs.reduce((sum, log) => sum + log.quantity, 0);
-    const totalValue = filteredAndSortedLogs.reduce((sum, log) => sum + log.lineTotal, 0);
-    return { count: filteredAndSortedLogs.length, totalQty, totalValue };
-  }, [filteredAndSortedLogs]);
+    return { count: totalCount, totalQty: totalQuantity, totalValue };
+  }, [totalCount, totalQuantity, totalValue]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
