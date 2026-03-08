@@ -55,7 +55,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const [showIOSDialog, setShowIOSDialog] = useState(false);
   const [showAndroidDialog, setShowAndroidDialog] = useState(false);
   const { unreadCount } = useUnreadMessageCount();
-  const { canInstall, isIOS, isAndroid, isMobile, isInstalled, promptInstall } = usePWAInstall();
+  const { canInstall, isIOS, isAndroid, isMobile, isInstalled, promptInstall, androidBrowser } = usePWAInstall();
   const [showUnsupportedDialog, setShowUnsupportedDialog] = useState(false);
 
   const handleSignOut = async () => {
@@ -338,19 +338,65 @@ export const Layout = ({ children }: LayoutProps) => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="flex items-start gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
-              <p className="text-sm">Tap the <strong>⋮ menu</strong> (three dots) at the top right of Chrome</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
-              <p className="text-sm">Tap <strong>"Install app"</strong> or <strong>"Add to Home Screen"</strong></p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
-              <p className="text-sm">Tap <strong>"Install"</strong> to confirm</p>
-            </div>
+            {androidBrowser === 'samsung' ? (
+              <>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
+                  <p className="text-sm">Tap the <strong>☰ menu</strong> (three lines) at the bottom right</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
+                  <p className="text-sm">Tap <strong>"Add page to"</strong> → <strong>"Home screen"</strong></p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
+                  <p className="text-sm">Tap <strong>"Add"</strong> to confirm</p>
+                </div>
+              </>
+            ) : androidBrowser === 'firefox' ? (
+              <>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
+                  <p className="text-sm">Tap the <strong>⋮ menu</strong> (three dots) at the top right</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
+                  <p className="text-sm">Tap <strong>"Install"</strong></p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
+                  <p className="text-sm">Tap <strong>"Add"</strong> to confirm</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
+                  <p className="text-sm">Tap the <strong>⋮ menu</strong> (three dots) at the top right of Chrome</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
+                  <p className="text-sm">Tap <strong>"Install app"</strong> or <strong>"Add to Home Screen"</strong></p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
+                  <p className="text-sm">Tap <strong>"Install"</strong> to confirm</p>
+                </div>
+              </>
+            )}
           </div>
+          <Button
+            variant="outline"
+            className="w-full mt-2"
+            onClick={async () => {
+              const result = await promptInstall();
+              if (result === 'accepted' || result === 'dismissed') {
+                setShowAndroidDialog(false);
+              }
+            }}
+          >
+            Try again
+          </Button>
         </DialogContent>
       </Dialog>
       {/* Generic Install Instructions Dialog */}
