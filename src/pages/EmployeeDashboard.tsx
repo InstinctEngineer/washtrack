@@ -289,7 +289,7 @@ export default function EmployeeDashboard() {
       .gte('work_date', weekStart)
       .order('work_date', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(500);
     
     // Build OR filter for work_item_id or rate_config_id
     const orConditions: string[] = [];
