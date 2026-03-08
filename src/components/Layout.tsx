@@ -53,7 +53,9 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showIOSDialog, setShowIOSDialog] = useState(false);
   const { unreadCount } = useUnreadMessageCount();
+  const { canInstall, isIOS, promptInstall } = usePWAInstall();
 
   const handleSignOut = async () => {
     await signOut();
