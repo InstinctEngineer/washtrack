@@ -264,7 +264,7 @@ export const Layout = ({ children }: LayoutProps) => {
               ))}
             </div>
 
-            {canInstall && (
+            {!isInstalled && (
               <div className="border-t pt-4 mt-4">
                 <Button
                   variant="outline"
@@ -273,6 +273,8 @@ export const Layout = ({ children }: LayoutProps) => {
                     const result = await promptInstall();
                     if (result === 'ios') {
                       setShowIOSDialog(true);
+                    } else if (result === 'unsupported') {
+                      setShowUnsupportedDialog(true);
                     }
                   }}
                 >
