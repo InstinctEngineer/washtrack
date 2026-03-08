@@ -225,42 +225,62 @@ export const Layout = ({ children }: LayoutProps) => {
           border-r bg-card transition-transform lg:translate-x-0
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
-          <nav className="flex flex-col gap-4 p-4">
-            {Object.entries(groupedNavItems).map(([section, items]) => (
-              <div key={section} className="space-y-1">
-                <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {section}
-                </h3>
-                {items.map((item) => {
-                  const isActive = location.pathname === item.path;
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      className={`
-                        flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors
-                        ${isActive 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'hover:bg-accent hover:text-accent-foreground'
-                        }
-                      `}
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                      {item.badge && (
-                        <Badge 
-                          variant="destructive" 
-                          className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1.5"
-                        >
-                          {item.badge > 99 ? '99+' : item.badge}
-                        </Badge>
-                      )}
-                    </Link>
-                  );
-                })}
+          <nav className="flex flex-col h-full p-4">
+            <div className="flex-1 flex flex-col gap-4">
+              {Object.entries(groupedNavItems).map(([section, items]) => (
+                <div key={section} className="space-y-1">
+                  <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {section}
+                  </h3>
+                  {items.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={`
+                          flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+                          ${isActive 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'hover:bg-accent hover:text-accent-foreground'
+                          }
+                        `}
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                        {item.badge && (
+                          <Badge 
+                            variant="destructive" 
+                            className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1.5"
+                          >
+                            {item.badge > 99 ? '99+' : item.badge}
+                          </Badge>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {canInstall && (
+              <div className="border-t pt-4 mt-4">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-3"
+                  onClick={async () => {
+                    const result = await promptInstall();
+                    if (result === 'ios') {
+                      setShowIOSDialog(true);
+                    }
+                  }}
+                >
+                  <Smartphone className="h-4 w-4" />
+                  Install App
+                </Button>
               </div>
-            ))}
+            )}
           </nav>
         </aside>
 
