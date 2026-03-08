@@ -205,7 +205,7 @@ export default function Clients() {
             <h1 className="text-3xl font-bold tracking-tight">Client Management</h1>
             <p className="text-muted-foreground">Manage billing entities - who receives invoices</p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button onClick={() => setShowSetupWizard(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Client
           </Button>
