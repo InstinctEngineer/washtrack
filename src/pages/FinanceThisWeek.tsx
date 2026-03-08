@@ -123,6 +123,39 @@ export default function FinanceThisWeek() {
           query = query.in('id', urlWorkLogIds);
         }
 
+        // Server-side employee filter
+        if (selectedEmployees.length > 0) {
+          query = query.in('employee_id', selectedEmployees);
+        }
+
+        // Server-side client/location/workType filters via rate_configs
+        if (selectedClients.length > 0 || selectedLocations.length > 0 || selectedWorkTypes.length > 0) {
+          let rcQuery = supabase.from('rate_configs').select('id');
+          if (selectedClients.length > 0) rcQuery = rcQuery.in('client_id', selectedClients);
+          if (selectedLocations.length > 0) rcQuery = rcQuery.in('location_id', selectedLocations);
+          if (selectedWorkTypes.length > 0) rcQuery = rcQuery.in('work_type_id', selectedWorkTypes);
+          const { data: matchingRcs } = await rcQuery;
+          const rcIds = (matchingRcs || []).map(r => r.id);
+
+          if (rcIds.length === 0) {
+            setWorkLogs([]);
+            setTotalCount(0);
+            setLoading(false);
+            return;
+          }
+
+          // Get work_item_ids for these rate_configs
+          const { data: matchingWis } = await supabase
+            .from('work_items').select('id').in('rate_config_id', rcIds);
+          const wiIds = (matchingWis || []).map(w => w.id);
+
+          // Filter work_logs by rate_config_id OR work_item_id
+          const orParts: string[] = [];
+          if (rcIds.length > 0) orParts.push(`rate_config_id.in.(${rcIds.join(',')})`);
+          if (wiIds.length > 0) orParts.push(`work_item_id.in.(${wiIds.join(',')})`);
+          if (orParts.length > 0) query = query.or(orParts.join(','));
+        }
+
         const { data: logsData, count, error } = await query
           .order('created_at', { ascending: false })
           .range(offset, offset + pageSize - 1);
