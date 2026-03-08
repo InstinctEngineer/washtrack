@@ -269,7 +269,12 @@ export default function FinanceThisWeek() {
     };
 
     fetchWorkLogs();
-  }, [startDate, endDate, currentPage, pageSize, urlWorkLogIds.join(',')]);
+  }, [startDate, endDate, currentPage, pageSize, urlWorkLogIds.join(','), selectedEmployees.join(','), selectedClients.join(','), selectedLocations.join(','), selectedWorkTypes.join(',')]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedEmployees, selectedClients, selectedLocations, selectedWorkTypes]);
 
   // Filter and sort logs
   const filteredAndSortedLogs = useMemo(() => {
