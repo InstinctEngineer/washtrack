@@ -1,71 +1,60 @@
 
 
-## Fix: CSV Smart Mapping for Work Items
+## Bug: "Please select a rate configuration" when adding work items
 
 ### Root Cause
-The validation logic requires **exact** string match (after lowercasing) for clients and locations. Any minor variation (extra/missing spaces, punctuation differences) triggers an error with suggestions — even when the match is obviously correct. High-confidence fuzzy matches should be auto-accepted.
 
-### Changes to `src/components/CSVImportModal.tsx`
+The frequency selector (line 676) is **hidden** when there's only one frequency option for the selected location + work type combination. When hidden, `formFrequency` stays as empty string `''`.
 
-#### 1. Auto-accept high-confidence fuzzy matches in `validateRow`
-When exact match fails but fuzzy match scores >= 0.85, auto-resolve it instead of showing an error:
+The rate config matching logic (lines 243-251) then evaluates:
+```
+rc.frequency === (formFrequency || null)
+// becomes: rc.frequency === null
+```
 
-**Client resolution (lines 162-170):**
+If the single available frequency is something like `"2x/week"` (not null), the match fails. `selectedRateConfig` is `undefined`, and the mutation throws "Please select a rate configuration."
+
+### Fix
+
+**File: `src/pages/WorkItems.tsx`**
+
+**Auto-select the rate config when there's exactly one frequency option.** When `formWorkTypeId` changes and only one matching rate config exists, auto-set `formFrequency` to that config's frequency (or auto-set `formRateConfigId` directly).
+
+Concretely, update the `onValueChange` handler for Work Type (line 655) to also auto-select when there's only one match:
+
 ```typescript
-let client_id = resolvedClientId;
-if (!client_id && client_name) {
-  const client = clientMap.get(client_name.toLowerCase());
-  if (client) {
-    client_id = client.id;
-  } else {
-    // Try fuzzy match - auto-accept high confidence
-    const fuzzyMatches = findSimilarMatches(client_name, clientsData, 0.4, 3);
-    if (fuzzyMatches.length > 0 && fuzzyMatches[0].score >= 0.85) {
-      client_id = fuzzyMatches[0].item.id;
-      // Set resolved name so UI shows the mapping
-      row.resolvedClientId = client_id;
-      row.resolvedClientName = fuzzyMatches[0].name;
-    } else {
-      clientError = `Client "${client_name}" not found`;
-      clientSuggestions = fuzzyMatches;
-    }
+onValueChange={(v) => {
+  setFormWorkTypeId(v);
+  setFormFrequency('');
+  // Auto-select if only one rate config matches
+  const matching = rateConfigs.filter(
+    rc => rc.location_id === formLocationId && rc.work_type_id === v
+  );
+  if (matching.length === 1) {
+    setFormFrequency(matching[0].frequency || '');
   }
-}
+}}
 ```
 
-**Location resolution (lines 181-193):** Same pattern — auto-accept >= 0.85 score.
-
-#### 2. Add normalized matching before fuzzy matching
-Before calling `findSimilarMatches`, try a normalized comparison that strips extra spaces and common punctuation:
+Also fix the `selectedRateConfig` matching to handle the single-frequency case — when the frequency dropdown is hidden (only one option), use the single available frequency for matching instead of relying on `formFrequency`:
 
 ```typescript
-// Normalize: collapse spaces, remove punctuation
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-// Try normalized exact match
-const normalizedName = normalize(client_name);
-const normalizedClient = clientsData.find(c => normalize(c.name) === normalizedName);
-if (normalizedClient) {
-  client_id = normalizedClient.id;
-}
+const selectedRateConfig = rateConfigs.find(rc => {
+  if (formRateConfigId) return rc.id === formRateConfigId;
+  if (formLocationId && formWorkTypeId) {
+    const matchesBase = rc.location_id === formLocationId && rc.work_type_id === formWorkTypeId;
+    if (!matchesBase) return false;
+    // If only one frequency available, auto-match it
+    if (availableFrequencies.length <= 1) return true;
+    return rc.frequency === (formFrequency || null);
+  }
+  return false;
+});
 ```
 
-This handles "FedEx RST" matching "Fed Ex RST", "fedex rst", etc.
-
-### Files to Modify
+### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/components/CSVImportModal.tsx` | Add normalized matching + auto-accept high-confidence fuzzy matches in `validateRow` |
-
-### Validation Order (unchanged, already correct)
-1. Client validated first (line 161)
-2. Location validated only if client resolved (line 182: `if (!location_id && client_id && location_name)`)
-3. Work type + frequency validated during import (line 406)
-
-### What This Fixes
-- "FedEx RST" → auto-matches "Fed Ex RST" (normalized match)
-- "rst" → auto-matches "RST" location (already works via toLowerCase, but normalized match adds safety)
-- High-confidence fuzzy matches auto-resolve with green indicator instead of red error
-- Valid exact matches remain untouched (no "reassignment")
+| `src/pages/WorkItems.tsx` | Fix `selectedRateConfig` matching when frequency dropdown is hidden; auto-select single frequency |
 
