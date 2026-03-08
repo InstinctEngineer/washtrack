@@ -297,6 +297,32 @@ export const Layout = ({ children }: LayoutProps) => {
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
+
+      {/* iOS Install Instructions Dialog */}
+      <Dialog open={showIOSDialog} onOpenChange={setShowIOSDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Install WashTrack</DialogTitle>
+            <DialogDescription>
+              To install WashTrack on your device, follow these steps:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
+              <p className="text-sm">Tap the <Share className="inline h-4 w-4 mx-1" /> <strong>Share</strong> button in your browser's toolbar</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
+              <p className="text-sm">Scroll down and tap <strong>"Add to Home Screen"</strong></p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
+              <p className="text-sm">Tap <strong>"Add"</strong> to confirm</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
