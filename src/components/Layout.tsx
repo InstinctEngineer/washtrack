@@ -54,7 +54,8 @@ export const Layout = ({ children }: LayoutProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showIOSDialog, setShowIOSDialog] = useState(false);
   const { unreadCount } = useUnreadMessageCount();
-  const { canInstall, isIOS, promptInstall } = usePWAInstall();
+  const { canInstall, isIOS, isMobile, isInstalled, promptInstall } = usePWAInstall();
+  const [showUnsupportedDialog, setShowUnsupportedDialog] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -263,7 +264,7 @@ export const Layout = ({ children }: LayoutProps) => {
               ))}
             </div>
 
-            {canInstall && (
+            {!isInstalled && (
               <div className="border-t pt-4 mt-4">
                 <Button
                   variant="outline"
@@ -272,6 +273,8 @@ export const Layout = ({ children }: LayoutProps) => {
                     const result = await promptInstall();
                     if (result === 'ios') {
                       setShowIOSDialog(true);
+                    } else if (result === 'unsupported') {
+                      setShowUnsupportedDialog(true);
                     }
                   }}
                 >
@@ -318,6 +321,31 @@ export const Layout = ({ children }: LayoutProps) => {
             <div className="flex items-start gap-3">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
               <p className="text-sm">Tap <strong>"Add"</strong> to confirm</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Generic Install Instructions Dialog */}
+      <Dialog open={showUnsupportedDialog} onOpenChange={setShowUnsupportedDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Install WashTrack</DialogTitle>
+            <DialogDescription>
+              Use your browser's menu to install this app:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
+              <p className="text-sm">Open the browser menu (⋮ or ⋯)</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
+              <p className="text-sm">Look for <strong>"Install app"</strong> or <strong>"Add to Home Screen"</strong></p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
+              <p className="text-sm">Tap to confirm the installation</p>
             </div>
           </div>
         </DialogContent>

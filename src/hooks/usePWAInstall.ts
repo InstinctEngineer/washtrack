@@ -9,27 +9,28 @@ export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    // Check if already installed (standalone mode)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
       || (navigator as any).standalone === true;
     setIsInstalled(isStandalone);
 
-    // Detect iOS Safari
     const ua = navigator.userAgent;
+    // Detect ALL iOS browsers, not just Safari
     const isiOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|Chrome/.test(ua);
-    setIsIOS(isiOS && isSafari && !isStandalone);
+    setIsIOS(isiOS && !isStandalone);
 
-    // Listen for install prompt (Chrome/Edge/Android)
+    // Detect mobile (iOS or Android)
+    const mobile = isiOS || /Android/i.test(ua);
+    setIsMobile(mobile);
+
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
     window.addEventListener('beforeinstallprompt', handler);
 
-    // Listen for successful install
     const installedHandler = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
@@ -42,7 +43,7 @@ export function usePWAInstall() {
     };
   }, []);
 
-  const promptInstall = useCallback(async (): Promise<'accepted' | 'dismissed' | 'ios'> => {
+  const promptInstall = useCallback(async (): Promise<'accepted' | 'dismissed' | 'ios' | 'unsupported'> => {
     if (deferredPrompt) {
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
@@ -51,10 +52,11 @@ export function usePWAInstall() {
       }
       return outcome;
     }
-    return 'ios';
-  }, [deferredPrompt]);
+    if (isIOS) return 'ios';
+    return 'unsupported';
+  }, [deferredPrompt, isIOS]);
 
   const canInstall = !isInstalled && (!!deferredPrompt || isIOS);
 
-  return { canInstall, isIOS, isInstalled, promptInstall };
+  return { canInstall, isIOS, isMobile, isInstalled, promptInstall };
 }
