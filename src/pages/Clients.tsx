@@ -16,12 +16,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Client } from '@/types/database';
+import { ClientSetupWizard } from '@/components/ClientSetupWizard';
 
 export default function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [formData, setFormData] = useState<Partial<Client>>({
@@ -203,7 +205,7 @@ export default function Clients() {
             <h1 className="text-3xl font-bold tracking-tight">Client Management</h1>
             <p className="text-muted-foreground">Manage billing entities - who receives invoices</p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button onClick={() => setShowSetupWizard(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Client
           </Button>
@@ -536,6 +538,12 @@ export default function Clients() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {/* Setup Wizard */}
+        <ClientSetupWizard
+          open={showSetupWizard}
+          onOpenChange={setShowSetupWizard}
+          onComplete={fetchClients}
+        />
       </div>
     </Layout>
   );
