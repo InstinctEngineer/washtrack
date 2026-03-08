@@ -538,6 +538,12 @@ export default function Clients() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {/* Setup Wizard */}
+        <ClientSetupWizard
+          open={showSetupWizard}
+          onOpenChange={setShowSetupWizard}
+          onComplete={fetchClients}
+        />
       </div>
     </Layout>
   );
