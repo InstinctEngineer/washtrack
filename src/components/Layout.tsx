@@ -25,12 +25,23 @@ import {
   MessageSquare,
   Wrench,
   Package,
-  Calendar
+  Calendar,
+  Smartphone,
+  Share
 } from 'lucide-react';
 import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
 import esAndDLogo from '@/assets/es-d-logo.png';
 import { UserRole } from '@/types/database';
+import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 
 interface LayoutProps {
