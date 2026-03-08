@@ -243,9 +243,11 @@ const WorkItems = () => {
   const selectedRateConfig = rateConfigs.find(rc => {
     if (formRateConfigId) return rc.id === formRateConfigId;
     if (formLocationId && formWorkTypeId) {
-      return rc.location_id === formLocationId && 
-             rc.work_type_id === formWorkTypeId &&
-             rc.frequency === (formFrequency || null);
+      const matchesBase = rc.location_id === formLocationId && rc.work_type_id === formWorkTypeId;
+      if (!matchesBase) return false;
+      // If only one frequency available (dropdown hidden), auto-match it
+      if (availableFrequencies.length <= 1) return true;
+      return rc.frequency === (formFrequency || null);
     }
     return false;
   });
