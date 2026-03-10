@@ -37,6 +37,7 @@ import esAndDLogo from '@/assets/es-d-logo.png';
 import { UserRole } from '@/types/database';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { ErrorReportButton } from '@/components/ErrorReportButton';
 import {
   Dialog,
   DialogContent,
@@ -201,7 +202,8 @@ export const Layout = ({ children }: LayoutProps) => {
             </Link>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <ErrorReportButton />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2">
