@@ -373,7 +373,7 @@ export default function ActivityLogs() {
                 <SheetHeader>
                   <SheetTitle className="flex items-center gap-2">
                     <Badge variant="outline" className={ACTION_COLORS[selectedLog.action] || ''}>
-                      {selectedLog.action}
+                      {ACTION_LABELS[selectedLog.action] || selectedLog.action}
                     </Badge>
                   </SheetTitle>
                   <SheetDescription>
