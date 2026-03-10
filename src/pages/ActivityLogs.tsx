@@ -188,15 +188,15 @@ export default function ActivityLogs() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
+              <Select value={String(pageSize)} onValueChange={v => setPageSize(Number(v))}>
                 <SelectTrigger className="w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="100">100 rows</SelectItem>
-                  <SelectItem value="200">200 rows</SelectItem>
-                  <SelectItem value="500">500 rows</SelectItem>
-                  <SelectItem value="1000">1000 rows</SelectItem>
+                  <SelectItem value="25">25 / page</SelectItem>
+                  <SelectItem value="50">50 / page</SelectItem>
+                  <SelectItem value="100">100 / page</SelectItem>
+                  <SelectItem value="200">200 / page</SelectItem>
                 </SelectContent>
               </Select>
             </div>
