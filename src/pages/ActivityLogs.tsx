@@ -19,7 +19,7 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
   { label: '── Navigation', actions: ['page_view'] },
   { label: '── UI Interactions', actions: ['click', 'input_change', 'form_submit'] },
   { label: '── Auth Events', actions: ['auth_login', 'auth_logout', 'auth_login_failed', 'auth_password_change', 'auth_password_reset', 'auth_session_refresh', 'auth_token_expired', 'auth_error', 'auth_signup'] },
-  { label: '── Database Ops', actions: ['db_insert', 'db_update', 'db_delete', 'db_select', 'db_rpc', 'data_create', 'data_update', 'data_delete'] },
+  { label: '── Database Ops', actions: ['db_insert', 'db_update', 'db_delete', 'db_select', 'db_rpc'] },
   { label: '── Errors & Faults', actions: ['error', 'console_error', 'warning', 'network_error', 'system_fault'] },
 ];
 
