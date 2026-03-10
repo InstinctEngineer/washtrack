@@ -12,7 +12,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, Clock, User, MousePointerClick, FileText, Globe, Tag, Info } from 'lucide-react';
+import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, Clock, User, MousePointerClick, FileText, Globe, Tag, Info, Database, Link2, LayoutDashboard } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ACTION_GROUPS: { label: string; actions: string[] }[] = [
@@ -325,7 +325,7 @@ export default function ActivityLogs() {
                       </TableHeader>
                       <TableBody>
                         {filteredLogs.map(log => (
-                          <TableRow key={log.id}>
+                          <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
                             <TableCell className="whitespace-nowrap text-xs">
                               {format(new Date(log.created_at), 'MMM d, HH:mm:ss')}
                             </TableCell>
@@ -340,10 +340,18 @@ export default function ActivityLogs() {
                             <TableCell className="text-xs font-mono">
                               {log.page}
                             </TableCell>
-                            <TableCell className="text-sm">
+                            <TableCell className="text-sm max-w-[200px] truncate">
                               {log.target}
+                              {log.metadata?.modal && (
+                                <span className="ml-1 text-xs text-muted-foreground">({log.metadata.modal})</span>
+                              )}
                             </TableCell>
                             <TableCell className="max-w-[300px] truncate text-xs font-mono">
+                              {log.metadata?.correlation && (
+                                <Badge variant="secondary" className="mr-1 text-[10px] px-1 py-0">
+                                  {log.metadata.correlation}
+                                </Badge>
+                              )}
                               {log.metadata ? JSON.stringify(log.metadata) : '—'}
                             </TableCell>
                           </TableRow>
@@ -442,21 +450,88 @@ export default function ActivityLogs() {
                     </>
                   )}
 
-                  {/* Metadata */}
-                  {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
+                  {/* Modal/Dialog Context */}
+                  {selectedLog.metadata?.modal && (
                     <>
                       <Separator />
                       <div className="flex items-start gap-3">
-                        <Info className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                        <LayoutDashboard className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Modal / Dialog</p>
+                          <p className="text-sm font-medium">{selectedLog.metadata.modal}</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Correlation ID */}
+                  {selectedLog.metadata?.correlation && (
+                    <>
+                      <Separator />
+                      <div className="flex items-start gap-3">
+                        <Link2 className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Correlation ID</p>
+                          <Badge variant="secondary" className="font-mono mt-1">{selectedLog.metadata.correlation}</Badge>
+                          <p className="text-xs text-muted-foreground mt-1">Links this event to related form submissions and DB operations</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Request Body (for DB operations) */}
+                  {selectedLog.metadata?.body && (
+                    <>
+                      <Separator />
+                      <div className="flex items-start gap-3">
+                        <Database className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Metadata</p>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Request Body</p>
                           <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-                            {Object.entries(selectedLog.metadata).map(([key, value]) => (
-                              <div key={key} className="flex flex-col gap-0.5">
-                                <span className="text-xs font-medium text-muted-foreground">{key}</span>
-                                <span className="text-sm font-mono break-all">
-                                  {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
-                                </span>
+                            {selectedLog.metadata.body._batch ? (
+                              <>
+                                <p className="text-xs text-muted-foreground">Batch operation: {selectedLog.metadata.body._count} records</p>
+                                {selectedLog.metadata.body.items?.map((item: any, i: number) => (
+                                  <div key={i} className="border-t pt-2 first:border-t-0 first:pt-0">
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">Record {i + 1}</p>
+                                    {Object.entries(item).map(([k, v]) => (
+                                      <div key={k} className="flex flex-col gap-0.5">
+                                        <span className="text-xs font-medium text-muted-foreground">{k}</span>
+                                        <span className="text-sm font-mono break-all">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ))}
+                              </>
+                            ) : (
+                              Object.entries(selectedLog.metadata.body).map(([key, value]) => (
+                                <div key={key} className="flex flex-col gap-0.5">
+                                  <span className="text-xs font-medium text-muted-foreground">{key}</span>
+                                  <span className="text-sm font-mono break-all">
+                                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                                  </span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Query Filters (for updates/deletes) */}
+                  {selectedLog.metadata?.filters && (
+                    <>
+                      <Separator />
+                      <div className="flex items-start gap-3">
+                        <Search className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Query Filters</p>
+                          <div className="rounded-md border bg-muted/30 p-3 space-y-1">
+                            {Object.entries(selectedLog.metadata.filters).map(([key, value]) => (
+                              <div key={key} className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-muted-foreground">{key}:</span>
+                                <span className="text-sm font-mono">{String(value)}</span>
                               </div>
                             ))}
                           </div>
@@ -464,6 +539,34 @@ export default function ActivityLogs() {
                       </div>
                     </>
                   )}
+
+                  {/* Metadata (remaining fields) */}
+                  {selectedLog.metadata && (() => {
+                    const excluded = ['body', 'filters', 'modal', 'correlation'];
+                    const remaining = Object.entries(selectedLog.metadata).filter(([k]) => !excluded.includes(k));
+                    if (remaining.length === 0) return null;
+                    return (
+                      <>
+                        <Separator />
+                        <div className="flex items-start gap-3">
+                          <Info className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Metadata</p>
+                            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                              {remaining.map(([key, value]) => (
+                                <div key={key} className="flex flex-col gap-0.5">
+                                  <span className="text-xs font-medium text-muted-foreground">{key}</span>
+                                  <span className="text-sm font-mono break-all">
+                                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   <Separator />
 

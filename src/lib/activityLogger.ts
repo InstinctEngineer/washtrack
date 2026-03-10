@@ -24,6 +24,58 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let currentUserId: string | null = null;
 let globalListenersAttached = false;
 
+// ── Dialog context tracking ────────────────────────────────────────
+let currentDialogContext: string | null = null;
+let dialogObserver: MutationObserver | null = null;
+
+function updateDialogContext() {
+  const dialogs = document.querySelectorAll('[role="dialog"][data-state="open"]');
+  if (dialogs.length === 0) {
+    currentDialogContext = null;
+    return;
+  }
+  // Get the topmost (last) open dialog
+  const topDialog = dialogs[dialogs.length - 1];
+  const titleEl = topDialog.querySelector(
+    '[class*="DialogTitle"], [class*="SheetTitle"], [class*="AlertDialogTitle"], h2, h3'
+  );
+  currentDialogContext = titleEl
+    ? (titleEl as HTMLElement).innerText?.trim()?.slice(0, 80) || null
+    : 'Unknown Dialog';
+}
+
+function startDialogObserver() {
+  if (dialogObserver) return;
+  dialogObserver = new MutationObserver(() => {
+    updateDialogContext();
+  });
+  dialogObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['data-state'],
+  });
+}
+
+// ── Correlation ID for form→DB linking ─────────────────────────────
+let activeCorrelationId: string | null = null;
+let correlationTimer: ReturnType<typeof setTimeout> | null = null;
+
+function generateCorrelationId(): string {
+  return Math.random().toString(36).slice(2, 8);
+}
+
+function setCorrelationId() {
+  activeCorrelationId = generateCorrelationId();
+  if (correlationTimer) clearTimeout(correlationTimer);
+  correlationTimer = setTimeout(() => {
+    activeCorrelationId = null;
+    correlationTimer = null;
+  }, 3000); // 3-second TTL
+}
+
+// ── Redaction ──────────────────────────────────────────────────────
+
 function redactSensitive(data: Record<string, any> | null | undefined): Record<string, any> | null {
   if (!data) return null;
   const redacted: Record<string, any> = {};
@@ -38,6 +90,8 @@ function redactSensitive(data: Record<string, any> | null | undefined): Record<s
   }
   return redacted;
 }
+
+// ── Buffer & flush ─────────────────────────────────────────────────
 
 async function flushBuffer() {
   if (buffer.length === 0) return;
@@ -109,7 +163,7 @@ export function logDataChange(
   });
 }
 
-// ── Auth event logging (works even before user ID is set) ───────────
+// ── Auth event logging ─────────────────────────────────────────────
 
 export function logAuthEvent(
   action: 'auth_login' | 'auth_logout' | 'auth_login_failed' | 'auth_signup' | 'auth_password_change' | 'auth_password_reset' | 'auth_session_refresh' | 'auth_token_expired' | 'auth_error',
@@ -127,7 +181,7 @@ export function logAuthEvent(
       user_agent: navigator.userAgent,
     }),
   });
-  // Flush auth events immediately — they're critical
+  // Flush auth events immediately
   if (flushTimer) {
     clearTimeout(flushTimer);
     flushTimer = null;
@@ -150,6 +204,62 @@ export function logDbOperation(
     target,
     metadata: redactSensitive(metadata),
   });
+}
+
+// ── URL parsing helpers ─────────────────────────────────────────────
+
+function extractTableFromUrl(url: string): string | null {
+  try {
+    const match = url.match(/\/rest\/v1\/([^?/]+)/);
+    if (match && !match[1].startsWith('rpc')) return match[1];
+  } catch {}
+  return null;
+}
+
+function extractRpcFromUrl(url: string): string | null {
+  try {
+    const match = url.match(/\/rest\/v1\/rpc\/([^?/]+)/);
+    if (match) return match[1];
+  } catch {}
+  return null;
+}
+
+function extractFiltersFromUrl(url: string): Record<string, string> | null {
+  try {
+    const urlObj = new URL(url);
+    const filters: Record<string, string> = {};
+    urlObj.searchParams.forEach((value, key) => {
+      // Skip Supabase internal params
+      if (['select', 'apikey', 'order', 'limit', 'offset', 'on_conflict'].includes(key)) return;
+      filters[key] = value;
+    });
+    return Object.keys(filters).length > 0 ? filters : null;
+  } catch {
+    return null;
+  }
+}
+
+async function parseRequestBody(init: RequestInit | undefined): Promise<Record<string, any> | null> {
+  if (!init?.body) return null;
+  try {
+    let bodyText: string;
+    if (typeof init.body === 'string') {
+      bodyText = init.body;
+    } else if (init.body instanceof ArrayBuffer) {
+      bodyText = new TextDecoder().decode(init.body);
+    } else {
+      return null; // FormData, Blob, etc — skip
+    }
+    const parsed = JSON.parse(bodyText);
+    // Handle arrays (batch inserts) — only log first few items
+    if (Array.isArray(parsed)) {
+      const items = parsed.slice(0, 3).map(item => redactSensitive(item));
+      return { _batch: true, _count: parsed.length, items };
+    }
+    return redactSensitive(parsed);
+  } catch {
+    return null;
+  }
 }
 
 // ── Global UI interaction tracking ──────────────────────────────────
@@ -228,8 +338,13 @@ function handleGlobalClick(e: MouseEvent) {
   const dataLog = el.getAttribute('data-log');
   if (dataLog) metadata.data_log = dataLog;
 
+  // Attach current dialog context
+  if (currentDialogContext) {
+    metadata.dialog = currentDialogContext;
+  }
+
   const dialog = el.closest('[role="dialog"], [data-state="open"]');
-  if (dialog) {
+  if (dialog && !metadata.dialog) {
     const dialogTitle = dialog.querySelector('[class*="DialogTitle"], [class*="SheetTitle"], h2, h3');
     if (dialogTitle) {
       metadata.dialog = (dialogTitle as HTMLElement).innerText?.trim()?.slice(0, 60);
@@ -255,6 +370,11 @@ function handleGlobalChange(e: Event) {
     element_type: getElementType(el),
     field_name: el.getAttribute('name') || el.getAttribute('id') || undefined,
   };
+
+  // Attach dialog context
+  if (currentDialogContext) {
+    metadata.dialog = currentDialogContext;
+  }
 
   if (!isSensitiveInput(el)) {
     const val = el.value;
@@ -285,6 +405,9 @@ function handleGlobalSubmit(e: Event) {
   const form = e.target as HTMLFormElement;
   if (!(form instanceof HTMLFormElement)) return;
 
+  // Generate correlation ID to link this form submit to subsequent DB ops
+  setCorrelationId();
+
   const formName = form.getAttribute('name') || form.getAttribute('aria-label') || form.id || 'unnamed_form';
 
   const fieldNames: string[] = [];
@@ -293,12 +416,16 @@ function handleGlobalSubmit(e: Event) {
     fieldNames.push(key);
   }
 
+  const metadata: Record<string, any> = { fields: fieldNames };
+  if (activeCorrelationId) metadata.correlation = activeCorrelationId;
+  if (currentDialogContext) metadata.dialog = currentDialogContext;
+
   enqueue({
     user_id: currentUserId,
     action: 'form_submit',
     page: window.location.pathname,
     target: formName,
-    metadata: { fields: fieldNames },
+    metadata,
   });
 }
 
@@ -378,11 +505,20 @@ function interceptConsole() {
   };
 }
 
+// ── Fetch interceptor with body capture ─────────────────────────────
+
 const originalFetch = window.fetch;
 function interceptFetch() {
   window.fetch = async (...args: Parameters<typeof fetch>) => {
     const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request)?.url || '';
-    const method = (args[1] as RequestInit)?.method || 'GET';
+    const init = args[1] as RequestInit | undefined;
+    const method = init?.method || 'GET';
+
+    // Pre-parse request body for mutations (before fetch consumes it)
+    let requestBody: Record<string, any> | null = null;
+    if (['POST', 'PATCH', 'DELETE'].includes(method.toUpperCase()) && url.includes('/rest/v1/') && !url.includes('activity_logs')) {
+      requestBody = await parseRequestBody(init);
+    }
 
     try {
       const response = await originalFetch.apply(window, args);
@@ -406,22 +542,45 @@ function interceptFetch() {
         });
       }
 
-      // Auto-log Supabase REST mutations (POST/PATCH/DELETE to rest/v1)
-      if (url.includes('/rest/v1/') && ['POST', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
+      // Auto-log Supabase REST mutations with body capture
+      if (url.includes('/rest/v1/') && !url.includes('/rpc/') && ['POST', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
         const tableName = extractTableFromUrl(url);
         if (tableName && tableName !== 'activity_logs') {
           const opMap: Record<string, string> = { POST: 'db_insert', PATCH: 'db_update', DELETE: 'db_delete' };
           const userId = currentUserId || 'system';
+          
+          const metadata: Record<string, any> = {
+            method,
+            status: response.status,
+          };
+
+          // Attach request body (redacted)
+          if (requestBody) {
+            metadata.body = requestBody;
+          }
+
+          // Attach query filters (for updates/deletes targeting specific records)
+          const filters = extractFiltersFromUrl(url);
+          if (filters) {
+            metadata.filters = filters;
+          }
+
+          // Attach dialog/modal context
+          if (currentDialogContext) {
+            metadata.modal = currentDialogContext;
+          }
+
+          // Attach correlation ID from recent form submit
+          if (activeCorrelationId) {
+            metadata.correlation = activeCorrelationId;
+          }
+
           enqueue({
             user_id: userId,
             action: opMap[method.toUpperCase()] || 'db_operation',
             page: window.location.pathname,
             target: tableName,
-            metadata: {
-              method,
-              status: response.status,
-              url: url.replace(/apikey=[^&]+/, 'apikey=[REDACTED]').slice(0, 200),
-            },
+            metadata,
           });
         }
       }
@@ -431,14 +590,28 @@ function interceptFetch() {
         const rpcName = extractRpcFromUrl(url);
         if (rpcName) {
           const userId = currentUserId || 'system';
+          const metadata: Record<string, any> = {
+            status: response.status,
+          };
+
+          if (requestBody) {
+            metadata.args = requestBody;
+          }
+
+          if (currentDialogContext) {
+            metadata.modal = currentDialogContext;
+          }
+
+          if (activeCorrelationId) {
+            metadata.correlation = activeCorrelationId;
+          }
+
           enqueue({
             user_id: userId,
             action: 'db_rpc',
             page: window.location.pathname,
             target: rpcName,
-            metadata: {
-              status: response.status,
-            },
+            metadata,
           });
         }
       }
@@ -463,22 +636,6 @@ function interceptFetch() {
   };
 }
 
-function extractTableFromUrl(url: string): string | null {
-  try {
-    const match = url.match(/\/rest\/v1\/([^?/]+)/);
-    if (match && !match[1].startsWith('rpc')) return match[1];
-  } catch {}
-  return null;
-}
-
-function extractRpcFromUrl(url: string): string | null {
-  try {
-    const match = url.match(/\/rest\/v1\/rpc\/([^?/]+)/);
-    if (match) return match[1];
-  } catch {}
-  return null;
-}
-
 // ── Lifecycle ───────────────────────────────────────────────────────
 
 export function attachGlobalListeners() {
@@ -492,6 +649,7 @@ export function attachGlobalListeners() {
   window.addEventListener('unhandledrejection', handleUnhandledRejection);
   interceptConsole();
   interceptFetch();
+  startDialogObserver();
 }
 
 export function detachGlobalListeners() {
@@ -506,6 +664,10 @@ export function detachGlobalListeners() {
   console.error = originalConsoleError;
   console.warn = originalConsoleWarn;
   window.fetch = originalFetch;
+  if (dialogObserver) {
+    dialogObserver.disconnect();
+    dialogObserver = null;
+  }
 }
 
 // Flush on page unload
