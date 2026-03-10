@@ -53,13 +53,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserRole(highestRole);
 
       // Fetch user locations
-      const { data: locationData, error: locationError } = await supabase
-        .from('user_locations')
-        .select('location_id')
-        .eq('user_id', userId);
+      // Finance, Admin, and Super Admin get access to ALL locations by default
+      if (highestRole && ['finance', 'admin', 'super_admin'].includes(highestRole)) {
+        const { data: allLocations, error: allLocError } = await supabase
+          .from('locations')
+          .select('id')
+          .eq('is_active', true);
 
-      if (!locationError && locationData) {
-        setUserLocations(locationData.map(ul => ul.location_id));
+        if (!allLocError && allLocations) {
+          setUserLocations(allLocations.map(l => l.id));
+        }
+      } else {
+        const { data: locationData, error: locationError } = await supabase
+          .from('user_locations')
+          .select('location_id')
+          .eq('user_id', userId);
+
+        if (!locationError && locationData) {
+          setUserLocations(locationData.map(ul => ul.location_id));
+        }
       }
 
       // Check if password reset is required
