@@ -104,15 +104,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
+        // Log auth state changes
+        if (event === 'SIGNED_OUT') {
+          logAuthEvent('auth_logout', { user_id: session?.user?.id });
+          setLoggerUser(null);
+        } else if (event === 'TOKEN_REFRESHED') {
+          logAuthEvent('auth_session_refresh', { user_id: session?.user?.id });
+        } else if (event === 'PASSWORD_RECOVERY') {
+          logAuthEvent('auth_password_reset', { user_id: session?.user?.id, email: session?.user?.email });
+        }
+        
         // Fetch user profile when authenticated
         if (session?.user) {
+          setLoggerUser(session.user.id);
           setTimeout(() => {
             fetchUserProfile(session.user.id);
           }, 0);
         } else {
           setUserProfile(null);
           setUserRole(null);
-          setLoading(false); // Only set loading false when no session
+          setLoading(false);
         }
       }
     );
