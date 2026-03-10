@@ -84,6 +84,7 @@ export default function ActivityLogs() {
   };
 
   useEffect(() => {
+    if (userRole !== 'super_admin') return;
     fetchLogs();
   }, [actionFilter, userFilter, sortDir, limit]);
 
