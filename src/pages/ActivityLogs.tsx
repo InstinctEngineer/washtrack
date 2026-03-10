@@ -45,10 +45,6 @@ export default function ActivityLogs() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [limit, setLimit] = useState(200);
 
-  if (userRole !== 'super_admin') {
-    return <Navigate to="/unauthorized" replace />;
-  }
-
   const fetchLogs = async () => {
     setLoading(true);
     try {

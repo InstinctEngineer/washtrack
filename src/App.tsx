@@ -22,6 +22,7 @@ import Users from "./pages/Users";
 import Locations from "./pages/Locations";
 import Clients from "./pages/Clients";
 import SuperAdminDatabase from "./pages/SuperAdminDatabase";
+import ActivityLogs from "./pages/ActivityLogs";
 import WorkTypes from "./pages/WorkTypes";
 import RateCard from "./pages/RateCard";
 import WorkItems from "./pages/WorkItems";
