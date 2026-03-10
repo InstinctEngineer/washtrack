@@ -325,7 +325,7 @@ export default function ActivityLogs() {
                       </TableHeader>
                       <TableBody>
                         {filteredLogs.map(log => (
-                          <TableRow key={log.id}>
+                          <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
                             <TableCell className="whitespace-nowrap text-xs">
                               {format(new Date(log.created_at), 'MMM d, HH:mm:ss')}
                             </TableCell>
@@ -340,10 +340,18 @@ export default function ActivityLogs() {
                             <TableCell className="text-xs font-mono">
                               {log.page}
                             </TableCell>
-                            <TableCell className="text-sm">
+                            <TableCell className="text-sm max-w-[200px] truncate">
                               {log.target}
+                              {log.metadata?.modal && (
+                                <span className="ml-1 text-xs text-muted-foreground">({log.metadata.modal})</span>
+                              )}
                             </TableCell>
                             <TableCell className="max-w-[300px] truncate text-xs font-mono">
+                              {log.metadata?.correlation && (
+                                <Badge variant="secondary" className="mr-1 text-[10px] px-1 py-0">
+                                  {log.metadata.correlation}
+                                </Badge>
+                              )}
                               {log.metadata ? JSON.stringify(log.metadata) : '—'}
                             </TableCell>
                           </TableRow>
