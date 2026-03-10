@@ -172,6 +172,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/admin/activity-logs"
+              element={
+                <ProtectedRoute allowedRoles={['super_admin']}>
+                  <ActivityLogs />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Catch-all 404 */}
             <Route path="*" element={<NotFound />} />
