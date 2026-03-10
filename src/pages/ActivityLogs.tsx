@@ -227,14 +227,20 @@ export default function ActivityLogs() {
                 </div>
               </div>
               <Select value={actionFilter} onValueChange={setActionFilter}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Action type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ACTION_TYPES.map(a => (
-                    <SelectItem key={a} value={a}>
-                      {a === 'all' ? 'All Actions' : a.replace('_', ' ')}
-                    </SelectItem>
+                  <SelectItem value="all">All Actions</SelectItem>
+                  {ACTION_GROUPS.map(group => (
+                    <div key={group.label}>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{group.label}</div>
+                      {group.actions.map(a => (
+                        <SelectItem key={a} value={a}>
+                          {ACTION_LABELS[a] || a}
+                        </SelectItem>
+                      ))}
+                    </div>
                   ))}
                 </SelectContent>
               </Select>
