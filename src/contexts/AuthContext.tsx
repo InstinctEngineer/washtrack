@@ -3,6 +3,7 @@ import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserRole, UserLocation } from '@/types/database';
 import { getUserHighestRole } from '@/lib/roleUtils';
+import { logAuthEvent, setLoggerUser } from '@/lib/activityLogger';
 
 interface AuthContextType {
   user: SupabaseUser | null;
