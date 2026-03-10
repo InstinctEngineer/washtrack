@@ -12,8 +12,9 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, Clock, User, MousePointerClick, FileText, Globe, Tag, Info, Database, Link2, LayoutDashboard } from 'lucide-react';
+import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, Clock, User, MousePointerClick, FileText, Globe, Tag, Info, Database, Link2, LayoutDashboard, ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { ErrorScreenshotViewer } from '@/components/ErrorScreenshotViewer';
 
 const ACTION_GROUPS: { label: string; actions: string[] }[] = [
   { label: '── Navigation', actions: ['page_view'] },
@@ -474,6 +475,20 @@ export default function ActivityLogs() {
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Correlation ID</p>
                           <Badge variant="secondary" className="font-mono mt-1">{selectedLog.metadata.correlation}</Badge>
                           <p className="text-xs text-muted-foreground mt-1">Links this event to related form submissions and DB operations</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Screenshot (for error reports) */}
+                  {selectedLog.metadata?.screenshot_path && (
+                    <>
+                      <Separator />
+                      <div className="flex items-start gap-3">
+                        <ImageIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Screenshot</p>
+                          <ErrorScreenshotViewer screenshotPath={selectedLog.metadata.screenshot_path} />
                         </div>
                       </div>
                     </>
