@@ -60,6 +60,7 @@ export function ClientSetupWizard({ open, onOpenChange, onComplete }: ClientSetu
   const [createdClientName, setCreatedClientName] = useState<string>('');
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [existingLocations, setExistingLocations] = useState<ExistingLocation[]>([]);
+  const [duplicateClient, setDuplicateClient] = useState<{ id: string; name: string } | null>(null);
 
   const [clientForm, setClientForm] = useState<ClientFormData>({
     name: '',
@@ -102,6 +103,30 @@ export function ClientSetupWizard({ open, onOpenChange, onComplete }: ClientSetu
     if (createdClientId) onComplete();
   };
 
+  const advanceToLocationStep = async (clientId: string, clientName: string) => {
+    setCreatedClientId(clientId);
+    setCreatedClientName(clientName);
+
+    // Pre-fill location address from billing address
+    setLocationForm(prev => ({
+      ...prev,
+      address: clientForm.billing_address || '',
+    }));
+
+    // Fetch existing locations for the "use existing" option
+    const { data: locs } = await supabase.from('locations').select('id, name, address, client_id').eq('is_active', true).order('name');
+    setExistingLocations(locs || []);
+
+    setStep(1);
+  };
+
+  const handleUseExistingClient = async () => {
+    if (!duplicateClient) return;
+    setDuplicateClient(null);
+    toast.success(`Using existing client "${duplicateClient.name}"`);
+    await advanceToLocationStep(duplicateClient.id, duplicateClient.name);
+  };
+
   const handleCreateClient = async () => {
     if (!clientForm.name.trim()) {
       toast.error('Client name is required');
@@ -109,8 +134,20 @@ export function ClientSetupWizard({ open, onOpenChange, onComplete }: ClientSetu
     }
 
     try {
+      // Check for existing client with same name
+      const { data: existing } = await supabase
+        .from('clients')
+        .select('id, name')
+        .ilike('name', clientForm.name.trim())
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        setDuplicateClient(existing[0]);
+        return;
+      }
+
       const { data, error } = await supabase.from('clients').insert([{
-        name: clientForm.name,
+        name: clientForm.name.trim(),
         parent_company: clientForm.parent_company || null,
         billing_address: clientForm.billing_address || null,
         contact_name: clientForm.contact_name || null,
@@ -125,21 +162,8 @@ export function ClientSetupWizard({ open, onOpenChange, onComplete }: ClientSetu
 
       if (error) throw error;
 
-      setCreatedClientId(data.id);
-      setCreatedClientName(clientForm.name);
-
-      // Pre-fill location address from billing address
-      setLocationForm(prev => ({
-        ...prev,
-        address: clientForm.billing_address || '',
-      }));
-
-      // Fetch existing locations for the "use existing" option
-      const { data: locs } = await supabase.from('locations').select('id, name, address, client_id').eq('is_active', true).order('name');
-      setExistingLocations(locs || []);
-
       toast.success('Client created!');
-      setStep(1);
+      await advanceToLocationStep(data.id, clientForm.name.trim());
     } catch (error: any) {
       toast.error(error.message || 'Failed to create client');
     }
@@ -304,6 +328,22 @@ export function ClientSetupWizard({ open, onOpenChange, onComplete }: ClientSetu
                 <Checkbox id="w-active" checked={clientForm.is_active} onCheckedChange={(c) => setClientForm({ ...clientForm, is_active: c === true })} />
                 <Label htmlFor="w-active">Active</Label>
               </div>
+
+              {duplicateClient && (
+                <div className="border border-destructive/50 bg-destructive/10 rounded-lg p-3 space-y-2">
+                  <p className="text-sm font-medium text-destructive">
+                    A client named "{duplicateClient.name}" already exists.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={handleUseExistingClient}>
+                      Use Existing Client
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setDuplicateClient(null)}>
+                      Rename & Retry
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>

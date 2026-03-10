@@ -90,10 +90,11 @@ export const CreateLocationModal = ({
         return;
       }
 
-      // Check for duplicate name
+      // Check for duplicate name within the same client
       const { data: existing } = await supabase
         .from('locations')
         .select('id')
+        .eq('client_id', formData.client_id)
         .ilike('name', formData.name.trim())
         .maybeSingle();
 
