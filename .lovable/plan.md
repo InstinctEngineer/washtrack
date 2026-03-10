@@ -1,71 +1,72 @@
 
 
-## Fix: CSV Smart Mapping for Work Items
+## Plan: End-to-End Data Flow Tracing in Activity Logs
 
-### Root Cause
-The validation logic requires **exact** string match (after lowercasing) for clients and locations. Any minor variation (extra/missing spaces, punctuation differences) triggers an error with suggestions — even when the match is obviously correct. High-confidence fuzzy matches should be auto-accepted.
+### The Problem
 
-### Changes to `src/components/CSVImportModal.tsx`
+Right now, if someone adds a work type, the logs would show:
+- A `click` on "Add Work Type" button (with dialog context)
+- `input_change` entries for the name field
+- A `form_submit` event
+- A `db_insert` to `work_types` with just the HTTP status
 
-#### 1. Auto-accept high-confidence fuzzy matches in `validateRow`
-When exact match fails but fuzzy match scores >= 0.85, auto-resolve it instead of showing an error:
+**Missing**: The DB insert log doesn't include *what data was sent*, *which modal triggered it*, or *which form fields were submitted*. There's no way to connect the dots from UI action to database write.
 
-**Client resolution (lines 162-170):**
-```typescript
-let client_id = resolvedClientId;
-if (!client_id && client_name) {
-  const client = clientMap.get(client_name.toLowerCase());
-  if (client) {
-    client_id = client.id;
-  } else {
-    // Try fuzzy match - auto-accept high confidence
-    const fuzzyMatches = findSimilarMatches(client_name, clientsData, 0.4, 3);
-    if (fuzzyMatches.length > 0 && fuzzyMatches[0].score >= 0.85) {
-      client_id = fuzzyMatches[0].item.id;
-      // Set resolved name so UI shows the mapping
-      row.resolvedClientId = client_id;
-      row.resolvedClientName = fuzzyMatches[0].name;
-    } else {
-      clientError = `Client "${client_name}" not found`;
-      clientSuggestions = fuzzyMatches;
-    }
-  }
-}
-```
+### What Changes
 
-**Location resolution (lines 181-193):** Same pattern — auto-accept >= 0.85 score.
+**1. Capture request body on database mutations (`activityLogger.ts`)**
 
-#### 2. Add normalized matching before fuzzy matching
-Before calling `findSimilarMatches`, try a normalized comparison that strips extra spaces and common punctuation:
+In the fetch interceptor, clone and parse the request body for POST/PATCH/DELETE calls to Supabase REST. Run it through `redactSensitive()` before logging. This gives you the actual data payload (e.g., `{name: "Sprinter", rate_type: "per_unit"}`).
 
-```typescript
-// Normalize: collapse spaces, remove punctuation
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+**2. Capture query filters on updates/deletes**
 
-// Try normalized exact match
-const normalizedName = normalize(client_name);
-const normalizedClient = clientsData.find(c => normalize(c.name) === normalizedName);
-if (normalizedClient) {
-  client_id = normalizedClient.id;
-}
-```
+Parse the URL query string (e.g., `?id=eq.abc123`) to show which records were targeted. This tells you "updated `work_types` where `id = abc123`".
 
-This handles "FedEx RST" matching "Fed Ex RST", "fedex rst", etc.
+**3. Add a UI context tracker**
 
-### Files to Modify
+Maintain a lightweight "context stack" that tracks:
+- The currently open modal/dialog title (via MutationObserver watching `[role="dialog"]` elements)
+- The current page route
 
-| File | Change |
-|------|--------|
-| `src/components/CSVImportModal.tsx` | Add normalized matching + auto-accept high-confidence fuzzy matches in `validateRow` |
+Attach this context to every DB operation log automatically, so a `db_insert` entry includes `{modal: "Add Work Type", page: "/admin/work-types", body: {name: "Sprinter", rate_type: "per_unit"}}`.
 
-### Validation Order (unchanged, already correct)
-1. Client validated first (line 161)
-2. Location validated only if client resolved (line 182: `if (!location_id && client_id && location_name)`)
-3. Work type + frequency validated during import (line 406)
+**4. Add a correlation ID for form flows**
 
-### What This Fixes
-- "FedEx RST" → auto-matches "Fed Ex RST" (normalized match)
-- "rst" → auto-matches "RST" location (already works via toLowerCase, but normalized match adds safety)
-- High-confidence fuzzy matches auto-resolve with green indicator instead of red error
-- Valid exact matches remain untouched (no "reassignment")
+Generate a short ID when a `form_submit` fires, and attach it to the subsequent DB operations within a short time window (~2 seconds). This links the form submission to the exact database calls it triggered.
+
+**5. Update the detail drawer**
+
+In the Activity Logs detail sheet, render the request body as a formatted key-value list (like metadata already is), and show the modal/context and correlation ID when present.
+
+### Technical Details
+
+**Fetch interceptor enhancement** (`activityLogger.ts`):
+- Clone the request `init.body` before sending, parse as JSON, run through `redactSensitive()`
+- Extract URL query params like `id=eq.xxx` into a `filters` metadata field
+- Attach `currentDialogContext` and `correlationId` to the metadata
+
+**Dialog context tracking**:
+- A MutationObserver watches for `[role="dialog"][data-state="open"]` additions/removals
+- Extracts the dialog title text and stores it in a module-level variable `currentDialogContext`
+- Zero performance impact — passive observation only
+
+**Correlation ID**:
+- On `form_submit`, generate a 6-char random ID, store it with a 2-second TTL
+- The fetch interceptor checks if a correlation ID is active and attaches it
+
+### Files Modified
+- `src/lib/activityLogger.ts` — request body capture, dialog context observer, correlation IDs
+- `src/pages/ActivityLogs.tsx` — render body/context/correlation in detail drawer
+
+### Example Log Output After Changes
+
+For "add a new work type called Sprinter":
+
+| Action | Target | Metadata |
+|--------|--------|----------|
+| click | Add Work Type | `{element_type: "button", dialog: null}` |
+| input_change | [name field] | `{value: "Sprinter", dialog: "Add Work Type"}` |
+| click | Per Unit | `{element_type: "toggle", dialog: "Add Work Type"}` |
+| form_submit | unnamed_form | `{fields: ["name"], correlation: "a3f2x1"}` |
+| db_insert | work_types | `{body: {name: "Sprinter", rate_type: "per_unit"}, modal: "Add Work Type", correlation: "a3f2x1", status: 201}` |
 
