@@ -412,7 +412,7 @@ export default function ActivityLogs() {
                     <div>
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Action</p>
                       <Badge variant="outline" className={`${ACTION_COLORS[selectedLog.action] || ''} mt-1`}>
-                        {selectedLog.action}
+                        {ACTION_LABELS[selectedLog.action] || selectedLog.action}
                       </Badge>
                     </div>
                   </div>
