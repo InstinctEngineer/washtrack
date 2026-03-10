@@ -1,5 +1,6 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -27,7 +28,8 @@ import {
   Package,
   Calendar,
   Smartphone,
-  Share
+  Share,
+  Activity
 } from 'lucide-react';
 import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
@@ -57,6 +59,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const { unreadCount } = useUnreadMessageCount();
   const { canInstall, isIOS, isAndroid, isMobile, isInstalled, promptInstall, androidBrowser } = usePWAInstall();
   const [showUnsupportedDialog, setShowUnsupportedDialog] = useState(false);
+  useActivityLogger();
 
   const handleSignOut = async () => {
     await signOut();
@@ -135,6 +138,14 @@ export const Layout = ({ children }: LayoutProps) => {
       });
       navItems.push(
         { label: 'System Settings', icon: Settings, path: '/admin/settings', section: 'Admin Only' }
+      );
+    }
+
+    // Super Admin only
+    if (userRole === 'super_admin') {
+      navItems.push(
+        { label: 'Database Manager', icon: Wrench, path: '/admin/database', section: 'Super Admin' },
+        { label: 'Activity Logs', icon: Activity, path: '/admin/activity-logs', section: 'Super Admin' }
       );
     }
 
