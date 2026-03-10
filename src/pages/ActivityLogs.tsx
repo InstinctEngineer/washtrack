@@ -205,10 +205,28 @@ export default function ActivityLogs() {
 
         {/* Table */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between py-3">
             <CardTitle className="text-lg">
-              {filteredLogs.length} log entries
+              {totalCount.toLocaleString()} total entries · Page {page + 1} of {totalPages}
             </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 0 || loading}
+                onClick={() => setPage(p => p - 1)}
+              >
+                ← Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages - 1 || loading}
+                onClick={() => setPage(p => p + 1)}
+              >
+                Next →
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
