@@ -156,9 +156,9 @@ export function ErrorReportButton() {
     <>
       <Button
         data-error-report-trigger
-        variant="destructive"
+        variant="outline"
         size="sm"
-        className="gap-2 shadow-lg"
+        className="gap-2 border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
         onClick={captureScreenshot}
         disabled={capturing}
       >
