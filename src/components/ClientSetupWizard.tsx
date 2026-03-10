@@ -60,6 +60,7 @@ export function ClientSetupWizard({ open, onOpenChange, onComplete }: ClientSetu
   const [createdClientName, setCreatedClientName] = useState<string>('');
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [existingLocations, setExistingLocations] = useState<ExistingLocation[]>([]);
+  const [duplicateClient, setDuplicateClient] = useState<{ id: string; name: string } | null>(null);
 
   const [clientForm, setClientForm] = useState<ClientFormData>({
     name: '',
