@@ -66,6 +66,8 @@ export const ChangePassword = () => {
         }
       }
 
+      logAuthEvent('auth_password_change', { user_id: currentUser?.id, email: currentUser?.email });
+
       toast({
         title: "Password Updated",
         description: "Your password has been successfully changed",
