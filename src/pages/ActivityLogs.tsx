@@ -46,24 +46,37 @@ export default function ActivityLogs() {
   const [actionFilter, setActionFilter] = useState('all');
   const [userFilter, setUserFilter] = useState('all');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [limit, setLimit] = useState(200);
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
 
   const fetchLogs = async () => {
     setLoading(true);
     try {
+      // Build count query with same filters
+      let countQuery = supabase
+        .from('activity_logs' as any)
+        .select('*', { count: 'exact', head: true });
+
+      if (actionFilter !== 'all') countQuery = countQuery.eq('action', actionFilter);
+      if (userFilter !== 'all') countQuery = countQuery.eq('user_id', userFilter);
+
+      const { count } = await countQuery;
+      setTotalCount(count ?? 0);
+
+      // Build data query with pagination
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+
       let query = supabase
         .from('activity_logs' as any)
         .select('*')
         .order('created_at', { ascending: sortDir === 'asc' })
-        .limit(limit);
+        .range(from, to);
 
-      if (actionFilter !== 'all') {
-        query = query.eq('action', actionFilter);
-      }
-      if (userFilter !== 'all') {
-        query = query.eq('user_id', userFilter);
-      }
+      if (actionFilter !== 'all') query = query.eq('action', actionFilter);
+      if (userFilter !== 'all') query = query.eq('user_id', userFilter);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -77,7 +90,7 @@ export default function ActivityLogs() {
         if (userData) {
           const map: Record<string, string> = {};
           userData.forEach((u: any) => { map[u.id] = u.name; });
-          setUsers(map);
+          setUsers(prev => ({ ...prev, ...map }));
         }
       }
     } catch (err: any) {
@@ -90,7 +103,14 @@ export default function ActivityLogs() {
   useEffect(() => {
     if (userRole !== 'super_admin') return;
     fetchLogs();
-  }, [actionFilter, userFilter, sortDir, limit]);
+  }, [actionFilter, userFilter, sortDir, pageSize, page]);
+
+  // Reset to page 0 when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [actionFilter, userFilter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const filteredLogs = useMemo(() => {
     if (!search.trim()) return logs;
