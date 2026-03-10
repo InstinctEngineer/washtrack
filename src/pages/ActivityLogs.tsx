@@ -322,7 +322,7 @@ export default function ActivityLogs() {
                         {filteredLogs.map(log => (
                           <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
                             <TableCell className="whitespace-nowrap text-xs">
-                              {format(new Date(log.created_at), 'MMM d, HH:mm:ss')}
+                              {format(new Date(log.client_timestamp || log.created_at), 'MMM d, HH:mm:ss')}
                             </TableCell>
                             <TableCell className="whitespace-nowrap">
                               {users[log.user_id] || log.user_id.slice(0, 8)}
