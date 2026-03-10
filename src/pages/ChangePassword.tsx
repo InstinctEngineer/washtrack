@@ -99,6 +99,7 @@ export const ChangePassword = () => {
       }
     } catch (error: any) {
       console.error("Error changing password:", error);
+      logAuthEvent('auth_error', { error: error.message, context: 'password_change' });
       toast({
         title: "Error",
         description: error.message || "Failed to change password",
