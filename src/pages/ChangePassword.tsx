@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Shield } from "lucide-react";
+import { logAuthEvent } from "@/lib/activityLogger";
 
 export const ChangePassword = () => {
   const navigate = useNavigate();
@@ -65,6 +66,8 @@ export const ChangePassword = () => {
         }
       }
 
+      logAuthEvent('auth_password_change', { user_id: currentUser?.id, email: currentUser?.email });
+
       toast({
         title: "Password Updated",
         description: "Your password has been successfully changed",
@@ -96,6 +99,7 @@ export const ChangePassword = () => {
       }
     } catch (error: any) {
       console.error("Error changing password:", error);
+      logAuthEvent('auth_error', { error: error.message, context: 'password_change' });
       toast({
         title: "Error",
         description: error.message || "Failed to change password",

@@ -3,6 +3,7 @@ import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserRole, UserLocation } from '@/types/database';
 import { getUserHighestRole } from '@/lib/roleUtils';
+import { logAuthEvent, setLoggerUser } from '@/lib/activityLogger';
 
 interface AuthContextType {
   user: SupabaseUser | null;
@@ -103,15 +104,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
+        // Log auth state changes
+        if (event === 'SIGNED_OUT') {
+          logAuthEvent('auth_logout', { user_id: session?.user?.id });
+          setLoggerUser(null);
+        } else if (event === 'TOKEN_REFRESHED') {
+          logAuthEvent('auth_session_refresh', { user_id: session?.user?.id });
+        } else if (event === 'PASSWORD_RECOVERY') {
+          logAuthEvent('auth_password_reset', { user_id: session?.user?.id, email: session?.user?.email });
+        }
+        
         // Fetch user profile when authenticated
         if (session?.user) {
+          setLoggerUser(session.user.id);
           setTimeout(() => {
             fetchUserProfile(session.user.id);
           }, 0);
         } else {
           setUserProfile(null);
           setUserRole(null);
-          setLoading(false); // Only set loading false when no session
+          setLoading(false);
         }
       }
     );
@@ -132,7 +144,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    logAuthEvent('auth_logout', { user_id: user?.id, email: userProfile?.email });
     await supabase.auth.signOut();
+    setLoggerUser(null);
     setUser(null);
     setSession(null);
     setUserProfile(null);
