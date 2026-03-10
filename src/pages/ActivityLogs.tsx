@@ -90,6 +90,7 @@ interface ActivityLog {
   target: string | null;
   metadata: any;
   created_at: string;
+  client_timestamp: string | null;
 }
 
 export default function ActivityLogs() {
