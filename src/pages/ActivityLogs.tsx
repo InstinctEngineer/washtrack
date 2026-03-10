@@ -334,7 +334,7 @@ export default function ActivityLogs() {
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className={ACTION_COLORS[log.action] || ''}>
-                                {log.action}
+                                {ACTION_LABELS[log.action] || log.action}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-xs font-mono">
