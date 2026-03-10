@@ -768,6 +768,16 @@ export default function Messages() {
                             {/* Full Message */}
                             <div className="bg-accent/30 rounded-lg p-3">
                               <p className="text-sm whitespace-pre-wrap">{comment.comment_text}</p>
+                              {/* Show screenshot for error reports */}
+                              {(() => {
+                                const ssPath = extractScreenshotPath(comment.comment_text);
+                                if (!ssPath) return null;
+                                return (
+                                  <div className="mt-3 border-t pt-3">
+                                    <ErrorScreenshotViewer screenshotPath={ssPath} />
+                                  </div>
+                                );
+                              })()}
                               {comment.work_log_ids && comment.work_log_ids.length > 0 && (
                                 <div className="flex items-center gap-2 mt-2">
                                   <span className="text-xs text-muted-foreground">
