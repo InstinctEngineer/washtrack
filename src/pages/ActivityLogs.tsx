@@ -480,6 +480,20 @@ export default function ActivityLogs() {
                     </>
                   )}
 
+                  {/* Screenshot (for error reports) */}
+                  {selectedLog.metadata?.screenshot_path && (
+                    <>
+                      <Separator />
+                      <div className="flex items-start gap-3">
+                        <ImageIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Screenshot</p>
+                          <ErrorScreenshotViewer screenshotPath={selectedLog.metadata.screenshot_path} />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                   {/* Request Body (for DB operations) */}
                   {selectedLog.metadata?.body && (
                     <>
