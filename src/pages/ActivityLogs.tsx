@@ -15,21 +15,77 @@ import { Separator } from '@/components/ui/separator';
 import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, Clock, User, MousePointerClick, FileText, Globe, Tag, Info } from 'lucide-react';
 import { format } from 'date-fns';
 
-const ACTION_TYPES = ['all', 'page_view', 'click', 'input_change', 'form_submit', 'data_create', 'data_update', 'data_delete', 'error', 'console_error', 'warning', 'network_error', 'system_fault'];
+const ACTION_GROUPS: { label: string; actions: string[] }[] = [
+  { label: '── Navigation', actions: ['page_view'] },
+  { label: '── UI Interactions', actions: ['click', 'input_change', 'form_submit'] },
+  { label: '── Auth Events', actions: ['auth_login', 'auth_logout', 'auth_login_failed', 'auth_password_change', 'auth_password_reset', 'auth_session_refresh', 'auth_token_expired', 'auth_error', 'auth_signup'] },
+  { label: '── Database Ops', actions: ['db_insert', 'db_update', 'db_delete', 'db_select', 'db_rpc', 'data_create', 'data_update', 'data_delete'] },
+  { label: '── Errors & Faults', actions: ['error', 'console_error', 'warning', 'network_error', 'system_fault'] },
+];
+
+const ALL_ACTION_TYPES = ACTION_GROUPS.flatMap(g => g.actions);
 
 const ACTION_COLORS: Record<string, string> = {
+  // Navigation
   page_view: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  // UI
   click: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   input_change: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
   form_submit: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  // Auth
+  auth_login: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+  auth_logout: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
+  auth_login_failed: 'bg-red-200 text-red-900 dark:bg-red-950 dark:text-red-300',
+  auth_password_change: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+  auth_password_reset: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+  auth_session_refresh: 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200',
+  auth_token_expired: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+  auth_error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  auth_signup: 'bg-teal-200 text-teal-900 dark:bg-teal-950 dark:text-teal-200',
+  // Database
+  db_insert: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+  db_update: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  db_delete: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  db_select: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  db_rpc: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
   data_create: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
   data_update: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
   data_delete: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  // Errors
   error: 'bg-red-200 text-red-900 dark:bg-red-950 dark:text-red-300',
   console_error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   warning: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
   network_error: 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200',
   system_fault: 'bg-red-300 text-red-950 dark:bg-red-950 dark:text-red-200',
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  page_view: 'Page View',
+  click: 'Click',
+  input_change: 'Input Change',
+  form_submit: 'Form Submit',
+  auth_login: 'Login',
+  auth_logout: 'Logout',
+  auth_login_failed: 'Failed Login',
+  auth_password_change: 'Password Change',
+  auth_password_reset: 'Password Reset',
+  auth_session_refresh: 'Session Refresh',
+  auth_token_expired: 'Token Expired',
+  auth_error: 'Auth Error',
+  auth_signup: 'Signup',
+  db_insert: 'DB Insert',
+  db_update: 'DB Update',
+  db_delete: 'DB Delete',
+  db_select: 'DB Select',
+  db_rpc: 'DB Function Call',
+  data_create: 'Data Create',
+  data_update: 'Data Update',
+  data_delete: 'Data Delete',
+  error: 'JS Error',
+  console_error: 'Console Error',
+  warning: 'Warning',
+  network_error: 'Network Error',
+  system_fault: 'System Fault',
 };
 
 interface ActivityLog {
