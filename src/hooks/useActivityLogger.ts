@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { setLoggerUser, logPageView, logAction, logDataChange, attachGlobalListeners, detachGlobalListeners } from '@/lib/activityLogger';
+import { setLoggerUser, logPageView, logAction, attachGlobalListeners, detachGlobalListeners } from '@/lib/activityLogger';
 
 export function useActivityLogger() {
   const { userProfile } = useAuth();
@@ -31,5 +31,5 @@ export function useActivityLogger() {
     }
   }, [location.pathname, userProfile?.id]);
 
-  return { logAction, logDataChange };
+  return { logAction };
 }

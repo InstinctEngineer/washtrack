@@ -11,12 +11,23 @@ const SENSITIVE_FIELDS = [
 const FLUSH_INTERVAL_MS = 5000;
 const MAX_BUFFER_SIZE = 10;
 
+// Framework warning patterns to suppress from logging
+const SUPPRESSED_WARNING_PATTERNS = [
+  'React Router Future Flag Warning',
+  'React does not recognize',
+  'findDOMNode is deprecated',
+  'componentWillReceiveProps',
+  'componentWillMount has been renamed',
+  'Each child in a list should have a unique',
+];
+
 interface LogEntry {
   user_id: string;
   action: string;
   page?: string;
   target?: string;
   metadata?: Record<string, any>;
+  client_timestamp?: string;
 }
 
 let buffer: LogEntry[] = [];
@@ -34,7 +45,6 @@ function updateDialogContext() {
     currentDialogContext = null;
     return;
   }
-  // Get the topmost (last) open dialog
   const topDialog = dialogs[dialogs.length - 1];
   const titleEl = topDialog.querySelector(
     '[class*="DialogTitle"], [class*="SheetTitle"], [class*="AlertDialogTitle"], h2, h3'
@@ -71,7 +81,7 @@ function setCorrelationId() {
   correlationTimer = setTimeout(() => {
     activeCorrelationId = null;
     correlationTimer = null;
-  }, 3000); // 3-second TTL
+  }, 3000);
 }
 
 // ── Redaction ──────────────────────────────────────────────────────
@@ -114,6 +124,8 @@ function scheduleFlush() {
 }
 
 function enqueue(entry: LogEntry) {
+  // Capture client-side timestamp for proper event ordering
+  entry.client_timestamp = new Date().toISOString();
   buffer.push(entry);
   if (buffer.length >= MAX_BUFFER_SIZE) {
     if (flushTimer) {
@@ -144,21 +156,6 @@ export function logAction(action: string, target?: string, metadata?: Record<str
     action,
     page: window.location.pathname,
     target,
-    metadata: redactSensitive(metadata),
-  });
-}
-
-export function logDataChange(
-  operation: 'data_create' | 'data_update' | 'data_delete',
-  tableName: string,
-  metadata?: Record<string, any>
-) {
-  if (!currentUserId) return;
-  enqueue({
-    user_id: currentUserId,
-    action: operation,
-    page: window.location.pathname,
-    target: tableName,
     metadata: redactSensitive(metadata),
   });
 }
@@ -229,7 +226,6 @@ function extractFiltersFromUrl(url: string): Record<string, string> | null {
     const urlObj = new URL(url);
     const filters: Record<string, string> = {};
     urlObj.searchParams.forEach((value, key) => {
-      // Skip Supabase internal params
       if (['select', 'apikey', 'order', 'limit', 'offset', 'on_conflict'].includes(key)) return;
       filters[key] = value;
     });
@@ -248,10 +244,9 @@ async function parseRequestBody(init: RequestInit | undefined): Promise<Record<s
     } else if (init.body instanceof ArrayBuffer) {
       bodyText = new TextDecoder().decode(init.body);
     } else {
-      return null; // FormData, Blob, etc — skip
+      return null;
     }
     const parsed = JSON.parse(bodyText);
-    // Handle arrays (batch inserts) — only log first few items
     if (Array.isArray(parsed)) {
       const items = parsed.slice(0, 3).map(item => redactSensitive(item));
       return { _batch: true, _count: parsed.length, items };
@@ -338,7 +333,6 @@ function handleGlobalClick(e: MouseEvent) {
   const dataLog = el.getAttribute('data-log');
   if (dataLog) metadata.data_log = dataLog;
 
-  // Attach current dialog context
   if (currentDialogContext) {
     metadata.dialog = currentDialogContext;
   }
@@ -371,7 +365,6 @@ function handleGlobalChange(e: Event) {
     field_name: el.getAttribute('name') || el.getAttribute('id') || undefined,
   };
 
-  // Attach dialog context
   if (currentDialogContext) {
     metadata.dialog = currentDialogContext;
   }
@@ -495,6 +488,9 @@ function interceptConsole() {
       try { return JSON.stringify(a); } catch { return String(a); }
     }).join(' ').slice(0, 300);
 
+    // Filter out known framework warnings that create noise
+    if (SUPPRESSED_WARNING_PATTERNS.some(pattern => message.includes(pattern))) return;
+
     enqueue({
       user_id: currentUserId,
       action: 'warning',
@@ -554,23 +550,19 @@ function interceptFetch() {
             status: response.status,
           };
 
-          // Attach request body (redacted)
           if (requestBody) {
             metadata.body = requestBody;
           }
 
-          // Attach query filters (for updates/deletes targeting specific records)
           const filters = extractFiltersFromUrl(url);
           if (filters) {
             metadata.filters = filters;
           }
 
-          // Attach dialog/modal context
           if (currentDialogContext) {
             metadata.modal = currentDialogContext;
           }
 
-          // Attach correlation ID from recent form submit
           if (activeCorrelationId) {
             metadata.correlation = activeCorrelationId;
           }
