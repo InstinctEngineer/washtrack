@@ -1,71 +1,43 @@
 
 
-## Fix: CSV Smart Mapping for Work Items
+## Investigation Results
 
-### Root Cause
-The validation logic requires **exact** string match (after lowercasing) for clients and locations. Any minor variation (extra/missing spaces, punctuation differences) triggers an error with suggestions — even when the match is obviously correct. High-confidence fuzzy matches should be auto-accepted.
+### Root Causes Found
 
-### Changes to `src/components/CSVImportModal.tsx`
+**1. ClientSetupWizard creates duplicate clients** — `handleCreateClient` (line 112) does NOT check if a client with the same name already exists before inserting. Every time the wizard runs, it blindly creates a new client.
 
-#### 1. Auto-accept high-confidence fuzzy matches in `validateRow`
-When exact match fails but fuzzy match scores >= 0.85, auto-resolve it instead of showing an error:
+**2. ClientSetupWizard creates duplicate locations** — The duplicate check on line 166-175 only checks locations under the *newly created* (duplicate) client ID, so it never finds the original location.
 
-**Client resolution (lines 162-170):**
-```typescript
-let client_id = resolvedClientId;
-if (!client_id && client_name) {
-  const client = clientMap.get(client_name.toLowerCase());
-  if (client) {
-    client_id = client.id;
-  } else {
-    // Try fuzzy match - auto-accept high confidence
-    const fuzzyMatches = findSimilarMatches(client_name, clientsData, 0.4, 3);
-    if (fuzzyMatches.length > 0 && fuzzyMatches[0].score >= 0.85) {
-      client_id = fuzzyMatches[0].item.id;
-      // Set resolved name so UI shows the mapping
-      row.resolvedClientId = client_id;
-      row.resolvedClientName = fuzzyMatches[0].name;
-    } else {
-      clientError = `Client "${client_name}" not found`;
-      clientSuggestions = fuzzyMatches;
-    }
-  }
-}
+**3. Location not in employee dashboard dropdown** — The employee dashboard loads locations from `user_locations` (a junction table mapping users to locations). New locations created via the wizard or the Locations page are never inserted into `user_locations` for any user. The admin must manually assign the location to employees via Edit User. This is by-design but the "ABR" duplicates mean the *original* ABR location (correctly assigned to users) is being ignored because the CSV import is looking at the *duplicate* ABR client/location.
+
+### Plan
+
+#### 1. Clean up duplicate ABR data
+- Query to find duplicate ABR clients and locations
+- Delete the duplicates (and any rate_configs/work_items attached to them)
+- Keep the originals intact
+
+#### 2. Fix `ClientSetupWizard.tsx` — Add duplicate client check
+In `handleCreateClient`, before inserting, check for an existing client with the same name (case-insensitive). If found, offer to use the existing client instead of creating a new one.
+
+```
+Before insert:
+  - Query clients table with ilike match on name
+  - If match found, ask user to confirm: use existing or create new
+  - If using existing, set createdClientId to existing client's ID and skip insert
 ```
 
-**Location resolution (lines 181-193):** Same pattern — auto-accept >= 0.85 score.
+#### 3. Fix `ClientSetupWizard.tsx` — Location duplicate check scope
+The current check on line 166 correctly scopes to `createdClientId`, but since step 1 may now reuse an existing client, this naturally fixes the location duplicate issue too.
 
-#### 2. Add normalized matching before fuzzy matching
-Before calling `findSimilarMatches`, try a normalized comparison that strips extra spaces and common punctuation:
-
-```typescript
-// Normalize: collapse spaces, remove punctuation
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-// Try normalized exact match
-const normalizedName = normalize(client_name);
-const normalizedClient = clientsData.find(c => normalize(c.name) === normalizedName);
-if (normalizedClient) {
-  client_id = normalizedClient.id;
-}
-```
-
-This handles "FedEx RST" matching "Fed Ex RST", "fedex rst", etc.
+#### 4. Fix `CreateLocationModal.tsx` — Scope duplicate check to client
+Line 94-98 checks for duplicate location names globally (any client). Should be scoped to the selected `client_id` to allow the same location name for different clients, while catching true duplicates.
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/CSVImportModal.tsx` | Add normalized matching + auto-accept high-confidence fuzzy matches in `validateRow` |
-
-### Validation Order (unchanged, already correct)
-1. Client validated first (line 161)
-2. Location validated only if client resolved (line 182: `if (!location_id && client_id && location_name)`)
-3. Work type + frequency validated during import (line 406)
-
-### What This Fixes
-- "FedEx RST" → auto-matches "Fed Ex RST" (normalized match)
-- "rst" → auto-matches "RST" location (already works via toLowerCase, but normalized match adds safety)
-- High-confidence fuzzy matches auto-resolve with green indicator instead of red error
-- Valid exact matches remain untouched (no "reassignment")
+| `src/components/ClientSetupWizard.tsx` | Add case-insensitive duplicate client check before insert; if match found, offer to reuse existing client |
+| `src/components/CreateLocationModal.tsx` | Scope duplicate location check to selected `client_id` |
+| Database cleanup | Delete duplicate ABR client/location and any orphaned rate_configs/work_items |
 
