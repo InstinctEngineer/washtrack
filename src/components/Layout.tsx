@@ -28,7 +28,8 @@ import {
   Package,
   Calendar,
   Smartphone,
-  Share
+  Share,
+  Activity
 } from 'lucide-react';
 import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
