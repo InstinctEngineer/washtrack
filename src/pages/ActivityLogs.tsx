@@ -47,6 +47,7 @@ export default function ActivityLogs() {
   const [userFilter, setUserFilter] = useState('all');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [limit, setLimit] = useState(200);
+  const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
 
   const fetchLogs = async () => {
     setLoading(true);
