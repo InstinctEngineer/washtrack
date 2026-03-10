@@ -328,6 +328,22 @@ export function ClientSetupWizard({ open, onOpenChange, onComplete }: ClientSetu
                 <Checkbox id="w-active" checked={clientForm.is_active} onCheckedChange={(c) => setClientForm({ ...clientForm, is_active: c === true })} />
                 <Label htmlFor="w-active">Active</Label>
               </div>
+
+              {duplicateClient && (
+                <div className="border border-yellow-500/50 bg-yellow-500/10 rounded-lg p-3 space-y-2">
+                  <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                    A client named "{duplicateClient.name}" already exists.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={handleUseExistingClient}>
+                      Use Existing Client
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setDuplicateClient(null)}>
+                      Rename & Retry
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
