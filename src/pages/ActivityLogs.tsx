@@ -48,9 +48,6 @@ const ACTION_COLORS: Record<string, string> = {
   db_delete: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   db_select: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
   db_rpc: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-  data_create: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
-  data_update: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  data_delete: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   // Errors
   error: 'bg-red-200 text-red-900 dark:bg-red-950 dark:text-red-300',
   console_error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
