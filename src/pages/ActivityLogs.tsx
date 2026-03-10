@@ -105,6 +105,10 @@ export default function ActivityLogs() {
     return ids.map(id => ({ id, name: users[id] || id.slice(0, 8) }));
   }, [logs, users]);
 
+  if (userRole !== 'super_admin') {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
   return (
     <Layout>
       <div className="container mx-auto p-6 space-y-6">
