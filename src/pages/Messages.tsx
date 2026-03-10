@@ -18,10 +18,11 @@ import { UserRole } from '@/types/database';
 import { format, startOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { 
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown, MapPin, 
-  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus, User, X, FileText
+  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus, User, X, FileText, ImageIcon
 } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { UserSearchInput } from '@/components/UserSearchInput';
+import { ErrorScreenshotViewer, extractScreenshotPath } from '@/components/ErrorScreenshotViewer';
 
 interface EmployeeComment {
   id: string;
