@@ -330,8 +330,8 @@ export function ClientSetupWizard({ open, onOpenChange, onComplete }: ClientSetu
               </div>
 
               {duplicateClient && (
-                <div className="border border-yellow-500/50 bg-yellow-500/10 rounded-lg p-3 space-y-2">
-                  <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                <div className="border border-destructive/50 bg-destructive/10 rounded-lg p-3 space-y-2">
+                  <p className="text-sm font-medium text-destructive">
                     A client named "{duplicateClient.name}" already exists.
                   </p>
                   <div className="flex gap-2">
