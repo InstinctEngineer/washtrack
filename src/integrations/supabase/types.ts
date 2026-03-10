@@ -17,6 +17,7 @@ export type Database = {
       activity_logs: {
         Row: {
           action: string
+          client_timestamp: string | null
           created_at: string
           id: string
           metadata: Json | null
@@ -26,6 +27,7 @@ export type Database = {
         }
         Insert: {
           action: string
+          client_timestamp?: string | null
           created_at?: string
           id?: string
           metadata?: Json | null
@@ -35,6 +37,7 @@ export type Database = {
         }
         Update: {
           action?: string
+          client_timestamp?: string | null
           created_at?: string
           id?: string
           metadata?: Json | null
