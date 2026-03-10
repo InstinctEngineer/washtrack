@@ -1185,6 +1185,10 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      purge_old_activity_logs: {
+        Args: { retention_days?: number }
+        Returns: number
+      }
     }
     Enums: {
       app_role: "employee" | "manager" | "finance" | "admin" | "super_admin"

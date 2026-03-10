@@ -46,24 +46,37 @@ export default function ActivityLogs() {
   const [actionFilter, setActionFilter] = useState('all');
   const [userFilter, setUserFilter] = useState('all');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [limit, setLimit] = useState(200);
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
 
   const fetchLogs = async () => {
     setLoading(true);
     try {
+      // Build count query with same filters
+      let countQuery = supabase
+        .from('activity_logs' as any)
+        .select('*', { count: 'exact', head: true });
+
+      if (actionFilter !== 'all') countQuery = countQuery.eq('action', actionFilter);
+      if (userFilter !== 'all') countQuery = countQuery.eq('user_id', userFilter);
+
+      const { count } = await countQuery;
+      setTotalCount(count ?? 0);
+
+      // Build data query with pagination
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+
       let query = supabase
         .from('activity_logs' as any)
         .select('*')
         .order('created_at', { ascending: sortDir === 'asc' })
-        .limit(limit);
+        .range(from, to);
 
-      if (actionFilter !== 'all') {
-        query = query.eq('action', actionFilter);
-      }
-      if (userFilter !== 'all') {
-        query = query.eq('user_id', userFilter);
-      }
+      if (actionFilter !== 'all') query = query.eq('action', actionFilter);
+      if (userFilter !== 'all') query = query.eq('user_id', userFilter);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -77,7 +90,7 @@ export default function ActivityLogs() {
         if (userData) {
           const map: Record<string, string> = {};
           userData.forEach((u: any) => { map[u.id] = u.name; });
-          setUsers(map);
+          setUsers(prev => ({ ...prev, ...map }));
         }
       }
     } catch (err: any) {
@@ -90,7 +103,14 @@ export default function ActivityLogs() {
   useEffect(() => {
     if (userRole !== 'super_admin') return;
     fetchLogs();
-  }, [actionFilter, userFilter, sortDir, limit]);
+  }, [actionFilter, userFilter, sortDir, pageSize, page]);
+
+  // Reset to page 0 when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [actionFilter, userFilter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const filteredLogs = useMemo(() => {
     if (!search.trim()) return logs;
@@ -168,15 +188,15 @@ export default function ActivityLogs() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
+              <Select value={String(pageSize)} onValueChange={v => setPageSize(Number(v))}>
                 <SelectTrigger className="w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="100">100 rows</SelectItem>
-                  <SelectItem value="200">200 rows</SelectItem>
-                  <SelectItem value="500">500 rows</SelectItem>
-                  <SelectItem value="1000">1000 rows</SelectItem>
+                  <SelectItem value="25">25 / page</SelectItem>
+                  <SelectItem value="50">50 / page</SelectItem>
+                  <SelectItem value="100">100 / page</SelectItem>
+                  <SelectItem value="200">200 / page</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -185,10 +205,28 @@ export default function ActivityLogs() {
 
         {/* Table */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between py-3">
             <CardTitle className="text-lg">
-              {filteredLogs.length} log entries
+              {totalCount.toLocaleString()} total entries · Page {page + 1} of {totalPages}
             </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 0 || loading}
+                onClick={() => setPage(p => p - 1)}
+              >
+                ← Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages - 1 || loading}
+                onClick={() => setPage(p => p + 1)}
+              >
+                Next →
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
