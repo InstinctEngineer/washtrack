@@ -51,14 +51,32 @@ export default function Login() {
         password,
       });
 
-      if (signInError) throw signInError;
+      if (signInError) {
+        logAuthEvent('auth_login_failed', { 
+          email, 
+          error: signInError.message,
+          error_code: (signInError as any).code,
+        });
+        throw signInError;
+      }
 
       // Fetch user's highest role from user_roles table
       const highestRole = await getUserHighestRole(data.user.id);
 
       if (!highestRole) {
+        logAuthEvent('auth_error', { 
+          user_id: data.user.id, 
+          email, 
+          error: 'No role assigned to user' 
+        });
         throw new Error('No role assigned to user');
       }
+
+      logAuthEvent('auth_login', { 
+        user_id: data.user.id, 
+        email, 
+        role: highestRole,
+      });
 
       // Redirect to dashboard based on highest role
       navigate(getDashboardPath(highestRole));
