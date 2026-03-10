@@ -19,7 +19,7 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
   { label: '── Navigation', actions: ['page_view'] },
   { label: '── UI Interactions', actions: ['click', 'input_change', 'form_submit'] },
   { label: '── Auth Events', actions: ['auth_login', 'auth_logout', 'auth_login_failed', 'auth_password_change', 'auth_password_reset', 'auth_session_refresh', 'auth_token_expired', 'auth_error', 'auth_signup'] },
-  { label: '── Database Ops', actions: ['db_insert', 'db_update', 'db_delete', 'db_select', 'db_rpc', 'data_create', 'data_update', 'data_delete'] },
+  { label: '── Database Ops', actions: ['db_insert', 'db_update', 'db_delete', 'db_select', 'db_rpc'] },
   { label: '── Errors & Faults', actions: ['error', 'console_error', 'warning', 'network_error', 'system_fault'] },
 ];
 
@@ -48,9 +48,6 @@ const ACTION_COLORS: Record<string, string> = {
   db_delete: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   db_select: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
   db_rpc: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-  data_create: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
-  data_update: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  data_delete: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   // Errors
   error: 'bg-red-200 text-red-900 dark:bg-red-950 dark:text-red-300',
   console_error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
@@ -78,9 +75,6 @@ const ACTION_LABELS: Record<string, string> = {
   db_delete: 'DB Delete',
   db_select: 'DB Select',
   db_rpc: 'DB Function Call',
-  data_create: 'Data Create',
-  data_update: 'Data Update',
-  data_delete: 'Data Delete',
   error: 'JS Error',
   console_error: 'Console Error',
   warning: 'Warning',
@@ -96,6 +90,7 @@ interface ActivityLog {
   target: string | null;
   metadata: any;
   created_at: string;
+  client_timestamp: string | null;
 }
 
 export default function ActivityLogs() {
@@ -327,7 +322,7 @@ export default function ActivityLogs() {
                         {filteredLogs.map(log => (
                           <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
                             <TableCell className="whitespace-nowrap text-xs">
-                              {format(new Date(log.created_at), 'MMM d, HH:mm:ss')}
+                              {format(new Date(log.client_timestamp || log.created_at), 'MMM d, HH:mm:ss')}
                             </TableCell>
                             <TableCell className="whitespace-nowrap">
                               {users[log.user_id] || log.user_id.slice(0, 8)}
@@ -394,9 +389,14 @@ export default function ActivityLogs() {
                   <div className="flex items-start gap-3">
                     <Clock className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Timestamp</p>
-                      <p className="text-sm font-mono">{format(new Date(selectedLog.created_at), 'EEEE, MMMM d, yyyy')}</p>
-                      <p className="text-sm font-mono">{format(new Date(selectedLog.created_at), 'HH:mm:ss.SSS')}</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Event Time</p>
+                      <p className="text-sm font-mono">{format(new Date(selectedLog.client_timestamp || selectedLog.created_at), 'EEEE, MMMM d, yyyy')}</p>
+                      <p className="text-sm font-mono">{format(new Date(selectedLog.client_timestamp || selectedLog.created_at), 'HH:mm:ss.SSS')}</p>
+                      {selectedLog.client_timestamp && selectedLog.client_timestamp !== selectedLog.created_at && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Server received: {format(new Date(selectedLog.created_at), 'HH:mm:ss.SSS')}
+                        </p>
+                      )}
                     </div>
                   </div>
 
