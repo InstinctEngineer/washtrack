@@ -10,7 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
+import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, Clock, User, MousePointerClick, FileText, Globe, Tag, Info } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ACTION_TYPES = ['all', 'page_view', 'click', 'input_change', 'form_submit', 'data_create', 'data_update', 'data_delete'];
@@ -45,6 +47,7 @@ export default function ActivityLogs() {
   const [userFilter, setUserFilter] = useState('all');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [limit, setLimit] = useState(200);
+  const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -256,6 +259,122 @@ export default function ActivityLogs() {
             )}
           </CardContent>
         </Card>
+
+        {/* Detail Sheet */}
+        <Sheet open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
+          <SheetContent className="sm:max-w-lg overflow-y-auto">
+            {selectedLog && (
+              <>
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2">
+                    <Badge variant="outline" className={ACTION_COLORS[selectedLog.action] || ''}>
+                      {selectedLog.action}
+                    </Badge>
+                  </SheetTitle>
+                  <SheetDescription>
+                    Full details for this activity log entry
+                  </SheetDescription>
+                </SheetHeader>
+
+                <div className="mt-6 space-y-5">
+                  {/* Timestamp */}
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Timestamp</p>
+                      <p className="text-sm font-mono">{format(new Date(selectedLog.created_at), 'EEEE, MMMM d, yyyy')}</p>
+                      <p className="text-sm font-mono">{format(new Date(selectedLog.created_at), 'HH:mm:ss.SSS')}</p>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* User */}
+                  <div className="flex items-start gap-3">
+                    <User className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">User</p>
+                      <p className="text-sm font-medium">{users[selectedLog.user_id] || 'Unknown'}</p>
+                      <p className="text-xs font-mono text-muted-foreground">{selectedLog.user_id}</p>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Action */}
+                  <div className="flex items-start gap-3">
+                    <MousePointerClick className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Action</p>
+                      <Badge variant="outline" className={`${ACTION_COLORS[selectedLog.action] || ''} mt-1`}>
+                        {selectedLog.action}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Page */}
+                  <div className="flex items-start gap-3">
+                    <Globe className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Page</p>
+                      <p className="text-sm font-mono">{selectedLog.page || '—'}</p>
+                    </div>
+                  </div>
+
+                  {/* Target */}
+                  {selectedLog.target && (
+                    <>
+                      <Separator />
+                      <div className="flex items-start gap-3">
+                        <Tag className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Target</p>
+                          <p className="text-sm">{selectedLog.target}</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Metadata */}
+                  {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
+                    <>
+                      <Separator />
+                      <div className="flex items-start gap-3">
+                        <Info className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Metadata</p>
+                          <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                            {Object.entries(selectedLog.metadata).map(([key, value]) => (
+                              <div key={key} className="flex flex-col gap-0.5">
+                                <span className="text-xs font-medium text-muted-foreground">{key}</span>
+                                <span className="text-sm font-mono break-all">
+                                  {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <Separator />
+
+                  {/* Log ID */}
+                  <div className="flex items-start gap-3">
+                    <FileText className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Log ID</p>
+                      <p className="text-xs font-mono text-muted-foreground">{selectedLog.id}</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </SheetContent>
+        </Sheet>
       </div>
     </Layout>
   );
