@@ -140,6 +140,14 @@ export const Layout = ({ children }: LayoutProps) => {
       );
     }
 
+    // Super Admin only
+    if (userRole === 'super_admin') {
+      navItems.push(
+        { label: 'Database Manager', icon: Wrench, path: '/admin/database', section: 'Super Admin' },
+        { label: 'Activity Logs', icon: Activity, path: '/admin/activity-logs', section: 'Super Admin' }
+      );
+    }
+
     return navItems;
   };
 
