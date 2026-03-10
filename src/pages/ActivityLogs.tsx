@@ -389,9 +389,14 @@ export default function ActivityLogs() {
                   <div className="flex items-start gap-3">
                     <Clock className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Timestamp</p>
-                      <p className="text-sm font-mono">{format(new Date(selectedLog.created_at), 'EEEE, MMMM d, yyyy')}</p>
-                      <p className="text-sm font-mono">{format(new Date(selectedLog.created_at), 'HH:mm:ss.SSS')}</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Event Time</p>
+                      <p className="text-sm font-mono">{format(new Date(selectedLog.client_timestamp || selectedLog.created_at), 'EEEE, MMMM d, yyyy')}</p>
+                      <p className="text-sm font-mono">{format(new Date(selectedLog.client_timestamp || selectedLog.created_at), 'HH:mm:ss.SSS')}</p>
+                      {selectedLog.client_timestamp && selectedLog.client_timestamp !== selectedLog.created_at && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Server received: {format(new Date(selectedLog.created_at), 'HH:mm:ss.SSS')}
+                        </p>
+                      )}
                     </div>
                   </div>
 
