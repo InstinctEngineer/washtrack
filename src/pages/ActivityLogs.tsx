@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, Clock, User, MousePointerClick, FileText, Globe, Tag, Info } from 'lucide-react';
 import { format } from 'date-fns';
 
-const ACTION_TYPES = ['all', 'page_view', 'click', 'input_change', 'form_submit', 'data_create', 'data_update', 'data_delete'];
+const ACTION_TYPES = ['all', 'page_view', 'click', 'input_change', 'form_submit', 'data_create', 'data_update', 'data_delete', 'error', 'console_error', 'warning', 'network_error', 'system_fault'];
 
 const ACTION_COLORS: Record<string, string> = {
   page_view: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
@@ -25,6 +25,11 @@ const ACTION_COLORS: Record<string, string> = {
   data_create: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
   data_update: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
   data_delete: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  error: 'bg-red-200 text-red-900 dark:bg-red-950 dark:text-red-300',
+  console_error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  warning: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+  network_error: 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200',
+  system_fault: 'bg-red-300 text-red-950 dark:bg-red-950 dark:text-red-200',
 };
 
 interface ActivityLog {

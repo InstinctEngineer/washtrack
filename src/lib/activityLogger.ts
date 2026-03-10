@@ -279,6 +279,129 @@ function handleGlobalSubmit(e: Event) {
   });
 }
 
+// ── Error, warning, and system fault tracking ──────────────────────
+
+/** Handle uncaught JS errors */
+function handleGlobalError(e: ErrorEvent) {
+  const userId = currentUserId || 'system';
+  enqueue({
+    user_id: userId,
+    action: 'error',
+    page: window.location.pathname,
+    target: e.message?.slice(0, 200),
+    metadata: {
+      filename: e.filename,
+      line: e.lineno,
+      col: e.colno,
+      stack: e.error?.stack?.slice(0, 500),
+    },
+  });
+}
+
+/** Handle unhandled promise rejections */
+function handleUnhandledRejection(e: PromiseRejectionEvent) {
+  const userId = currentUserId || 'system';
+  const reason = e.reason;
+  const message = reason instanceof Error ? reason.message : String(reason);
+  enqueue({
+    user_id: userId,
+    action: 'error',
+    page: window.location.pathname,
+    target: `Unhandled Promise: ${message.slice(0, 180)}`,
+    metadata: {
+      type: 'unhandled_rejection',
+      stack: reason instanceof Error ? reason.stack?.slice(0, 500) : undefined,
+    },
+  });
+}
+
+/** Intercept console.warn and console.error */
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+function interceptConsole() {
+  console.error = (...args: any[]) => {
+    originalConsoleError.apply(console, args);
+    if (!currentUserId) return;
+    const message = args.map(a => {
+      if (a instanceof Error) return a.message;
+      if (typeof a === 'string') return a;
+      try { return JSON.stringify(a); } catch { return String(a); }
+    }).join(' ').slice(0, 300);
+
+    // Skip logging our own insert failures to avoid loops
+    if (message.includes('activity_logs')) return;
+
+    enqueue({
+      user_id: currentUserId,
+      action: 'console_error',
+      page: window.location.pathname,
+      target: message,
+      metadata: { type: 'console.error' },
+    });
+  };
+
+  console.warn = (...args: any[]) => {
+    originalConsoleWarn.apply(console, args);
+    if (!currentUserId) return;
+    const message = args.map(a => {
+      if (typeof a === 'string') return a;
+      try { return JSON.stringify(a); } catch { return String(a); }
+    }).join(' ').slice(0, 300);
+
+    enqueue({
+      user_id: currentUserId,
+      action: 'warning',
+      page: window.location.pathname,
+      target: message,
+      metadata: { type: 'console.warn' },
+    });
+  };
+}
+
+/** Track failed network requests (fetch errors) */
+const originalFetch = window.fetch;
+function interceptFetch() {
+  window.fetch = async (...args: Parameters<typeof fetch>) => {
+    const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request)?.url || '';
+    try {
+      const response = await originalFetch.apply(window, args);
+      // Log 4xx/5xx responses (skip activity_logs to avoid loops)
+      if (!response.ok && response.status >= 400 && !url.includes('activity_logs')) {
+        const userId = currentUserId || 'system';
+        enqueue({
+          user_id: userId,
+          action: response.status >= 500 ? 'system_fault' : 'network_error',
+          page: window.location.pathname,
+          target: `${response.status} ${response.statusText}`,
+          metadata: {
+            url: url.slice(0, 200),
+            method: (args[1] as RequestInit)?.method || 'GET',
+            status: response.status,
+          },
+        });
+      }
+      return response;
+    } catch (err) {
+      // Network failure (offline, CORS, etc.)
+      if (!url.includes('activity_logs')) {
+        const userId = currentUserId || 'system';
+        enqueue({
+          user_id: userId,
+          action: 'network_error',
+          page: window.location.pathname,
+          target: `Fetch failed: ${(err as Error).message?.slice(0, 150)}`,
+          metadata: {
+            url: url.slice(0, 200),
+            method: (args[1] as RequestInit)?.method || 'GET',
+          },
+        });
+      }
+      throw err;
+    }
+  };
+}
+
 /** Attach global event listeners — call once */
 export function attachGlobalListeners() {
   if (globalListenersAttached) return;
@@ -287,6 +410,10 @@ export function attachGlobalListeners() {
   document.addEventListener('click', handleGlobalClick, { capture: true, passive: true });
   document.addEventListener('change', handleGlobalChange, { capture: true, passive: true });
   document.addEventListener('submit', handleGlobalSubmit, { capture: true, passive: true });
+  window.addEventListener('error', handleGlobalError);
+  window.addEventListener('unhandledrejection', handleUnhandledRejection);
+  interceptConsole();
+  interceptFetch();
 }
 
 /** Detach global event listeners */
@@ -297,6 +424,11 @@ export function detachGlobalListeners() {
   document.removeEventListener('click', handleGlobalClick, { capture: true });
   document.removeEventListener('change', handleGlobalChange, { capture: true });
   document.removeEventListener('submit', handleGlobalSubmit, { capture: true });
+  window.removeEventListener('error', handleGlobalError);
+  window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+  console.error = originalConsoleError;
+  console.warn = originalConsoleWarn;
+  window.fetch = originalFetch;
 }
 
 // Flush on page unload
