@@ -12,8 +12,9 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, Clock, User, MousePointerClick, FileText, Globe, Tag, Info, Database, Link2, LayoutDashboard } from 'lucide-react';
+import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, Clock, User, MousePointerClick, FileText, Globe, Tag, Info, Database, Link2, LayoutDashboard, ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { ErrorScreenshotViewer } from '@/components/ErrorScreenshotViewer';
 
 const ACTION_GROUPS: { label: string; actions: string[] }[] = [
   { label: '── Navigation', actions: ['page_view'] },
