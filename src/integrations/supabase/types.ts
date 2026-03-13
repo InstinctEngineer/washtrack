@@ -208,6 +208,42 @@ export type Database = {
           },
         ]
       }
+      error_reports: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          page_url: string | null
+          reported_by: string
+          screenshot_url: string | null
+          status: string
+          user_agent: string | null
+          viewport: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          page_url?: string | null
+          reported_by: string
+          screenshot_url?: string | null
+          status?: string
+          user_agent?: string | null
+          viewport?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          page_url?: string | null
+          reported_by?: string
+          screenshot_url?: string | null
+          status?: string
+          user_agent?: string | null
+          viewport?: string | null
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           address: string | null
@@ -1132,6 +1168,7 @@ export type Database = {
           work_type_rate_type: string
         }[]
       }
+      get_super_admin_id: { Args: never; Returns: string }
       get_user_display_info: {
         Args: { user_ids: string[] }
         Returns: {

@@ -1,77 +1,71 @@
 
 
-## Plan: Refactor Error Reports to Dedicated Table
+## Fix: CSV Smart Mapping for Work Items
 
-### Verified Pre-conditions
-- `is_super_admin()` function already exists in Postgres.
-- `error-reports` storage bucket exists, with INSERT policy allowing all authenticated users. Upload will continue to work.
-- Reporter names come from the `users` table (has `name` column), not `auth.users`. No issue there.
+### Root Cause
+The validation logic requires **exact** string match (after lowercasing) for clients and locations. Any minor variation (extra/missing spaces, punctuation differences) triggers an error with suggestions — even when the match is obviously correct. High-confidence fuzzy matches should be auto-accepted.
 
-### Changes
+### Changes to `src/components/CSVImportModal.tsx`
 
-#### 1. Database Migration
-Create `error_reports` table with RLS:
+#### 1. Auto-accept high-confidence fuzzy matches in `validateRow`
+When exact match fails but fuzzy match scores >= 0.85, auto-resolve it instead of showing an error:
 
-```sql
-CREATE TABLE public.error_reports (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  reported_by uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  description text NOT NULL,
-  screenshot_url text,
-  page_url text,
-  user_agent text,
-  viewport text,
-  status text NOT NULL DEFAULT 'open',
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.error_reports ENABLE ROW LEVEL SECURITY;
-
--- INSERT: any authenticated user, own rows only
-CREATE POLICY "Users can insert own reports"
-  ON public.error_reports FOR INSERT TO authenticated
-  WITH CHECK (auth.uid() = reported_by);
-
--- SELECT: users see own, super admins see all
-CREATE POLICY "Users can read own reports"
-  ON public.error_reports FOR SELECT TO authenticated
-  USING (auth.uid() = reported_by);
-
-CREATE POLICY "Super admins can read all reports"
-  ON public.error_reports FOR SELECT TO authenticated
-  USING (is_super_admin(auth.uid()));
-
--- UPDATE: super admins only (status toggle)
-CREATE POLICY "Super admins can update reports"
-  ON public.error_reports FOR UPDATE TO authenticated
-  USING (is_super_admin(auth.uid()));
+**Client resolution (lines 162-170):**
+```typescript
+let client_id = resolvedClientId;
+if (!client_id && client_name) {
+  const client = clientMap.get(client_name.toLowerCase());
+  if (client) {
+    client_id = client.id;
+  } else {
+    // Try fuzzy match - auto-accept high confidence
+    const fuzzyMatches = findSimilarMatches(client_name, clientsData, 0.4, 3);
+    if (fuzzyMatches.length > 0 && fuzzyMatches[0].score >= 0.85) {
+      client_id = fuzzyMatches[0].item.id;
+      // Set resolved name so UI shows the mapping
+      row.resolvedClientId = client_id;
+      row.resolvedClientName = fuzzyMatches[0].name;
+    } else {
+      clientError = `Client "${client_name}" not found`;
+      clientSuggestions = fuzzyMatches;
+    }
+  }
+}
 ```
 
-#### 2. Refactor `ErrorReportButton.tsx`
-- Remove all messaging logic: no `user_roles` query, no `employee_comments` insert, no `get_super_admin_id` RPC.
-- After screenshot upload, insert directly into `error_reports` with `reported_by = userProfile.id`, `description`, `screenshot_url` (storage path), `page_url`, `user_agent`, `viewport`.
-- Keep `logAction('error_report', ...)` for activity logs.
-- Add error handling: if insert fails, show error toast instead of success.
+**Location resolution (lines 181-193):** Same pattern — auto-accept >= 0.85 score.
 
-#### 3. Add Error Reports Section to `AdminDashboard.tsx`
-- New section below existing cards: "Error Reports" with an alert icon.
-- Query `error_reports` joined with `users` table on `reported_by = users.id` for reporter name.
-- Display a table: reporter name, description (truncated), page URL, timestamp, screenshot preview via `ErrorScreenshotViewer`, and a status badge/toggle (open/resolved).
-- Show open report count in the stats row as a fifth card.
+#### 2. Add normalized matching before fuzzy matching
+Before calling `findSimilarMatches`, try a normalized comparison that strips extra spaces and common punctuation:
 
-#### 4. Add `error_report` to Activity Logs
-- Add to `ACTION_GROUPS`: `{ label: '── Reports', actions: ['error_report'] }`
-- Add to `ACTION_COLORS`: bold red (`bg-red-500 text-white`)
-- Add to `ACTION_LABELS`: `'Error Report'`
+```typescript
+// Normalize: collapse spaces, remove punctuation
+const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-#### 5. Clean Up Messages Page
-- Remove `ErrorScreenshotViewer` and `extractScreenshotPath` import (line 25).
-- Remove the screenshot viewer rendering block (lines 771-779).
+// Try normalized exact match
+const normalizedName = normalize(client_name);
+const normalizedClient = clientsData.find(c => normalize(c.name) === normalizedName);
+if (normalizedClient) {
+  client_id = normalizedClient.id;
+}
+```
 
-### Files Modified
-- New migration SQL
-- `src/components/ErrorReportButton.tsx`
-- `src/pages/AdminDashboard.tsx`
-- `src/pages/ActivityLogs.tsx`
-- `src/pages/Messages.tsx`
+This handles "FedEx RST" matching "Fed Ex RST", "fedex rst", etc.
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/components/CSVImportModal.tsx` | Add normalized matching + auto-accept high-confidence fuzzy matches in `validateRow` |
+
+### Validation Order (unchanged, already correct)
+1. Client validated first (line 161)
+2. Location validated only if client resolved (line 182: `if (!location_id && client_id && location_name)`)
+3. Work type + frequency validated during import (line 406)
+
+### What This Fixes
+- "FedEx RST" → auto-matches "Fed Ex RST" (normalized match)
+- "rst" → auto-matches "RST" location (already works via toLowerCase, but normalized match adds safety)
+- High-confidence fuzzy matches auto-resolve with green indicator instead of red error
+- Valid exact matches remain untouched (no "reassignment")
 
