@@ -27,6 +27,23 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
 
 const ALL_ACTION_TYPES = ACTION_GROUPS.flatMap(g => g.actions);
 
+// Group filter keys prefixed with "group:" to distinguish from individual action filters
+const GROUP_FILTER_PREFIX = 'group:';
+const GROUP_FILTERS: { key: string; label: string; actions: string[] }[] = ACTION_GROUPS.map(g => ({
+  key: `${GROUP_FILTER_PREFIX}${g.label.replace('── ', '')}`,
+  label: `All ${g.label.replace('── ', '')}`,
+  actions: g.actions,
+}));
+
+function getActionsForFilter(filter: string): string[] | null {
+  if (filter === 'all') return null;
+  if (filter.startsWith(GROUP_FILTER_PREFIX)) {
+    const group = GROUP_FILTERS.find(g => g.key === filter);
+    return group?.actions || null;
+  }
+  return [filter];
+}
+
 const ACTION_COLORS: Record<string, string> = {
   // Navigation
   page_view: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
@@ -119,7 +136,9 @@ export default function ActivityLogs() {
         .from('activity_logs' as any)
         .select('*', { count: 'exact', head: true });
 
-      if (actionFilter !== 'all') countQuery = countQuery.eq('action', actionFilter);
+      const filterActions = getActionsForFilter(actionFilter);
+      if (filterActions && filterActions.length === 1) countQuery = countQuery.eq('action', filterActions[0]);
+      else if (filterActions && filterActions.length > 1) countQuery = countQuery.in('action', filterActions);
       if (userFilter !== 'all') countQuery = countQuery.eq('user_id', userFilter);
 
       const { count } = await countQuery;
@@ -135,7 +154,8 @@ export default function ActivityLogs() {
         .order('created_at', { ascending: sortDir === 'asc' })
         .range(from, to);
 
-      if (actionFilter !== 'all') query = query.eq('action', actionFilter);
+      if (filterActions && filterActions.length === 1) query = query.eq('action', filterActions[0]);
+      else if (filterActions && filterActions.length > 1) query = query.in('action', filterActions);
       if (userFilter !== 'all') query = query.eq('user_id', userFilter);
 
       const { data, error } = await query;
@@ -226,11 +246,15 @@ export default function ActivityLogs() {
                 </div>
               </div>
               <Select value={actionFilter} onValueChange={setActionFilter}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Action type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Actions</SelectItem>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">── By Category</div>
+                  {GROUP_FILTERS.map(g => (
+                    <SelectItem key={g.key} value={g.key}>{g.label}</SelectItem>
+                  ))}
                   {ACTION_GROUPS.map(group => (
                     <div key={group.label}>
                       <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{group.label}</div>
