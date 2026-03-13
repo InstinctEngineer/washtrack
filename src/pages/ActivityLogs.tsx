@@ -56,6 +56,7 @@ const ACTION_COLORS: Record<string, string> = {
   warning: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
   network_error: 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200',
   system_fault: 'bg-red-300 text-red-950 dark:bg-red-950 dark:text-red-200',
+  error_report: 'bg-red-500 text-white dark:bg-red-600 dark:text-white',
 };
 
 const ACTION_LABELS: Record<string, string> = {
