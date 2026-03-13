@@ -86,14 +86,13 @@ export function ErrorReportButton() {
         user_role: userProfile.role,
       });
 
-      // Find super_admin user(s) to send message to
-      const { data: superAdminRoles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'super_admin')
-        .limit(1);
+      // Find super_admin user via secure RPC (bypasses RLS)
+      const { data: superAdminId, error: rpcError } = await supabase
+        .rpc('get_super_admin_id');
 
-      const superAdminId = superAdminRoles?.[0]?.user_id;
+      if (rpcError) {
+        console.error('Failed to find admin:', rpcError);
+      }
 
       if (superAdminId) {
         // Send as an employee_comment (message) to the super admin
