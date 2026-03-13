@@ -83,6 +83,7 @@ const ACTION_LABELS: Record<string, string> = {
   warning: 'Warning',
   network_error: 'Network Error',
   system_fault: 'System Fault',
+  error_report: 'Error Report',
 };
 
 interface ActivityLog {

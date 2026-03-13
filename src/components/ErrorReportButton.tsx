@@ -1,11 +1,11 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import html2canvas from 'html2canvas';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAction } from '@/lib/activityLogger';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertTriangle, Send, Loader2, X, Camera } from 'lucide-react';
+import { AlertTriangle, Send, Loader2, Camera } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -32,17 +32,12 @@ export function ErrorReportButton() {
         allowTaint: true,
         scale: 1,
         logging: false,
-        ignoreElements: (el) => {
-          // Ignore the error report button itself and any open dialogs
-          return el.hasAttribute('data-error-report-trigger');
-        },
+        ignoreElements: (el) => el.hasAttribute('data-error-report-trigger'),
       });
-      const dataUrl = canvas.toDataURL('image/png');
-      setScreenshot(dataUrl);
+      setScreenshot(canvas.toDataURL('image/png'));
       setOpen(true);
     } catch (err) {
       console.error('Screenshot capture failed:', err);
-      // Still open the dialog even if screenshot fails
       setOpen(true);
       toast({
         title: 'Screenshot failed',
@@ -59,9 +54,9 @@ export function ErrorReportButton() {
     setSubmitting(true);
 
     try {
-      let screenshotPath: string | null = null;
+      let screenshotUrl: string | null = null;
 
-      // Upload screenshot to storage if captured
+      // Upload screenshot to storage
       if (screenshot) {
         const blob = await (await fetch(screenshot)).blob();
         const fileName = `${userProfile.id}/${Date.now()}-error-report.png`;
@@ -70,15 +65,30 @@ export function ErrorReportButton() {
           .upload(fileName, blob, { contentType: 'image/png' });
 
         if (!uploadError) {
-          screenshotPath = fileName;
+          screenshotUrl = fileName;
+        } else {
+          console.error('Screenshot upload failed:', uploadError);
         }
       }
 
-      // Log to activity_logs
+      // Insert directly into error_reports table
+      const { error: insertError } = await supabase.from('error_reports').insert({
+        reported_by: userProfile.id,
+        description: description.trim(),
+        screenshot_url: screenshotUrl,
+        page_url: window.location.pathname,
+        user_agent: navigator.userAgent,
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+      });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      // Log to activity logs
       logAction('error_report', window.location.pathname, {
         description: description.trim(),
-        screenshot_path: screenshotPath,
-        user_agent: navigator.userAgent,
+        screenshot_path: screenshotUrl,
         viewport: `${window.innerWidth}x${window.innerHeight}`,
         url: window.location.href,
         user_name: userProfile.name,
@@ -86,49 +96,11 @@ export function ErrorReportButton() {
         user_role: userProfile.role,
       });
 
-      // Find super_admin user(s) to send message to
-      const { data: superAdminRoles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'super_admin')
-        .limit(1);
-
-      const superAdminId = superAdminRoles?.[0]?.user_id;
-
-      if (superAdminId) {
-        // Send as an employee_comment (message) to the super admin
-        const now = new Date();
-        const dayOfWeek = now.getDay();
-        const monday = new Date(now);
-        monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
-        const weekStartDate = monday.toISOString().split('T')[0];
-
-        const messageText = [
-          `🚨 ERROR REPORT`,
-          ``,
-          `From: ${userProfile.name} (${userProfile.email})`,
-          `Page: ${window.location.pathname}`,
-          `Time: ${new Date().toLocaleString()}`,
-          ``,
-          `Description:`,
-          description.trim(),
-          screenshotPath ? `\n📎 Screenshot attached (error-reports/${screenshotPath})` : '',
-        ].join('\n');
-
-        await supabase.from('employee_comments').insert({
-          employee_id: userProfile.id,
-          recipient_id: superAdminId,
-          comment_text: messageText,
-          week_start_date: weekStartDate,
-        });
-      }
-
       toast({
         title: 'Error report submitted',
         description: 'Your report has been sent to the admin team. Thank you!',
       });
 
-      // Reset and close
       setDescription('');
       setScreenshot(null);
       setOpen(false);
@@ -183,7 +155,6 @@ export function ErrorReportButton() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Screenshot preview */}
             {screenshot && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -206,7 +177,6 @@ export function ErrorReportButton() {
               </div>
             )}
 
-            {/* Description */}
             <div className="space-y-2">
               <label htmlFor="error-description" className="text-sm font-medium">
                 What happened? <span className="text-destructive">*</span>
@@ -221,7 +191,6 @@ export function ErrorReportButton() {
               />
             </div>
 
-            {/* Context info */}
             <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
               <p><strong>Page:</strong> {window.location.pathname}</p>
               <p><strong>User:</strong> {userProfile?.name} ({userProfile?.email})</p>
