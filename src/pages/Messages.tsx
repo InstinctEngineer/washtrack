@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { UserSearchInput } from '@/components/UserSearchInput';
-import { ErrorScreenshotViewer, extractScreenshotPath } from '@/components/ErrorScreenshotViewer';
+
 
 interface EmployeeComment {
   id: string;
