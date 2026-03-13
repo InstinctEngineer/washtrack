@@ -28,6 +28,8 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
 const ALL_ACTION_TYPES = ACTION_GROUPS.flatMap(g => g.actions);
 
 const ACTION_COLORS: Record<string, string> = {
+  // User Reports
+  error_report: 'bg-red-500 text-white dark:bg-red-600 dark:text-white font-bold',
   // Navigation
   page_view: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   // UI
