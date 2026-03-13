@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { UserSearchInput } from '@/components/UserSearchInput';
+import { MyErrorReports } from '@/components/MyErrorReports';
 
 
 interface EmployeeComment {
@@ -576,6 +577,9 @@ export default function Messages() {
             </CardContent>
           </Card>
         )}
+
+        {/* My Error Reports - visible to all users */}
+        <MyErrorReports />
 
         {/* Compose Message Dialog - Office staff */}
         <Dialog open={showComposeDialog} onOpenChange={setShowComposeDialog}>
