@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { ErrorScreenshotViewer } from '@/components/ErrorScreenshotViewer';
 
 const ACTION_GROUPS: { label: string; actions: string[] }[] = [
+  { label: '── User Reports', actions: ['error_report'] },
   { label: '── Navigation', actions: ['page_view'] },
   { label: '── UI Interactions', actions: ['click', 'input_change', 'form_submit'] },
   { label: '── Auth Events', actions: ['auth_login', 'auth_logout', 'auth_login_failed', 'auth_password_change', 'auth_password_reset', 'auth_session_refresh', 'auth_token_expired', 'auth_error', 'auth_signup'] },
