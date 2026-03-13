@@ -1132,7 +1132,6 @@ export type Database = {
           work_type_rate_type: string
         }[]
       }
-      get_super_admin_id: { Args: never; Returns: string }
       get_user_display_info: {
         Args: { user_ids: string[] }
         Returns: {
