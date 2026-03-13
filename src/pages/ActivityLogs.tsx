@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { ErrorScreenshotViewer } from '@/components/ErrorScreenshotViewer';
 
 const ACTION_GROUPS: { label: string; actions: string[] }[] = [
+  { label: '── User Reports', actions: ['error_report'] },
   { label: '── Navigation', actions: ['page_view'] },
   { label: '── UI Interactions', actions: ['click', 'input_change', 'form_submit'] },
   { label: '── Auth Events', actions: ['auth_login', 'auth_logout', 'auth_login_failed', 'auth_password_change', 'auth_password_reset', 'auth_session_refresh', 'auth_token_expired', 'auth_error', 'auth_signup'] },
@@ -27,6 +28,8 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
 const ALL_ACTION_TYPES = ACTION_GROUPS.flatMap(g => g.actions);
 
 const ACTION_COLORS: Record<string, string> = {
+  // User Reports
+  error_report: 'bg-red-500 text-white dark:bg-red-600 dark:text-white font-bold',
   // Navigation
   page_view: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   // UI
@@ -58,6 +61,7 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 const ACTION_LABELS: Record<string, string> = {
+  error_report: '🚨 Error Report',
   page_view: 'Page View',
   click: 'Click',
   input_change: 'Input Change',
@@ -321,7 +325,7 @@ export default function ActivityLogs() {
                       </TableHeader>
                       <TableBody>
                         {filteredLogs.map(log => (
-                          <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
+                          <TableRow key={log.id} className={`cursor-pointer hover:bg-muted/50 ${log.action === 'error_report' ? 'bg-red-50 dark:bg-red-950/30 border-l-4 border-l-red-500' : ''}`} onClick={() => setSelectedLog(log)}>
                             <TableCell className="whitespace-nowrap text-xs">
                               {format(new Date(log.client_timestamp || log.created_at), 'MMM d, HH:mm:ss')}
                             </TableCell>

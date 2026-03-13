@@ -86,14 +86,13 @@ export function ErrorReportButton() {
         user_role: userProfile.role,
       });
 
-      // Find super_admin user(s) to send message to
-      const { data: superAdminRoles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'super_admin')
-        .limit(1);
+      // Find super_admin user via secure RPC (bypasses RLS)
+      const { data: superAdminId, error: rpcError } = await supabase
+        .rpc('get_super_admin_id');
 
-      const superAdminId = superAdminRoles?.[0]?.user_id;
+      if (rpcError) {
+        console.error('Failed to find admin:', rpcError);
+      }
 
       if (superAdminId) {
         // Send as an employee_comment (message) to the super admin
@@ -115,18 +114,33 @@ export function ErrorReportButton() {
           screenshotPath ? `\n📎 Screenshot attached (error-reports/${screenshotPath})` : '',
         ].join('\n');
 
-        await supabase.from('employee_comments').insert({
+        const { error: insertError } = await supabase.from('employee_comments').insert({
           employee_id: userProfile.id,
           recipient_id: superAdminId,
           comment_text: messageText,
           week_start_date: weekStartDate,
         });
-      }
 
-      toast({
-        title: 'Error report submitted',
-        description: 'Your report has been sent to the admin team. Thank you!',
-      });
+        if (insertError) {
+          console.error('Failed to send error report message:', insertError);
+          toast({
+            title: 'Report partially submitted',
+            description: 'Your report was logged but the message to admin could not be sent.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Error report submitted',
+            description: 'Your report has been sent to the admin team. Thank you!',
+          });
+        }
+      } else {
+        // No super admin found, but report was still logged
+        toast({
+          title: 'Error report logged',
+          description: 'Your report has been recorded. Thank you!',
+        });
+      }
 
       // Reset and close
       setDescription('');
