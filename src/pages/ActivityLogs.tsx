@@ -61,6 +61,7 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 const ACTION_LABELS: Record<string, string> = {
+  error_report: '🚨 Error Report',
   page_view: 'Page View',
   click: 'Click',
   input_change: 'Input Change',
