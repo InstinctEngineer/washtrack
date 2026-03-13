@@ -136,7 +136,9 @@ export default function ActivityLogs() {
         .from('activity_logs' as any)
         .select('*', { count: 'exact', head: true });
 
-      if (actionFilter !== 'all') countQuery = countQuery.eq('action', actionFilter);
+      const filterActions = getActionsForFilter(actionFilter);
+      if (filterActions && filterActions.length === 1) countQuery = countQuery.eq('action', filterActions[0]);
+      else if (filterActions && filterActions.length > 1) countQuery = countQuery.in('action', filterActions);
       if (userFilter !== 'all') countQuery = countQuery.eq('user_id', userFilter);
 
       const { count } = await countQuery;
@@ -152,7 +154,8 @@ export default function ActivityLogs() {
         .order('created_at', { ascending: sortDir === 'asc' })
         .range(from, to);
 
-      if (actionFilter !== 'all') query = query.eq('action', actionFilter);
+      if (filterActions && filterActions.length === 1) query = query.eq('action', filterActions[0]);
+      else if (filterActions && filterActions.length > 1) query = query.in('action', filterActions);
       if (userFilter !== 'all') query = query.eq('user_id', userFilter);
 
       const { data, error } = await query;
