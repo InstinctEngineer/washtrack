@@ -27,6 +27,23 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
 
 const ALL_ACTION_TYPES = ACTION_GROUPS.flatMap(g => g.actions);
 
+// Group filter keys prefixed with "group:" to distinguish from individual action filters
+const GROUP_FILTER_PREFIX = 'group:';
+const GROUP_FILTERS: { key: string; label: string; actions: string[] }[] = ACTION_GROUPS.map(g => ({
+  key: `${GROUP_FILTER_PREFIX}${g.label.replace('── ', '')}`,
+  label: `All ${g.label.replace('── ', '')}`,
+  actions: g.actions,
+}));
+
+function getActionsForFilter(filter: string): string[] | null {
+  if (filter === 'all') return null;
+  if (filter.startsWith(GROUP_FILTER_PREFIX)) {
+    const group = GROUP_FILTERS.find(g => g.key === filter);
+    return group?.actions || null;
+  }
+  return [filter];
+}
+
 const ACTION_COLORS: Record<string, string> = {
   // Navigation
   page_view: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
