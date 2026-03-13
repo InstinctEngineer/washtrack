@@ -578,6 +578,9 @@ export default function Messages() {
           </Card>
         )}
 
+        {/* My Error Reports - visible to all users */}
+        <MyErrorReports />
+
         {/* Compose Message Dialog - Office staff */}
         <Dialog open={showComposeDialog} onOpenChange={setShowComposeDialog}>
           <DialogContent className="sm:max-w-[500px]">
