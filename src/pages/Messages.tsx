@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { UserSearchInput } from '@/components/UserSearchInput';
+import { MyErrorReports } from '@/components/MyErrorReports';
 
 
 interface EmployeeComment {
