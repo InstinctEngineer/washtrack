@@ -22,6 +22,7 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
   { label: '── Auth Events', actions: ['auth_login', 'auth_logout', 'auth_login_failed', 'auth_password_change', 'auth_password_reset', 'auth_session_refresh', 'auth_token_expired', 'auth_error', 'auth_signup'] },
   { label: '── Database Ops', actions: ['db_insert', 'db_update', 'db_delete', 'db_select', 'db_rpc'] },
   { label: '── Errors & Faults', actions: ['error', 'console_error', 'warning', 'network_error', 'system_fault'] },
+  { label: '── Reports', actions: ['error_report'] },
 ];
 
 const ALL_ACTION_TYPES = ACTION_GROUPS.flatMap(g => g.actions);
