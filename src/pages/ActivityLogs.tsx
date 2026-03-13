@@ -325,7 +325,7 @@ export default function ActivityLogs() {
                       </TableHeader>
                       <TableBody>
                         {filteredLogs.map(log => (
-                          <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
+                          <TableRow key={log.id} className={`cursor-pointer hover:bg-muted/50 ${log.action === 'error_report' ? 'bg-red-50 dark:bg-red-950/30 border-l-4 border-l-red-500' : ''}`} onClick={() => setSelectedLog(log)}>
                             <TableCell className="whitespace-nowrap text-xs">
                               {format(new Date(log.client_timestamp || log.created_at), 'MMM d, HH:mm:ss')}
                             </TableCell>
