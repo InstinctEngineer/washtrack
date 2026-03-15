@@ -879,46 +879,7 @@ export default function EmployeeDashboard() {
           />
         )}
 
-        {/* Hourly Services Section */}
-        {loadingHourly ? (
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-6 w-40" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-20" />
-            </CardContent>
-          </Card>
-        ) : hourlyConfigs.length > 0 && (
-          <Card data-demo="hourly-services">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Hourly Services
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {hourlyConfigs.map((config) => (
-                  <div
-                    key={config.id}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium">{config.work_type.name}</span>
-                      {config.rate && (
-                        <Badge variant="secondary">${config.rate.toFixed(2)}/hr</Badge>
-                      )}
-                    </div>
-                    <Button size="sm" onClick={() => handleHourlySelect(config)}>
-                      Log Hours
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Hourly services are now merged into WorkItemGrid's Services section */}
 
         {/* Message/Note Field - Always visible */}
         <Card className="border-muted">

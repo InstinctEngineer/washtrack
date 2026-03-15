@@ -298,13 +298,34 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                   )}>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                       {items.map((item) => {
-                        const isSelected = isToggleMode && selectedIds.has(item.id);
-                        const isCompleted = completedIds?.has(item.id);
+                        // Check if this is a virtual hourly tile
+                        if ('isHourlyVirtual' in item && item.isHourlyVirtual) {
+                          return (
+                            <button
+                              key={`hourly-${item.config.id}`}
+                              onClick={() => onSelectHourly?.(item.config)}
+                              className={cn(
+                                "relative flex items-center justify-center p-4 min-h-[64px] rounded-lg",
+                                "transition-all duration-150 touch-manipulation",
+                                "bg-background border-2 border-border hover:border-primary hover:bg-accent",
+                                "active:scale-95"
+                              )}
+                            >
+                              <span className="text-sm font-semibold text-foreground text-center">
+                                {item.config.work_type.name}
+                              </span>
+                            </button>
+                          );
+                        }
+
+                        const workItem = item as WorkItemWithDetails;
+                        const isSelected = isToggleMode && selectedIds.has(workItem.id);
+                        const isCompleted = completedIds?.has(workItem.id);
                         
                         return (
                           <button
-                            key={item.id}
-                            onClick={() => handleItemClick(item)}
+                            key={workItem.id}
+                            onClick={() => handleItemClick(workItem)}
                             disabled={isCompleted}
                             className={cn(
                               "relative flex items-center justify-center p-4 min-h-[64px] rounded-lg",
@@ -335,7 +356,7 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                                   ? "text-green-600 dark:text-green-400" 
                                   : "text-foreground"
                             )}>
-                              {item.identifier}
+                              {workItem.identifier}
                             </span>
                           </button>
                         );

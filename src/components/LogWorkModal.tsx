@@ -185,7 +185,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
           </Button>
           <Button onClick={handleSubmit} disabled={submitting}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isHourly ? 'Log Hours' : 'Log Work'}
+            {submitLabel}
           </Button>
         </DialogFooter>
       </DialogContent>
