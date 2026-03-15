@@ -319,8 +319,8 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                         );
                       })}
                       
-                      {/* Add Vehicle Button */}
-                      {onAddVehicle && (
+                      {/* Add Vehicle Button - hide for Services section */}
+                      {onAddVehicle && typeName !== 'Services' && (
                         <button
                           onClick={() => onAddVehicle(typeName)}
                           className={cn(
