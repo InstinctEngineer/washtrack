@@ -124,11 +124,6 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
             {config?.frequency && (
               <Badge variant="secondary">{config.frequency}</Badge>
             )}
-            {config?.rate && (
-              <Badge variant="outline">
-                ${config.rate.toFixed(2)}{isHourly ? '/hr' : ''}
-              </Badge>
-            )}
           </div>
 
           {/* Date picker */}
