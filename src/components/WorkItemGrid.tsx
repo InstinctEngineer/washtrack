@@ -119,8 +119,9 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
   }, [workItems, searchQuery]);
 
   // Group items by work type (services consolidated under "Services")
+  // Also inject hourly configs as virtual tiles in the Services group
   const groupedItems = useMemo(() => {
-    const groups: Record<string, WorkItemWithDetails[]> = {};
+    const groups: Record<string, (WorkItemWithDetails | { isHourlyVirtual: true; config: RateConfigWithDetails })[]> = {};
     filteredItems.forEach(item => {
       const typeName = item.rate_config.work_type.is_service
         ? 'Services'
@@ -130,8 +131,26 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
       }
       groups[typeName].push(item);
     });
+
+    // Inject hourly configs into the Services group
+    if (hourlyConfigs && hourlyConfigs.length > 0) {
+      const query = searchQuery.toLowerCase();
+      const filteredHourly = searchQuery.trim()
+        ? hourlyConfigs.filter(c => c.work_type.name.toLowerCase().includes(query))
+        : hourlyConfigs;
+      
+      if (filteredHourly.length > 0) {
+        if (!groups['Services']) {
+          groups['Services'] = [];
+        }
+        filteredHourly.forEach(config => {
+          groups['Services'].push({ isHourlyVirtual: true, config });
+        });
+      }
+    }
+
     return groups;
-  }, [filteredItems]);
+  }, [filteredItems, hourlyConfigs, searchQuery]);
 
   // Auto-expand sections with search matches
   useEffect(() => {
