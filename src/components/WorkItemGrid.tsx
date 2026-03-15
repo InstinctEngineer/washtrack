@@ -34,7 +34,7 @@ interface WorkItemGridProps {
   onSelectHourly?: (config: RateConfigWithDetails) => void;
 }
 
-export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, onSelect, onAddVehicle, refreshKey }: WorkItemGridProps) {
+export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, onSelect, onAddVehicle, refreshKey, hourlyConfigs, onSelectHourly }: WorkItemGridProps) {
   const [workItems, setWorkItems] = useState<WorkItemWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
