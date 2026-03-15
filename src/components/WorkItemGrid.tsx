@@ -17,6 +17,7 @@ export interface WorkItemWithDetails {
       id: string;
       name: string;
       rate_type: string;
+      is_service: boolean;
     };
   };
 }
