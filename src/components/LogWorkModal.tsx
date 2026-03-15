@@ -156,14 +156,14 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
 
           {/* Quantity/Hours input */}
           <div className="space-y-2">
-            <Label>{isHourly ? 'Hours' : 'Quantity'}</Label>
+            <Label>{quantityLabel}</Label>
             <Input
               type="number"
               min="0.1"
-              step={isHourly ? '0.25' : '1'}
+              step="1"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              placeholder={isHourly ? 'Enter hours' : 'Enter quantity'}
+              placeholder="Enter quantity"
             />
           </div>
 
