@@ -163,6 +163,28 @@ const WorkTypes = () => {
     },
   });
 
+  // Toggle service mutation
+  const toggleServiceMutation = useMutation({
+    mutationFn: async ({ id, is_service }: { id: string; is_service: boolean }) => {
+      const { error } = await supabase
+        .from('work_types')
+        .update({ is_service })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-types'] });
+      toast({ title: 'Service flag updated' });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error updating service flag',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
