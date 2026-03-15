@@ -980,6 +980,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_service: boolean
           name: string
           rate_type: string
         }
@@ -987,6 +988,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_service?: boolean
           name: string
           rate_type: string
         }
@@ -994,6 +996,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_service?: boolean
           name?: string
           rate_type?: string
         }

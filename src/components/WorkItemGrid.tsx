@@ -17,6 +17,7 @@ export interface WorkItemWithDetails {
       id: string;
       name: string;
       rate_type: string;
+      is_service: boolean;
     };
   };
 }
@@ -51,7 +52,7 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
           id, identifier,
           rate_config:rate_configs!inner(
             id, frequency, rate, location_id,
-            work_type:work_types!inner(id, name, rate_type)
+            work_type:work_types!inner(id, name, rate_type, is_service)
           )
         `)
         .eq('is_active', true)
@@ -114,11 +115,13 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
     );
   }, [workItems, searchQuery]);
 
-  // Group items by work type
+  // Group items by work type (services consolidated under "Services")
   const groupedItems = useMemo(() => {
     const groups: Record<string, WorkItemWithDetails[]> = {};
     filteredItems.forEach(item => {
-      const typeName = item.rate_config.work_type.name;
+      const typeName = item.rate_config.work_type.is_service
+        ? 'Services'
+        : item.rate_config.work_type.name;
       if (!groups[typeName]) {
         groups[typeName] = [];
       }
@@ -196,9 +199,11 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
         <div className="space-y-2">
           {Object.keys(groupedItems)
             .sort((a, b) => {
-              // PUD first, then alphabetical
+              // PUD first, Services last, then alphabetical
               if (a === 'PUD') return -1;
               if (b === 'PUD') return 1;
+              if (a === 'Services') return 1;
+              if (b === 'Services') return -1;
               return a.localeCompare(b);
             })
             .map((typeName) => {

@@ -50,6 +50,7 @@ interface WorkType {
   id: string;
   name: string;
   rate_type: string;
+  is_service: boolean;
   is_active: boolean;
   created_at: string;
 }
@@ -156,6 +157,28 @@ const WorkTypes = () => {
     onError: (error) => {
       toast({
         title: 'Error updating status',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Toggle service mutation
+  const toggleServiceMutation = useMutation({
+    mutationFn: async ({ id, is_service }: { id: string; is_service: boolean }) => {
+      const { error } = await supabase
+        .from('work_types')
+        .update({ is_service })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-types'] });
+      toast({ title: 'Service flag updated' });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error updating service flag',
         description: error.message,
         variant: 'destructive',
       });
@@ -287,6 +310,7 @@ const WorkTypes = () => {
                         <TableRow>
                           <TableHead>Name</TableHead>
                           <TableHead>Rate Type</TableHead>
+                          <TableHead>Service</TableHead>
                           <TableHead>Active</TableHead>
                           {canManageWorkTypes && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
@@ -299,6 +323,15 @@ const WorkTypes = () => {
                               <Badge variant={wt.rate_type === 'per_unit' ? 'default' : 'secondary'}>
                                 {wt.rate_type === 'per_unit' ? 'Per Unit' : 'Hourly'}
                               </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Switch
+                                checked={wt.is_service}
+                                onCheckedChange={(checked) =>
+                                  canManageWorkTypes && toggleServiceMutation.mutate({ id: wt.id, is_service: checked })
+                                }
+                                disabled={!canManageWorkTypes || toggleServiceMutation.isPending}
+                              />
                             </TableCell>
                             <TableCell>
                               <Switch

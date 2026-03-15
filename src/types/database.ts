@@ -55,6 +55,7 @@ export interface WorkType {
   id: string;
   name: string;
   rate_type: 'per_unit' | 'hourly';
+  is_service: boolean;
   is_active: boolean;
   created_at: string;
 }
