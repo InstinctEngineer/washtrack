@@ -326,6 +326,15 @@ const WorkTypes = () => {
                             </TableCell>
                             <TableCell>
                               <Switch
+                                checked={wt.is_service}
+                                onCheckedChange={(checked) =>
+                                  canManageWorkTypes && toggleServiceMutation.mutate({ id: wt.id, is_service: checked })
+                                }
+                                disabled={!canManageWorkTypes || toggleServiceMutation.isPending}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Switch
                                 checked={wt.is_active}
                                 onCheckedChange={(checked) => 
                                   canManageWorkTypes && toggleActiveMutation.mutate({ id: wt.id, is_active: checked })

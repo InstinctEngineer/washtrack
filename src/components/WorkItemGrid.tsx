@@ -199,9 +199,11 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
         <div className="space-y-2">
           {Object.keys(groupedItems)
             .sort((a, b) => {
-              // PUD first, then alphabetical
+              // PUD first, Services last, then alphabetical
               if (a === 'PUD') return -1;
               if (b === 'PUD') return 1;
+              if (a === 'Services') return 1;
+              if (b === 'Services') return -1;
               return a.localeCompare(b);
             })
             .map((typeName) => {
