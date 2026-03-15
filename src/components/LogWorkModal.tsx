@@ -67,7 +67,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
 
     const qty = parseFloat(quantity);
     if (isNaN(qty) || qty <= 0) {
-      toast.error(isHourly ? 'Please enter valid hours' : 'Please enter a valid quantity');
+      toast.error('Please enter a valid quantity');
       return;
     }
 
