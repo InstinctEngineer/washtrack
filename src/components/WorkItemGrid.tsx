@@ -115,11 +115,13 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
     );
   }, [workItems, searchQuery]);
 
-  // Group items by work type
+  // Group items by work type (services consolidated under "Services")
   const groupedItems = useMemo(() => {
     const groups: Record<string, WorkItemWithDetails[]> = {};
     filteredItems.forEach(item => {
-      const typeName = item.rate_config.work_type.name;
+      const typeName = item.rate_config.work_type.is_service
+        ? 'Services'
+        : item.rate_config.work_type.name;
       if (!groups[typeName]) {
         groups[typeName] = [];
       }
