@@ -232,10 +232,10 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
             const items = groupedItems[typeName];
             const isExpanded = expandedSections.has(typeName);
             const selectedInSection = isToggleMode 
-              ? items.filter(item => selectedIds.has(item.id)).length 
+              ? items.filter(item => !('isHourlyVirtual' in item) && selectedIds.has((item as WorkItemWithDetails).id)).length 
               : 0;
             const completedInSection = completedIds 
-              ? items.filter(item => completedIds.has(item.id)).length 
+              ? items.filter(item => !('isHourlyVirtual' in item) && completedIds.has((item as WorkItemWithDetails).id)).length 
               : 0;
             
             return (

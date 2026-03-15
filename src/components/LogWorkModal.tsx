@@ -45,10 +45,8 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
 
   const isHourly = rateConfig !== undefined;
   const config = workItem?.rate_config || rateConfig;
-  // For hourly service items, use "Quantity" labeling instead of "Hours"
-  const quantityLabel = isHourly ? 'Quantity' : 'Quantity';
+  const quantityLabel = 'Quantity';
   const submitLabel = 'Log Work';
-  const config = workItem?.rate_config || rateConfig;
 
   useEffect(() => {
     getCurrentCutoff().then(setCutoffDate);
