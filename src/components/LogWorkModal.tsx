@@ -45,6 +45,8 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
 
   const isHourly = rateConfig !== undefined;
   const config = workItem?.rate_config || rateConfig;
+  const quantityLabel = 'Quantity';
+  const submitLabel = 'Log Work';
 
   useEffect(() => {
     getCurrentCutoff().then(setCutoffDate);
@@ -53,7 +55,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
   useEffect(() => {
     if (open) {
       setDate(new Date());
-      setQuantity(isHourly ? '' : '1');
+      setQuantity('1');
       setNotes('');
     }
   }, [open, isHourly]);
@@ -63,7 +65,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
 
     const qty = parseFloat(quantity);
     if (isNaN(qty) || qty <= 0) {
-      toast.error(isHourly ? 'Please enter valid hours' : 'Please enter a valid quantity');
+      toast.error('Please enter a valid quantity');
       return;
     }
 
@@ -82,7 +84,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
 
       if (error) throw error;
 
-      toast.success(isHourly ? 'Hours logged successfully' : 'Work logged successfully');
+      toast.success('Work logged successfully');
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -104,7 +106,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {isHourly ? 'Log Hours' : 'Log Work'}
+            {submitLabel}
             {workItem && (
               <Badge variant="outline" className="font-mono">
                 {workItem.identifier}
@@ -119,11 +121,6 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
             <Badge>{config?.work_type.name}</Badge>
             {config?.frequency && (
               <Badge variant="secondary">{config.frequency}</Badge>
-            )}
-            {config?.rate && (
-              <Badge variant="outline">
-                ${config.rate.toFixed(2)}{isHourly ? '/hr' : ''}
-              </Badge>
             )}
           </div>
 
@@ -157,14 +154,14 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
 
           {/* Quantity/Hours input */}
           <div className="space-y-2">
-            <Label>{isHourly ? 'Hours' : 'Quantity'}</Label>
+            <Label>{quantityLabel}</Label>
             <Input
               type="number"
               min="0.1"
-              step={isHourly ? '0.25' : '1'}
+              step="1"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              placeholder={isHourly ? 'Enter hours' : 'Enter quantity'}
+              placeholder="Enter quantity"
             />
           </div>
 
@@ -186,7 +183,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
           </Button>
           <Button onClick={handleSubmit} disabled={submitting}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isHourly ? 'Log Hours' : 'Log Work'}
+            {submitLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Package, ChevronRight, ChevronDown, Check, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import type { RateConfigWithDetails } from '@/components/LogWorkModal';
 
 export interface WorkItemWithDetails {
   id: string;
@@ -30,9 +31,11 @@ interface WorkItemGridProps {
   onSelect?: (workItem: WorkItemWithDetails) => void;
   onAddVehicle?: (typeName: string) => void;
   refreshKey?: number;
+  hourlyConfigs?: RateConfigWithDetails[];
+  onSelectHourly?: (config: RateConfigWithDetails) => void;
 }
 
-export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, onSelect, onAddVehicle, refreshKey }: WorkItemGridProps) {
+export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, onSelect, onAddVehicle, refreshKey, hourlyConfigs, onSelectHourly }: WorkItemGridProps) {
   const [workItems, setWorkItems] = useState<WorkItemWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,8 +119,9 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
   }, [workItems, searchQuery]);
 
   // Group items by work type (services consolidated under "Services")
+  // Also inject hourly configs as virtual tiles in the Services group
   const groupedItems = useMemo(() => {
-    const groups: Record<string, WorkItemWithDetails[]> = {};
+    const groups: Record<string, (WorkItemWithDetails | { isHourlyVirtual: true; config: RateConfigWithDetails })[]> = {};
     filteredItems.forEach(item => {
       const typeName = item.rate_config.work_type.is_service
         ? 'Services'
@@ -127,8 +131,26 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
       }
       groups[typeName].push(item);
     });
+
+    // Inject hourly configs into the Services group
+    if (hourlyConfigs && hourlyConfigs.length > 0) {
+      const query = searchQuery.toLowerCase();
+      const filteredHourly = searchQuery.trim()
+        ? hourlyConfigs.filter(c => c.work_type.name.toLowerCase().includes(query))
+        : hourlyConfigs;
+      
+      if (filteredHourly.length > 0) {
+        if (!groups['Services']) {
+          groups['Services'] = [];
+        }
+        filteredHourly.forEach(config => {
+          groups['Services'].push({ isHourlyVirtual: true, config });
+        });
+      }
+    }
+
     return groups;
-  }, [filteredItems]);
+  }, [filteredItems, hourlyConfigs, searchQuery]);
 
   // Auto-expand sections with search matches
   useEffect(() => {
@@ -210,10 +232,10 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
             const items = groupedItems[typeName];
             const isExpanded = expandedSections.has(typeName);
             const selectedInSection = isToggleMode 
-              ? items.filter(item => selectedIds.has(item.id)).length 
+              ? items.filter(item => !('isHourlyVirtual' in item) && selectedIds.has((item as WorkItemWithDetails).id)).length 
               : 0;
             const completedInSection = completedIds 
-              ? items.filter(item => completedIds.has(item.id)).length 
+              ? items.filter(item => !('isHourlyVirtual' in item) && completedIds.has((item as WorkItemWithDetails).id)).length 
               : 0;
             
             return (
@@ -276,13 +298,34 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                   )}>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                       {items.map((item) => {
-                        const isSelected = isToggleMode && selectedIds.has(item.id);
-                        const isCompleted = completedIds?.has(item.id);
+                        // Check if this is a virtual hourly tile
+                        if ('isHourlyVirtual' in item && item.isHourlyVirtual) {
+                          return (
+                            <button
+                              key={`hourly-${item.config.id}`}
+                              onClick={() => onSelectHourly?.(item.config)}
+                              className={cn(
+                                "relative flex items-center justify-center p-4 min-h-[64px] rounded-lg",
+                                "transition-all duration-150 touch-manipulation",
+                                "bg-background border-2 border-border hover:border-primary hover:bg-accent",
+                                "active:scale-95"
+                              )}
+                            >
+                              <span className="text-sm font-semibold text-foreground text-center">
+                                {item.config.work_type.name}
+                              </span>
+                            </button>
+                          );
+                        }
+
+                        const workItem = item as WorkItemWithDetails;
+                        const isSelected = isToggleMode && selectedIds.has(workItem.id);
+                        const isCompleted = completedIds?.has(workItem.id);
                         
                         return (
                           <button
-                            key={item.id}
-                            onClick={() => handleItemClick(item)}
+                            key={workItem.id}
+                            onClick={() => handleItemClick(workItem)}
                             disabled={isCompleted}
                             className={cn(
                               "relative flex items-center justify-center p-4 min-h-[64px] rounded-lg",
@@ -313,7 +356,7 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                                   ? "text-green-600 dark:text-green-400" 
                                   : "text-foreground"
                             )}>
-                              {item.identifier}
+                              {workItem.identifier}
                             </span>
                           </button>
                         );
