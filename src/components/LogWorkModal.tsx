@@ -63,7 +63,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
   const handleSubmit = async () => {
     if (!user || !config) return;
 
-    const qty = parseFloat(quantity);
+    const qty = parseInt(quantity, 10);
     if (isNaN(qty) || qty <= 0) {
       toast.error('Please enter a valid quantity');
       return;
@@ -157,10 +157,10 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
             <Label>{quantityLabel}</Label>
             <Input
               type="number"
-              min="0.1"
+              min="1"
               step="1"
               value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
+              onChange={(e) => setQuantity(e.target.value.replace(/\D/g, ''))}
               placeholder="Enter quantity"
             />
           </div>
