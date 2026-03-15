@@ -52,7 +52,7 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
           id, identifier,
           rate_config:rate_configs!inner(
             id, frequency, rate, location_id,
-            work_type:work_types!inner(id, name, rate_type)
+            work_type:work_types!inner(id, name, rate_type, is_service)
           )
         `)
         .eq('is_active', true)
