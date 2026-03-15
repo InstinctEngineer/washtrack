@@ -30,6 +30,8 @@ interface WorkItemGridProps {
   onSelect?: (workItem: WorkItemWithDetails) => void;
   onAddVehicle?: (typeName: string) => void;
   refreshKey?: number;
+  hourlyConfigs?: RateConfigWithDetails[];
+  onSelectHourly?: (config: RateConfigWithDetails) => void;
 }
 
 export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, onSelect, onAddVehicle, refreshKey }: WorkItemGridProps) {
