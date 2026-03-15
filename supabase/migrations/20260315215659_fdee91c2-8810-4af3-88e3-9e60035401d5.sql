@@ -1,0 +1,1 @@
+ALTER TABLE public.work_types ADD COLUMN is_service boolean NOT NULL DEFAULT false;
