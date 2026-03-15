@@ -55,7 +55,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
   useEffect(() => {
     if (open) {
       setDate(new Date());
-      setQuantity(isHourly ? '' : '1');
+      setQuantity('1');
       setNotes('');
     }
   }, [open, isHourly]);
