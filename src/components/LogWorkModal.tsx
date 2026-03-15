@@ -86,7 +86,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
 
       if (error) throw error;
 
-      toast.success(isHourly ? 'Hours logged successfully' : 'Work logged successfully');
+      toast.success('Work logged successfully');
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
