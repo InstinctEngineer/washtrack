@@ -108,7 +108,7 @@ export function LogWorkModal({ open, onOpenChange, workItem, rateConfig, onSucce
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {isHourly ? 'Log Hours' : 'Log Work'}
+            {submitLabel}
             {workItem && (
               <Badge variant="outline" className="font-mono">
                 {workItem.identifier}
