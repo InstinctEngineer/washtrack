@@ -790,6 +790,8 @@ export default function EmployeeDashboard() {
                 onToggle={handleWorkItemToggle}
                 onAddVehicle={handleAddVehicle}
                 refreshKey={vehicleRefreshKey}
+                hourlyConfigs={hourlyConfigs}
+                onSelectHourly={handleHourlySelect}
               />
             )}
           </CardContent>
