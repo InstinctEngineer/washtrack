@@ -310,6 +310,7 @@ const WorkTypes = () => {
                         <TableRow>
                           <TableHead>Name</TableHead>
                           <TableHead>Rate Type</TableHead>
+                          <TableHead>Service</TableHead>
                           <TableHead>Active</TableHead>
                           {canManageWorkTypes && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
