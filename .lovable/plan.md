@@ -1,71 +1,34 @@
 
 
-## Fix: CSV Smart Mapping for Work Items
+## Plan: Merge Hourly Items into Services Section with Quantity Input
 
-### Root Cause
-The validation logic requires **exact** string match (after lowercasing) for clients and locations. Any minor variation (extra/missing spaces, punctuation differences) triggers an error with suggestions — even when the match is obviously correct. High-confidence fuzzy matches should be auto-accepted.
+### Problem
+Hourly services (like "Move Vehicle") appear in a separate "Hourly Services" card with rate badges and a "Log Hours" button. The user wants them merged into the existing "Services" collapsible section in the `WorkItemGrid`, without rate tags, and with a quantity input popup when tapped.
 
-### Changes to `src/components/CSVImportModal.tsx`
+### Key Constraint
+Hourly items are `rate_configs` (no `work_items` rows), while the grid currently only renders `work_items`. They need to be injected into the grid as virtual tiles.
 
-#### 1. Auto-accept high-confidence fuzzy matches in `validateRow`
-When exact match fails but fuzzy match scores >= 0.85, auto-resolve it instead of showing an error:
+### Changes
 
-**Client resolution (lines 162-170):**
-```typescript
-let client_id = resolvedClientId;
-if (!client_id && client_name) {
-  const client = clientMap.get(client_name.toLowerCase());
-  if (client) {
-    client_id = client.id;
-  } else {
-    // Try fuzzy match - auto-accept high confidence
-    const fuzzyMatches = findSimilarMatches(client_name, clientsData, 0.4, 3);
-    if (fuzzyMatches.length > 0 && fuzzyMatches[0].score >= 0.85) {
-      client_id = fuzzyMatches[0].item.id;
-      // Set resolved name so UI shows the mapping
-      row.resolvedClientId = client_id;
-      row.resolvedClientName = fuzzyMatches[0].name;
-    } else {
-      clientError = `Client "${client_name}" not found`;
-      clientSuggestions = fuzzyMatches;
-    }
-  }
-}
-```
+#### 1. `WorkItemGrid.tsx` — Accept and render hourly configs as service tiles
+- Add new prop: `hourlyConfigs?: RateConfigWithDetails[]`
+- Add new callback prop: `onSelectHourly?: (config: RateConfigWithDetails) => void`
+- After fetching per-unit work items, merge hourly configs into the grouped items under the "Services" key, rendering them as tiles using `work_type.name` as the display label
+- When an hourly tile is tapped, call `onSelectHourly(config)` instead of `onToggle`
+- These tiles skip the batch-selection checkmark styling (not part of batch flow)
 
-**Location resolution (lines 181-193):** Same pattern — auto-accept >= 0.85 score.
+#### 2. `EmployeeDashboard.tsx` — Wire hourly configs into the grid, remove separate section
+- Pass `hourlyConfigs` and `onSelectHourly={handleHourlySelect}` to `WorkItemGrid`
+- Remove the entire "Hourly Services" card (lines ~880–919) and related loading skeleton
+- Keep the existing `LogWorkModal` wiring for hourly — `handleHourlySelect` already opens it
 
-#### 2. Add normalized matching before fuzzy matching
-Before calling `findSimilarMatches`, try a normalized comparison that strips extra spaces and common punctuation:
+#### 3. `LogWorkModal.tsx` — Relabel for hourly items used as quantity entries
+- When opened for an hourly `rateConfig`, change "Hours" label to "Quantity" and "Log Hours" to "Log Work"
+- Remove the `$/hr` rate badge display for these items
 
-```typescript
-// Normalize: collapse spaces, remove punctuation
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-// Try normalized exact match
-const normalizedName = normalize(client_name);
-const normalizedClient = clientsData.find(c => normalize(c.name) === normalizedName);
-if (normalizedClient) {
-  client_id = normalizedClient.id;
-}
-```
-
-This handles "FedEx RST" matching "Fed Ex RST", "fedex rst", etc.
-
-### Files to Modify
-
-| File | Change |
-|------|--------|
-| `src/components/CSVImportModal.tsx` | Add normalized matching + auto-accept high-confidence fuzzy matches in `validateRow` |
-
-### Validation Order (unchanged, already correct)
-1. Client validated first (line 161)
-2. Location validated only if client resolved (line 182: `if (!location_id && client_id && location_name)`)
-3. Work type + frequency validated during import (line 406)
-
-### What This Fixes
-- "FedEx RST" → auto-matches "Fed Ex RST" (normalized match)
-- "rst" → auto-matches "RST" location (already works via toLowerCase, but normalized match adds safety)
-- High-confidence fuzzy matches auto-resolve with green indicator instead of red error
-- Valid exact matches remain untouched (no "reassignment")
+### What doesn't change
+- Database schema, RLS, work_logs structure
+- Per-unit batch selection flow
+- Per-unit service items (they stay as normal toggle tiles)
+- The modal itself still submits to `work_logs` with `rate_config_id`
 
