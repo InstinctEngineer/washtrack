@@ -78,6 +78,7 @@ export default function Clients() {
         is_taxable: formData.is_taxable ?? false,
         tax_jurisdiction: formData.tax_jurisdiction || null,
         tax_rate: formData.tax_rate ?? null,
+        business_type: (formData.business_type as string) || 'fedex',
       };
 
       const { error } = await supabase.from('clients').insert([insertData]);
@@ -110,6 +111,7 @@ export default function Clients() {
         is_taxable: formData.is_taxable ?? false,
         tax_jurisdiction: formData.tax_jurisdiction || null,
         tax_rate: formData.tax_rate ?? null,
+        business_type: (formData.business_type as string) || 'fedex',
       };
 
       const { error } = await supabase
