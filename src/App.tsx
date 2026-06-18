@@ -28,6 +28,9 @@ import RateCard from "./pages/RateCard";
 import WorkItems from "./pages/WorkItems";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
+import DealershipRates from "./pages/dealership/DealershipRates";
+import DealershipRequests from "./pages/dealership/DealershipRequests";
+import DealershipReport from "./pages/dealership/DealershipReport";
 
 const queryClient = new QueryClient();
 
@@ -85,6 +88,30 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['finance', 'admin']}>
                   <FinanceThisWeek />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/finance/dealership"
+              element={
+                <ProtectedRoute allowedRoles={['finance', 'admin']}>
+                  <DealershipReport />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/dealership-rates"
+              element={
+                <ProtectedRoute allowedRoles={['finance', 'admin']}>
+                  <DealershipRates />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/dealership-requests"
+              element={
+                <ProtectedRoute allowedRoles={['finance', 'admin']}>
+                  <DealershipRequests />
                 </ProtectedRoute>
               }
             />
