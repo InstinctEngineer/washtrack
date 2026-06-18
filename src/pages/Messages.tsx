@@ -745,11 +745,16 @@ export default function Messages() {
                   };
 
                   return (
-                    <Collapsible
-                      key={comment.id}
-                      open={isExpanded}
-                      onOpenChange={toggleExpanded}
-                    >
+                    <div key={comment.id}>
+                      {showDateHeader && (
+                        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur px-2 py-1.5 mt-3 first:mt-0 border-b text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {format(new Date(comment.created_at), 'EEEE, MMMM d, yyyy')}
+                        </div>
+                      )}
+                      <Collapsible
+                        open={isExpanded}
+                        onOpenChange={toggleExpanded}
+                      >
                       <div className={`border rounded-lg transition-colors ${
                         index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
                       } ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
