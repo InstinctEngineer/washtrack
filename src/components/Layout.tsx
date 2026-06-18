@@ -29,7 +29,8 @@ import {
   Calendar,
   Smartphone,
   Share,
-  Activity
+  Activity,
+  Car
 } from 'lucide-react';
 import { useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
@@ -115,6 +116,12 @@ export const Layout = ({ children }: LayoutProps) => {
         path: '/finance/this-week',
         section: 'Dashboards'
       });
+      navItems.push({
+        label: 'Dealership Report',
+        icon: Car,
+        path: '/finance/dealership',
+        section: 'Dashboards'
+      });
     }
 
     // Finance users can access management features (except Admin Dashboard and Settings)
@@ -125,7 +132,9 @@ export const Layout = ({ children }: LayoutProps) => {
         { label: 'Work Types', icon: Wrench, path: '/admin/work-types', section: 'Administration' },
         { label: 'Rate Card', icon: DollarSign, path: '/admin/rates', section: 'Administration' },
         { label: 'Work Items', icon: Package, path: '/admin/items', section: 'Administration' },
-        { label: 'Locations', icon: MapPin, path: '/admin/locations', section: 'Administration' }
+        { label: 'Locations', icon: MapPin, path: '/admin/locations', section: 'Administration' },
+        { label: 'Dealership Rates', icon: Car, path: '/admin/dealership-rates', section: 'Administration' },
+        { label: 'Dealership Requests', icon: Car, path: '/admin/dealership-requests', section: 'Administration' }
       );
     }
 
