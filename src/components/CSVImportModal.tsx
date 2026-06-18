@@ -651,14 +651,21 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
     }
   };
 
-  const validCount = parsedRows.filter((r) => r.isValid).length;
-  const errorCount = parsedRows.filter((r) => !r.isValid).length;
-  const warningCount = parsedRows.filter((r) => r.isValid && r.warnings.length > 0).length;
+  const skippedRowCount = parsedRows.filter((r) => r.isSkipped).length;
+  const validCount = parsedRows.filter((r) => r.isValid && !r.isSkipped).length;
+  const errorCount = parsedRows.filter((r) => !r.isValid && !r.isSkipped).length;
+  const warningCount = parsedRows.filter((r) => r.isValid && !r.isSkipped && r.warnings.length > 0).length;
 
   // Sort rows: errors first, then warnings, then valid
   const sortedRows = [...parsedRows].sort((a, b) => {
-    if (!a.isValid && b.isValid) return -1;
-    if (a.isValid && !b.isValid) return 1;
+    const rank = (r: ParsedRow) => {
+      if (!r.isValid && !r.isSkipped) return 0; // errors first
+      if (r.isSkipped) return 1;                // then skipped
+      if (r.warnings.length > 0) return 2;      // then warnings
+      return 3;                                  // then clean
+    };
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
     if (a.warnings.length > 0 && b.warnings.length === 0) return -1;
     if (a.warnings.length === 0 && b.warnings.length > 0) return 1;
     return a.rowNumber - b.rowNumber;
