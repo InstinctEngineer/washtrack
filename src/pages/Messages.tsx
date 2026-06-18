@@ -950,7 +950,8 @@ export default function Messages() {
                           </div>
                         </CollapsibleContent>
                       </div>
-                    </Collapsible>
+                      </Collapsible>
+                    </div>
                   );
                 })}
               </div>
