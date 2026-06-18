@@ -53,6 +53,9 @@ interface ParsedRow {
   resolvedLocationName: string | null;
   clientError: string | null;
   locationError: string | null;
+  isSkipped?: boolean;
+  skipReason?: string | null;
+  importError?: string | null;
 }
 
 interface PendingCreation {
@@ -295,7 +298,76 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
         return validateRow(baseRow, clientsData, locationsData);
       });
 
-      setParsedRows(rows);
+      // Filter out completely blank rows (all key fields empty)
+      const nonBlankRows = rows.filter(
+        r => r.client_name || r.location_name || r.identifier || r.work_type
+      );
+
+      // 1. CSV-internal duplicate detection
+      const dupKeyToFirstRow = new Map<string, number>();
+      nonBlankRows.forEach(r => {
+        if (!r.identifier) return; // only identifier-bearing rows can dup
+        const key = [
+          r.client_name.toLowerCase(),
+          r.location_name.toLowerCase(),
+          r.work_type.toLowerCase().trim(),
+          r.frequency.toLowerCase().trim(),
+          r.identifier.toLowerCase(),
+        ].join("|");
+        if (dupKeyToFirstRow.has(key)) {
+          const firstRowNum = dupKeyToFirstRow.get(key)!;
+          r.isSkipped = true;
+          r.skipReason = `Duplicate of row ${firstRowNum} in this file`;
+          r.isValid = false;
+          if (!r.warnings.includes(r.skipReason)) r.warnings.push(r.skipReason);
+        } else {
+          dupKeyToFirstRow.set(key, r.rowNumber);
+        }
+      });
+
+      // 2. Already-exists detection against DB
+      const resolvedPairs = Array.from(
+        new Set(
+          nonBlankRows
+            .filter(r => r.client_id && r.location_id && !r.isSkipped)
+            .map(r => `${r.client_id}|${r.location_id}`)
+        )
+      );
+
+      if (resolvedPairs.length > 0) {
+        const clientIds = Array.from(new Set(resolvedPairs.map(p => p.split("|")[0])));
+        const locationIds = Array.from(new Set(resolvedPairs.map(p => p.split("|")[1])));
+
+        const { data: existingConfigs } = await supabase
+          .from("rate_configs")
+          .select("id, client_id, location_id, frequency, work_type:work_types(name), work_items(identifier)")
+          .in("client_id", clientIds)
+          .in("location_id", locationIds);
+
+        const existingKeys = new Set<string>();
+        (existingConfigs || []).forEach((cfg: any) => {
+          const wtName = (cfg.work_type?.name || "").toLowerCase().trim();
+          const freq = (cfg.frequency || "").toLowerCase().trim();
+          (cfg.work_items || []).forEach((wi: any) => {
+            existingKeys.add(
+              `${cfg.client_id}|${cfg.location_id}|${wtName}|${freq}|${(wi.identifier || "").toLowerCase()}`
+            );
+          });
+        });
+
+        nonBlankRows.forEach(r => {
+          if (r.isSkipped || !r.identifier || !r.client_id || !r.location_id) return;
+          const key = `${r.client_id}|${r.location_id}|${r.work_type.toLowerCase().trim()}|${r.frequency.toLowerCase().trim()}|${r.identifier.toLowerCase()}`;
+          if (existingKeys.has(key)) {
+            r.isSkipped = true;
+            r.skipReason = "Already exists — will be skipped";
+            r.isValid = false;
+            if (!r.warnings.includes(r.skipReason)) r.warnings.push(r.skipReason);
+          }
+        });
+      }
+
+      setParsedRows(nonBlankRows);
     } catch (error) {
       console.error("Error parsing CSV:", error);
       toast({
@@ -410,7 +482,7 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
   };
 
   const handleImport = async () => {
-    const validRows = parsedRows.filter((row) => row.isValid);
+    const validRows = parsedRows.filter((row) => row.isValid && !row.isSkipped);
     if (validRows.length === 0) {
       toast({
         title: "No valid rows",
@@ -423,6 +495,8 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
     setIsImporting(true);
     let successCount = 0;
     let failedCount = 0;
+    const rowErrors = new Map<number, string>();
+    const skippedDuringImport: number[] = [];
 
     try {
       // Fetch existing work_types
@@ -512,17 +586,46 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                 identifier: row.identifier,
               });
             
-            if (workItemError) throw workItemError;
+            if (workItemError) {
+              if ((workItemError as any).code === "23505") {
+                // Already exists — treat as skip, not failure
+                skippedDuringImport.push(row.rowNumber);
+                continue;
+              }
+              throw workItemError;
+            }
           }
           
           successCount++;
-        } catch (rowError) {
+        } catch (rowError: any) {
           console.error("Row import error:", rowError);
+          const msg =
+            rowError?.code === "23505"
+              ? "Already exists in the system"
+              : rowError?.message || "Unknown error";
+          rowErrors.set(row.rowNumber, msg);
           failedCount++;
         }
       }
 
       setImportResults({ success: successCount, failed: failedCount });
+      // Annotate rows with import-time errors / skips
+      if (rowErrors.size > 0 || skippedDuringImport.length > 0) {
+        setParsedRows(prev => prev.map(r => {
+          if (rowErrors.has(r.rowNumber)) {
+            return { ...r, importError: rowErrors.get(r.rowNumber)!, isValid: false };
+          }
+          if (skippedDuringImport.includes(r.rowNumber)) {
+            return {
+              ...r,
+              isSkipped: true,
+              skipReason: "Already exists — skipped",
+              isValid: false,
+            };
+          }
+          return r;
+        }));
+      }
       queryClient.invalidateQueries({ queryKey: ["work-items"] });
       queryClient.invalidateQueries({ queryKey: ["work-types"] });
       queryClient.invalidateQueries({ queryKey: ["rate-configs"] });
@@ -545,14 +648,21 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
     }
   };
 
-  const validCount = parsedRows.filter((r) => r.isValid).length;
-  const errorCount = parsedRows.filter((r) => !r.isValid).length;
-  const warningCount = parsedRows.filter((r) => r.isValid && r.warnings.length > 0).length;
+  const skippedRowCount = parsedRows.filter((r) => r.isSkipped).length;
+  const validCount = parsedRows.filter((r) => r.isValid && !r.isSkipped).length;
+  const errorCount = parsedRows.filter((r) => !r.isValid && !r.isSkipped).length;
+  const warningCount = parsedRows.filter((r) => r.isValid && !r.isSkipped && r.warnings.length > 0).length;
 
   // Sort rows: errors first, then warnings, then valid
   const sortedRows = [...parsedRows].sort((a, b) => {
-    if (!a.isValid && b.isValid) return -1;
-    if (a.isValid && !b.isValid) return 1;
+    const rank = (r: ParsedRow) => {
+      if (!r.isValid && !r.isSkipped) return 0; // errors first
+      if (r.isSkipped) return 1;                // then skipped
+      if (r.warnings.length > 0) return 2;      // then warnings
+      return 3;                                  // then clean
+    };
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
     if (a.warnings.length > 0 && b.warnings.length === 0) return -1;
     if (a.warnings.length === 0 && b.warnings.length > 0) return 1;
     return a.rowNumber - b.rowNumber;
@@ -756,6 +866,12 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                   <CheckCircle2 className="h-3 w-3 text-green-500" />
                   {validCount} valid
                 </Badge>
+                {skippedRowCount > 0 && (
+                  <Badge variant="outline" className="gap-1">
+                    <X className="h-3 w-3 text-muted-foreground" />
+                    {skippedRowCount} skipped
+                  </Badge>
+                )}
                 {warningCount > 0 && (
                   <Badge variant="outline" className="gap-1">
                     <AlertCircle className="h-3 w-3 text-yellow-500" />
@@ -839,7 +955,9 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                         <TableRow
                           key={row.rowNumber}
                           className={
-                            !row.isValid
+                            row.isSkipped
+                              ? "bg-muted/40 opacity-70"
+                              : !row.isValid
                               ? "bg-destructive/5"
                               : row.warnings.length > 0
                               ? "bg-yellow-500/5"
@@ -848,7 +966,9 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                         >
                           <TableCell className="font-mono text-xs">{row.rowNumber}</TableCell>
                           <TableCell>
-                            {row.isValid ? (
+                            {row.isSkipped ? (
+                              <X className="h-4 w-4 text-muted-foreground" />
+                            ) : row.isValid ? (
                               row.warnings.length > 0 ? (
                                 <AlertCircle className="h-4 w-4 text-yellow-500" />
                               ) : (
@@ -889,10 +1009,16 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                           <TableCell>{row.rate_type || <span className="text-destructive">Required</span>}</TableCell>
                           <TableCell>{row.rate || "-"}</TableCell>
                           <TableCell className="max-w-xs">
+                            {row.importError && (
+                              <span className="text-xs text-destructive font-medium">{row.importError}</span>
+                            )}
+                            {row.isSkipped && row.skipReason && (
+                              <span className="text-xs text-muted-foreground">{row.skipReason}</span>
+                            )}
                             {otherErrors.length > 0 && (
                               <span className="text-xs text-destructive">{otherErrors.join("; ")}</span>
                             )}
-                            {row.warnings.length > 0 && otherErrors.length === 0 && (
+                            {row.warnings.length > 0 && otherErrors.length === 0 && !row.isSkipped && (
                               <span className="text-xs text-yellow-600">{row.warnings.join("; ")}</span>
                             )}
                           </TableCell>
@@ -910,7 +1036,8 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
             <div className="p-4 rounded-lg bg-muted/50">
               <p className="text-sm">
                 <span className="font-medium">Import complete:</span>{" "}
-                {importResults.success} services imported successfully
+                {importResults.success} imported
+                {skippedRowCount > 0 && `, ${skippedRowCount} skipped (already exist or duplicates)`}
                 {importResults.failed > 0 && `, ${importResults.failed} failed`}.
               </p>
             </div>
