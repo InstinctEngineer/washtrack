@@ -98,6 +98,7 @@ export type Database = {
       clients: {
         Row: {
           billing_address: string | null
+          business_type: string
           contact_email: string | null
           contact_name: string | null
           created_at: string
@@ -113,6 +114,7 @@ export type Database = {
         }
         Insert: {
           billing_address?: string | null
+          business_type?: string
           contact_email?: string | null
           contact_name?: string | null
           created_at?: string
@@ -128,6 +130,7 @@ export type Database = {
         }
         Update: {
           billing_address?: string | null
+          business_type?: string
           contact_email?: string | null
           contact_name?: string | null
           created_at?: string
@@ -142,6 +145,196 @@ export type Database = {
           tax_rate?: number | null
         }
         Relationships: []
+      }
+      dealership_location_requests: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          created_client_id: string | null
+          created_location_id: string | null
+          id: string
+          matched_client_id: string | null
+          notes: string | null
+          proposed_client_name: string
+          proposed_location_name: string
+          requested_by: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          state: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          created_client_id?: string | null
+          created_location_id?: string | null
+          id?: string
+          matched_client_id?: string | null
+          notes?: string | null
+          proposed_client_name: string
+          proposed_location_name: string
+          requested_by: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          created_client_id?: string | null
+          created_location_id?: string | null
+          id?: string
+          matched_client_id?: string | null
+          notes?: string | null
+          proposed_client_name?: string
+          proposed_location_name?: string
+          requested_by?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealership_location_requests_created_client_id_fkey"
+            columns: ["created_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealership_location_requests_created_location_id_fkey"
+            columns: ["created_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealership_location_requests_matched_client_id_fkey"
+            columns: ["matched_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dealership_rates: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          effective_date: string
+          id: string
+          is_active: boolean
+          location_id: string | null
+          notes: string | null
+          rate_per_vehicle: number
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          notes?: string | null
+          rate_per_vehicle?: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          notes?: string | null
+          rate_per_vehicle?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealership_rates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealership_rates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dealership_wash_batches: {
+        Row: {
+          client_id: string
+          created_at: string
+          employee_id: string
+          id: string
+          location_id: string
+          notes: string | null
+          rate_applied: number
+          updated_at: string
+          vehicle_count: number
+          work_date: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          location_id: string
+          notes?: string | null
+          rate_applied: number
+          updated_at?: string
+          vehicle_count: number
+          work_date?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          location_id?: string
+          notes?: string | null
+          rate_applied?: number
+          updated_at?: string
+          vehicle_count?: number
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealership_wash_batches_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealership_wash_batches_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_comments: {
         Row: {
@@ -1138,6 +1331,27 @@ export type Database = {
           is_hourly: boolean
           rate: number
           rate_source: string
+        }[]
+      }
+      get_dealership_report_data: {
+        Args: {
+          p_client_ids?: string[]
+          p_end_date: string
+          p_location_ids?: string[]
+          p_start_date: string
+        }
+        Returns: {
+          client_email: string
+          client_id: string
+          client_name: string
+          client_parent_company: string
+          client_terms: string
+          location_id: string
+          location_name: string
+          rate_applied: number
+          total_amount: number
+          vehicle_count: number
+          work_date: string
         }[]
       }
       get_last_monday: { Args: never; Returns: string }
