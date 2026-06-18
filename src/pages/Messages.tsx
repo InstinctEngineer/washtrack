@@ -473,7 +473,30 @@ export default function Messages() {
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-              {/* Week Navigation */}
+              {/* View mode toggle */}
+              <div className="flex items-center gap-1 border rounded-md p-1">
+                <Button
+                  variant={viewMode === 'week' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('week')}
+                  className="h-7"
+                >
+                  <CalendarDays className="h-3.5 w-3.5 mr-1" />
+                  By Week
+                </Button>
+                <Button
+                  variant={viewMode === 'all' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('all')}
+                  className="h-7"
+                >
+                  <CalendarRange className="h-3.5 w-3.5 mr-1" />
+                  All Messages
+                </Button>
+              </div>
+
+              {/* Week Navigation - only in week mode */}
+              {viewMode === 'week' && (
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -507,6 +530,7 @@ export default function Messages() {
                   </Button>
                 )}
               </div>
+              )}
 
               {/* Location Filter - Office staff only */}
               {isOfficeStaff && (
