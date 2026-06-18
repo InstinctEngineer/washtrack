@@ -25,7 +25,7 @@ export interface Client {
   contact_email: string | null;
   is_active: boolean;
   created_at: string;
-  business_type?: BusinessType;
+  business_type?: BusinessType | string;
   // QuickBooks Settings
   default_terms?: string | null;
   default_class?: string | null;
