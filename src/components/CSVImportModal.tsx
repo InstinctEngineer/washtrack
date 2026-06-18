@@ -869,6 +869,12 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                   <CheckCircle2 className="h-3 w-3 text-green-500" />
                   {validCount} valid
                 </Badge>
+                {skippedRowCount > 0 && (
+                  <Badge variant="outline" className="gap-1">
+                    <X className="h-3 w-3 text-muted-foreground" />
+                    {skippedRowCount} skipped
+                  </Badge>
+                )}
                 {warningCount > 0 && (
                   <Badge variant="outline" className="gap-1">
                     <AlertCircle className="h-3 w-3 text-yellow-500" />
@@ -952,7 +958,9 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                         <TableRow
                           key={row.rowNumber}
                           className={
-                            !row.isValid
+                            row.isSkipped
+                              ? "bg-muted/40 opacity-70"
+                              : !row.isValid
                               ? "bg-destructive/5"
                               : row.warnings.length > 0
                               ? "bg-yellow-500/5"
@@ -961,7 +969,9 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                         >
                           <TableCell className="font-mono text-xs">{row.rowNumber}</TableCell>
                           <TableCell>
-                            {row.isValid ? (
+                            {row.isSkipped ? (
+                              <X className="h-4 w-4 text-muted-foreground" />
+                            ) : row.isValid ? (
                               row.warnings.length > 0 ? (
                                 <AlertCircle className="h-4 w-4 text-yellow-500" />
                               ) : (
@@ -1002,10 +1012,16 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                           <TableCell>{row.rate_type || <span className="text-destructive">Required</span>}</TableCell>
                           <TableCell>{row.rate || "-"}</TableCell>
                           <TableCell className="max-w-xs">
+                            {row.importError && (
+                              <span className="text-xs text-destructive font-medium">{row.importError}</span>
+                            )}
+                            {row.isSkipped && row.skipReason && (
+                              <span className="text-xs text-muted-foreground">{row.skipReason}</span>
+                            )}
                             {otherErrors.length > 0 && (
                               <span className="text-xs text-destructive">{otherErrors.join("; ")}</span>
                             )}
-                            {row.warnings.length > 0 && otherErrors.length === 0 && (
+                            {row.warnings.length > 0 && otherErrors.length === 0 && !row.isSkipped && (
                               <span className="text-xs text-yellow-600">{row.warnings.join("; ")}</span>
                             )}
                           </TableCell>
@@ -1023,7 +1039,8 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
             <div className="p-4 rounded-lg bg-muted/50">
               <p className="text-sm">
                 <span className="font-medium">Import complete:</span>{" "}
-                {importResults.success} services imported successfully
+                {importResults.success} imported
+                {skippedRowCount > 0 && `, ${skippedRowCount} skipped (already exist or duplicates)`}
                 {importResults.failed > 0 && `, ${importResults.failed} failed`}.
               </p>
             </div>
