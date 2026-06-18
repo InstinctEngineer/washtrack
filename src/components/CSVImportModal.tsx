@@ -53,6 +53,9 @@ interface ParsedRow {
   resolvedLocationName: string | null;
   clientError: string | null;
   locationError: string | null;
+  isSkipped?: boolean;
+  skipReason?: string | null;
+  importError?: string | null;
 }
 
 interface PendingCreation {
@@ -70,6 +73,7 @@ export function CSVImportModal({ open, onOpenChange }: CSVImportModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importResults, setImportResults] = useState<{ success: number; failed: number } | null>(null);
+  const [skippedCount, setSkippedCount] = useState<number>(0);
   const [pendingCreation, setPendingCreation] = useState<PendingCreation | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
