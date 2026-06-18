@@ -18,7 +18,7 @@ import { UserRole } from '@/types/database';
 import { format, startOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { 
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown, MapPin, 
-  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus, User, X, FileText, ImageIcon
+  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus, User, X, FileText, ImageIcon, CalendarDays, CalendarRange
 } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { UserSearchInput } from '@/components/UserSearchInput';
@@ -98,6 +98,7 @@ export default function Messages() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'week' | 'all'>('week');
   
   // Employee-specific state
   const [newMessage, setNewMessage] = useState('');
@@ -136,7 +137,7 @@ export default function Messages() {
     if (user?.id) {
       fetchComments();
     }
-  }, [weekStartStr, selectedLocation, user?.id, isOfficeStaff]);
+  }, [weekStartStr, selectedLocation, user?.id, isOfficeStaff, viewMode]);
 
   const fetchLocations = async () => {
     try {
@@ -181,8 +182,14 @@ export default function Messages() {
       let query = supabase
         .from('employee_comments')
         .select('*')
-        .eq('week_start_date', weekStartStr)
         .order('created_at', { ascending: false });
+
+      if (viewMode === 'week') {
+        query = query.eq('week_start_date', weekStartStr);
+      } else {
+        // All messages mode: cap to last 1000 for performance
+        query = query.limit(1000);
+      }
 
       if (isOfficeStaff) {
         // Office staff can filter by location
