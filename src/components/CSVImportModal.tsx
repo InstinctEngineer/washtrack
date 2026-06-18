@@ -299,7 +299,76 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
         return validateRow(baseRow, clientsData, locationsData);
       });
 
-      setParsedRows(rows);
+      // Filter out completely blank rows (all key fields empty)
+      const nonBlankRows = rows.filter(
+        r => r.client_name || r.location_name || r.identifier || r.work_type
+      );
+
+      // 1. CSV-internal duplicate detection
+      const dupKeyToFirstRow = new Map<string, number>();
+      nonBlankRows.forEach(r => {
+        if (!r.identifier) return; // only identifier-bearing rows can dup
+        const key = [
+          r.client_name.toLowerCase(),
+          r.location_name.toLowerCase(),
+          r.work_type.toLowerCase().trim(),
+          r.frequency.toLowerCase().trim(),
+          r.identifier.toLowerCase(),
+        ].join("|");
+        if (dupKeyToFirstRow.has(key)) {
+          const firstRowNum = dupKeyToFirstRow.get(key)!;
+          r.isSkipped = true;
+          r.skipReason = `Duplicate of row ${firstRowNum} in this file`;
+          r.isValid = false;
+          if (!r.warnings.includes(r.skipReason)) r.warnings.push(r.skipReason);
+        } else {
+          dupKeyToFirstRow.set(key, r.rowNumber);
+        }
+      });
+
+      // 2. Already-exists detection against DB
+      const resolvedPairs = Array.from(
+        new Set(
+          nonBlankRows
+            .filter(r => r.client_id && r.location_id && !r.isSkipped)
+            .map(r => `${r.client_id}|${r.location_id}`)
+        )
+      );
+
+      if (resolvedPairs.length > 0) {
+        const clientIds = Array.from(new Set(resolvedPairs.map(p => p.split("|")[0])));
+        const locationIds = Array.from(new Set(resolvedPairs.map(p => p.split("|")[1])));
+
+        const { data: existingConfigs } = await supabase
+          .from("rate_configs")
+          .select("id, client_id, location_id, frequency, work_type:work_types(name), work_items(identifier)")
+          .in("client_id", clientIds)
+          .in("location_id", locationIds);
+
+        const existingKeys = new Set<string>();
+        (existingConfigs || []).forEach((cfg: any) => {
+          const wtName = (cfg.work_type?.name || "").toLowerCase().trim();
+          const freq = (cfg.frequency || "").toLowerCase().trim();
+          (cfg.work_items || []).forEach((wi: any) => {
+            existingKeys.add(
+              `${cfg.client_id}|${cfg.location_id}|${wtName}|${freq}|${(wi.identifier || "").toLowerCase()}`
+            );
+          });
+        });
+
+        nonBlankRows.forEach(r => {
+          if (r.isSkipped || !r.identifier || !r.client_id || !r.location_id) return;
+          const key = `${r.client_id}|${r.location_id}|${r.work_type.toLowerCase().trim()}|${r.frequency.toLowerCase().trim()}|${r.identifier.toLowerCase()}`;
+          if (existingKeys.has(key)) {
+            r.isSkipped = true;
+            r.skipReason = "Already exists — will be skipped";
+            r.isValid = false;
+            if (!r.warnings.includes(r.skipReason)) r.warnings.push(r.skipReason);
+          }
+        });
+      }
+
+      setParsedRows(nonBlankRows);
     } catch (error) {
       console.error("Error parsing CSV:", error);
       toast({
