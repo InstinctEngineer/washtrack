@@ -73,7 +73,6 @@ export function CSVImportModal({ open, onOpenChange }: CSVImportModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importResults, setImportResults] = useState<{ success: number; failed: number } | null>(null);
-  const [skippedCount, setSkippedCount] = useState<number>(0);
   const [pendingCreation, setPendingCreation] = useState<PendingCreation | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -610,8 +609,6 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
       }
 
       setImportResults({ success: successCount, failed: failedCount });
-      setSkippedCount(prev => prev + skippedDuringImport.length);
-
       // Annotate rows with import-time errors / skips
       if (rowErrors.size > 0 || skippedDuringImport.length > 0) {
         setParsedRows(prev => prev.map(r => {
