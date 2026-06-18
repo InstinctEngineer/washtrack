@@ -398,6 +398,22 @@ export default function Clients() {
                 </p>
               </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="business_type">Business Type *</Label>
+              <select
+                id="business_type"
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={(formData.business_type as string) || 'fedex'}
+                onChange={(e) => setFormData({ ...formData, business_type: e.target.value })}
+              >
+                <option value="fedex">FedEx / Fleet</option>
+                <option value="dealership">Car Dealership</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Determines which workflow and rate structure this client uses
+              </p>
+            </div>
+
               <div className="space-y-2">
                 <Label htmlFor="parent_company">Parent Company</Label>
                 <Input
