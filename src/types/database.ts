@@ -1,5 +1,7 @@
 export type UserRole = 'employee' | 'manager' | 'finance' | 'admin' | 'super_admin';
 
+export type BusinessType = 'fedex' | 'dealership';
+
 export interface User {
   id: string;
   email: string;
@@ -23,6 +25,7 @@ export interface Client {
   contact_email: string | null;
   is_active: boolean;
   created_at: string;
+  business_type?: BusinessType | string;
   // QuickBooks Settings
   default_terms?: string | null;
   default_class?: string | null;
@@ -118,4 +121,54 @@ export interface SystemSettingsAudit {
   changed_by: string | null;
   changed_at: string;
   change_reason: string | null;
+}
+
+// ===== Dealership Platform =====
+
+export interface DealershipRate {
+  id: string;
+  client_id: string;
+  location_id: string | null;
+  rate_per_vehicle: number;
+  effective_date: string;
+  is_active: boolean;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DealershipWashBatch {
+  id: string;
+  client_id: string;
+  location_id: string;
+  employee_id: string;
+  work_date: string;
+  vehicle_count: number;
+  rate_applied: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DealershipRequestStatus = 'pending' | 'approved' | 'merged' | 'rejected';
+
+export interface DealershipLocationRequest {
+  id: string;
+  requested_by: string;
+  proposed_client_name: string;
+  proposed_location_name: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  notes: string | null;
+  matched_client_id: string | null;
+  created_client_id: string | null;
+  created_location_id: string | null;
+  status: DealershipRequestStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
+  created_at: string;
+  updated_at: string;
 }

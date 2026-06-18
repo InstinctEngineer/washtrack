@@ -78,6 +78,7 @@ export default function Clients() {
         is_taxable: formData.is_taxable ?? false,
         tax_jurisdiction: formData.tax_jurisdiction || null,
         tax_rate: formData.tax_rate ?? null,
+        business_type: (formData.business_type as string) || 'fedex',
       };
 
       const { error } = await supabase.from('clients').insert([insertData]);
@@ -110,6 +111,7 @@ export default function Clients() {
         is_taxable: formData.is_taxable ?? false,
         tax_jurisdiction: formData.tax_jurisdiction || null,
         tax_rate: formData.tax_rate ?? null,
+        business_type: (formData.business_type as string) || 'fedex',
       };
 
       const { error } = await supabase
@@ -267,6 +269,12 @@ export default function Clients() {
                       >
                         <div className="flex items-center">Parent Company{getSortIcon('parent_company')}</div>
                       </TableHead>
+                      <TableHead
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('business_type')}
+                      >
+                        <div className="flex items-center">Type{getSortIcon('business_type')}</div>
+                      </TableHead>
                       <TableHead 
                         className="cursor-pointer select-none hover:bg-muted/50"
                         onClick={() => handleSort('contact_name')}
@@ -320,6 +328,11 @@ export default function Clients() {
                           {client.parent_company ? (
                             <Badge variant="outline">{client.parent_company}</Badge>
                           ) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={client.business_type === 'dealership' ? 'default' : 'secondary'}>
+                            {client.business_type === 'dealership' ? 'Dealership' : 'FedEx'}
+                          </Badge>
                         </TableCell>
                         <TableCell>{client.contact_name || '-'}</TableCell>
                         <TableCell>{client.contact_email || '-'}</TableCell>
@@ -395,6 +408,22 @@ export default function Clients() {
                   How this client appears on invoices
                 </p>
               </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="business_type">Business Type *</Label>
+              <select
+                id="business_type"
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={(formData.business_type as string) || 'fedex'}
+                onChange={(e) => setFormData({ ...formData, business_type: e.target.value })}
+              >
+                <option value="fedex">FedEx / Fleet</option>
+                <option value="dealership">Car Dealership</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Determines which workflow and rate structure this client uses
+              </p>
+            </div>
 
               <div className="space-y-2">
                 <Label htmlFor="parent_company">Parent Company</Label>
