@@ -18,7 +18,7 @@ import { UserRole } from '@/types/database';
 import { format, startOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { 
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown, MapPin, 
-  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus, User, X, FileText, ImageIcon
+  Calendar, Search, RefreshCw, Eye, Reply, Send, ArrowLeft, UserPlus, User, X, FileText, ImageIcon, CalendarDays, CalendarRange
 } from 'lucide-react';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { UserSearchInput } from '@/components/UserSearchInput';
@@ -98,6 +98,7 @@ export default function Messages() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'week' | 'all'>('week');
   
   // Employee-specific state
   const [newMessage, setNewMessage] = useState('');
@@ -136,7 +137,7 @@ export default function Messages() {
     if (user?.id) {
       fetchComments();
     }
-  }, [weekStartStr, selectedLocation, user?.id, isOfficeStaff]);
+  }, [weekStartStr, selectedLocation, user?.id, isOfficeStaff, viewMode]);
 
   const fetchLocations = async () => {
     try {
@@ -181,8 +182,14 @@ export default function Messages() {
       let query = supabase
         .from('employee_comments')
         .select('*')
-        .eq('week_start_date', weekStartStr)
         .order('created_at', { ascending: false });
+
+      if (viewMode === 'week') {
+        query = query.eq('week_start_date', weekStartStr);
+      } else {
+        // All messages mode: cap to last 1000 for performance
+        query = query.limit(1000);
+      }
 
       if (isOfficeStaff) {
         // Office staff can filter by location
@@ -466,7 +473,30 @@ export default function Messages() {
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-              {/* Week Navigation */}
+              {/* View mode toggle */}
+              <div className="flex items-center gap-1 border rounded-md p-1">
+                <Button
+                  variant={viewMode === 'week' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('week')}
+                  className="h-7"
+                >
+                  <CalendarDays className="h-3.5 w-3.5 mr-1" />
+                  By Week
+                </Button>
+                <Button
+                  variant={viewMode === 'all' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('all')}
+                  className="h-7"
+                >
+                  <CalendarRange className="h-3.5 w-3.5 mr-1" />
+                  All Messages
+                </Button>
+              </div>
+
+              {/* Week Navigation - only in week mode */}
+              {viewMode === 'week' && (
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -500,6 +530,7 @@ export default function Messages() {
                   </Button>
                 )}
               </div>
+              )}
 
               {/* Location Filter - Office staff only */}
               {isOfficeStaff && (
@@ -664,9 +695,11 @@ export default function Messages() {
               </Badge>
             </CardTitle>
             <CardDescription>
-              {isCurrentWeek 
-                ? (isOfficeStaff ? "This week's messages from employees" : "This week's messages and replies")
-                : `Messages from week of ${format(weekStart, 'MMM d, yyyy')}`}
+              {viewMode === 'all'
+                ? 'All messages, newest first (last 1000)'
+                : isCurrentWeek 
+                  ? (isOfficeStaff ? "This week's messages from employees" : "This week's messages and replies")
+                  : `Messages from week of ${format(weekStart, 'MMM d, yyyy')}`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -693,7 +726,12 @@ export default function Messages() {
                   const isReplying = replyingTo === comment.id;
                   const isExpanded = expandedMessages.has(comment.id);
                   const hasReplies = replies.length > 0;
-                  
+                  const dateKey = format(new Date(comment.created_at), 'yyyy-MM-dd');
+                  const prevDateKey = index > 0
+                    ? format(new Date(filteredComments[index - 1].created_at), 'yyyy-MM-dd')
+                    : null;
+                  const showDateHeader = viewMode === 'all' && dateKey !== prevDateKey;
+
                   const toggleExpanded = () => {
                     setExpandedMessages(prev => {
                       const newSet = new Set(prev);
@@ -707,11 +745,16 @@ export default function Messages() {
                   };
 
                   return (
-                    <Collapsible
-                      key={comment.id}
-                      open={isExpanded}
-                      onOpenChange={toggleExpanded}
-                    >
+                    <div key={comment.id}>
+                      {showDateHeader && (
+                        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur px-2 py-1.5 mt-3 first:mt-0 border-b text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {format(new Date(comment.created_at), 'EEEE, MMMM d, yyyy')}
+                        </div>
+                      )}
+                      <Collapsible
+                        open={isExpanded}
+                        onOpenChange={toggleExpanded}
+                      >
                       <div className={`border rounded-lg transition-colors ${
                         index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
                       } ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
@@ -907,7 +950,8 @@ export default function Messages() {
                           </div>
                         </CollapsibleContent>
                       </div>
-                    </Collapsible>
+                      </Collapsible>
+                    </div>
                   );
                 })}
               </div>
