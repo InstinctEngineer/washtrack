@@ -269,6 +269,12 @@ export default function Clients() {
                       >
                         <div className="flex items-center">Parent Company{getSortIcon('parent_company')}</div>
                       </TableHead>
+                      <TableHead
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort('business_type')}
+                      >
+                        <div className="flex items-center">Type{getSortIcon('business_type')}</div>
+                      </TableHead>
                       <TableHead 
                         className="cursor-pointer select-none hover:bg-muted/50"
                         onClick={() => handleSort('contact_name')}
@@ -322,6 +328,11 @@ export default function Clients() {
                           {client.parent_company ? (
                             <Badge variant="outline">{client.parent_company}</Badge>
                           ) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={client.business_type === 'dealership' ? 'default' : 'secondary'}>
+                            {client.business_type === 'dealership' ? 'Dealership' : 'FedEx'}
+                          </Badge>
                         </TableCell>
                         <TableCell>{client.contact_name || '-'}</TableCell>
                         <TableCell>{client.contact_email || '-'}</TableCell>
