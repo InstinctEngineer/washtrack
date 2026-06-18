@@ -695,9 +695,11 @@ export default function Messages() {
               </Badge>
             </CardTitle>
             <CardDescription>
-              {isCurrentWeek 
-                ? (isOfficeStaff ? "This week's messages from employees" : "This week's messages and replies")
-                : `Messages from week of ${format(weekStart, 'MMM d, yyyy')}`}
+              {viewMode === 'all'
+                ? 'All messages, newest first (last 1000)'
+                : isCurrentWeek 
+                  ? (isOfficeStaff ? "This week's messages from employees" : "This week's messages and replies")
+                  : `Messages from week of ${format(weekStart, 'MMM d, yyyy')}`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -724,7 +726,12 @@ export default function Messages() {
                   const isReplying = replyingTo === comment.id;
                   const isExpanded = expandedMessages.has(comment.id);
                   const hasReplies = replies.length > 0;
-                  
+                  const dateKey = format(new Date(comment.created_at), 'yyyy-MM-dd');
+                  const prevDateKey = index > 0
+                    ? format(new Date(filteredComments[index - 1].created_at), 'yyyy-MM-dd')
+                    : null;
+                  const showDateHeader = viewMode === 'all' && dateKey !== prevDateKey;
+
                   const toggleExpanded = () => {
                     setExpandedMessages(prev => {
                       const newSet = new Set(prev);
