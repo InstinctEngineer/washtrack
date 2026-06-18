@@ -483,7 +483,7 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
   };
 
   const handleImport = async () => {
-    const validRows = parsedRows.filter((row) => row.isValid);
+    const validRows = parsedRows.filter((row) => row.isValid && !row.isSkipped);
     if (validRows.length === 0) {
       toast({
         title: "No valid rows",
@@ -496,6 +496,8 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
     setIsImporting(true);
     let successCount = 0;
     let failedCount = 0;
+    const rowErrors = new Map<number, string>();
+    const skippedDuringImport: number[] = [];
 
     try {
       // Fetch existing work_types
@@ -585,17 +587,48 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                 identifier: row.identifier,
               });
             
-            if (workItemError) throw workItemError;
+            if (workItemError) {
+              if ((workItemError as any).code === "23505") {
+                // Already exists — treat as skip, not failure
+                skippedDuringImport.push(row.rowNumber);
+                continue;
+              }
+              throw workItemError;
+            }
           }
           
           successCount++;
-        } catch (rowError) {
+        } catch (rowError: any) {
           console.error("Row import error:", rowError);
+          const msg =
+            rowError?.code === "23505"
+              ? "Already exists in the system"
+              : rowError?.message || "Unknown error";
+          rowErrors.set(row.rowNumber, msg);
           failedCount++;
         }
       }
 
       setImportResults({ success: successCount, failed: failedCount });
+      setSkippedCount(prev => prev + skippedDuringImport.length);
+
+      // Annotate rows with import-time errors / skips
+      if (rowErrors.size > 0 || skippedDuringImport.length > 0) {
+        setParsedRows(prev => prev.map(r => {
+          if (rowErrors.has(r.rowNumber)) {
+            return { ...r, importError: rowErrors.get(r.rowNumber)!, isValid: false };
+          }
+          if (skippedDuringImport.includes(r.rowNumber)) {
+            return {
+              ...r,
+              isSkipped: true,
+              skipReason: "Already exists — skipped",
+              isValid: false,
+            };
+          }
+          return r;
+        }));
+      }
       queryClient.invalidateQueries({ queryKey: ["work-items"] });
       queryClient.invalidateQueries({ queryKey: ["work-types"] });
       queryClient.invalidateQueries({ queryKey: ["rate-configs"] });
