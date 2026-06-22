@@ -354,32 +354,6 @@ export const CreateUserModal = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="password"
-                  type="text"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  placeholder="Enter password or generate one"
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setFormData({ ...formData, password: generatePassword() })}
-                >
-                  Generate
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Must be 8+ characters with uppercase, lowercase, and number
-              </p>
-            </div>
-
-            <div className="space-y-2">
               <Label>Locations * (select at least one as primary)</Label>
               {!locations || locations.length === 0 ? (
                 <p className="text-sm text-destructive">
