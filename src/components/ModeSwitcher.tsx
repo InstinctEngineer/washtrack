@@ -37,8 +37,8 @@ export const ModeSwitcher = ({ isPayroll }: ModeSwitcherProps) => {
         className={cn(
           'inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-all',
           !isPayroll
-            ? 'bg-card text-foreground shadow-sm ring-1 ring-border'
-            : 'text-muted-foreground hover:text-foreground'
+            ? 'mode-invoicing-active shadow-sm'
+            : 'text-muted-foreground hover:bg-muted/60 mode-invoicing-text'
         )}
       >
         <Briefcase className="h-4 w-4" />
@@ -50,8 +50,8 @@ export const ModeSwitcher = ({ isPayroll }: ModeSwitcherProps) => {
         className={cn(
           'inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-all',
           isPayroll
-            ? 'bg-card text-foreground shadow-sm ring-1 ring-border'
-            : 'text-muted-foreground hover:text-foreground'
+            ? 'mode-payroll-active shadow-sm'
+            : 'text-muted-foreground hover:bg-muted/60 mode-payroll-text'
         )}
       >
         <Wallet className="h-4 w-4" />
