@@ -204,7 +204,9 @@ export default function Messages() {
       const { data, error } = await query;
 
       if (error) throw error;
-      const rawComments = data || [];
+      const rawComments = (data || []).filter(
+        (c: any) => !(c.comment_text || '').startsWith('Response to your error report:')
+      );
 
       if (rawComments.length === 0) {
         setComments([]);

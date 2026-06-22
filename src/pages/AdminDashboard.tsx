@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Users, MapPin, Settings, Building2, AlertTriangle, Send, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentCutoff } from '@/lib/cutoff';
-import { format, startOfWeek } from 'date-fns';
+import { format } from 'date-fns';
 import { ErrorScreenshotViewer } from '@/components/ErrorScreenshotViewer';
 import { toast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
@@ -39,6 +39,15 @@ interface ErrorReport {
   responded_by?: string | null;
 }
 
+interface ErrorReportReply {
+  id: string;
+  report_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  user_name?: string;
+}
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState({
@@ -54,9 +63,36 @@ export default function AdminDashboard() {
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null);
   const [responseText, setResponseText] = useState('');
   const [sendingResponse, setSendingResponse] = useState(false);
+  const [replies, setReplies] = useState<ErrorReportReply[]>([]);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [loadingReplies, setLoadingReplies] = useState(false);
 
   useEffect(() => {
     setResponseText(selectedReport?.admin_response || '');
+    setReplyText('');
+    if (!selectedReport?.id) {
+      setReplies([]);
+      return;
+    }
+    const loadReplies = async () => {
+      setLoadingReplies(true);
+      const { data, error } = await supabase
+        .from('error_report_replies')
+        .select('*')
+        .eq('report_id', selectedReport.id)
+        .order('created_at', { ascending: true });
+      if (!error && data) {
+        const userIds = [...new Set(data.map(r => r.user_id))];
+        const { data: users } = await supabase.rpc('get_user_display_info', { user_ids: userIds });
+        const nameMap = new Map((users || []).map((u: any) => [u.id, u.name]));
+        setReplies(data.map(r => ({ ...r, user_name: nameMap.get(r.user_id) || 'Unknown' })));
+      } else {
+        setReplies([]);
+      }
+      setLoadingReplies(false);
+    };
+    loadReplies();
   }, [selectedReport?.id]);
 
   const { sortedData: displayedReports, sortColumn, sortDirection, handleSort } = useTableSort<ErrorReport>(
@@ -171,21 +207,7 @@ export default function AdminDashboard() {
         .eq('id', selectedReport.id);
       if (updateErr) throw updateErr;
 
-      const messageBody =
-        `Response to your error report:\n\n${trimmed}\n\n` +
-        `— — —\nOriginal report (${format(new Date(selectedReport.created_at), 'PPpp')}):\n` +
-        `${selectedReport.description}` +
-        (selectedReport.page_url ? `\n\nPage: ${selectedReport.page_url}` : '');
-
-      const { error: msgErr } = await supabase.from('employee_comments').insert({
-        employee_id: user.id,
-        recipient_id: selectedReport.reported_by,
-        comment_text: messageBody,
-        week_start_date: format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
-      });
-      if (msgErr) throw msgErr;
-
-      toast({ title: 'Response sent', description: 'The user has been messaged.' });
+      toast({ title: 'Response sent', description: 'The reporter will see it in their Error Reports.' });
 
       setErrorReports(prev =>
         prev.map(r =>
@@ -206,6 +228,28 @@ export default function AdminDashboard() {
       toast({ title: 'Failed to send response', description: err.message, variant: 'destructive' });
     } finally {
       setSendingResponse(false);
+    }
+  };
+
+  const handleSendReply = async () => {
+    if (!selectedReport || !user?.id || !replyText.trim()) return;
+    setSendingReply(true);
+    try {
+      const body = replyText.trim();
+      const { data, error } = await supabase
+        .from('error_report_replies')
+        .insert({ report_id: selectedReport.id, user_id: user.id, body })
+        .select('*')
+        .single();
+      if (error) throw error;
+      const { data: users } = await supabase.rpc('get_user_display_info', { user_ids: [user.id] });
+      const name = (users || []).find((u: any) => u.id === user.id)?.name || 'You';
+      setReplies(prev => [...prev, { ...(data as any), user_name: name }]);
+      setReplyText('');
+    } catch (err: any) {
+      toast({ title: 'Failed to send reply', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingReply(false);
     }
   };
 
@@ -460,13 +504,52 @@ export default function AdminDashboard() {
                   <Textarea
                     value={responseText}
                     onChange={(e) => setResponseText(e.target.value)}
-                    placeholder="Write a response. The user will receive this as a message along with their original report."
+                    placeholder="Write a response. It will appear in the reporter's Error Reports section."
                     rows={4}
                     className="resize-none"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Sending will message {selectedReport.reporter_name} and mark this report resolved.
+                    Sending will notify {selectedReport.reporter_name} in their Error Reports and mark this report resolved.
                   </p>
+                </div>
+
+                <div className="space-y-2 border-t pt-4">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Conversation</p>
+                  {loadingReplies ? (
+                    <p className="text-xs text-muted-foreground">Loading…</p>
+                  ) : replies.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No replies yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {replies.map((r) => (
+                        <div key={r.id} className="rounded-md border bg-muted/30 p-2.5">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                            <span className="font-medium text-foreground">{r.user_name}</span>
+                            <span>{format(new Date(r.created_at), 'MMM d, h:mm a')}</span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{r.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Reply to the reporter…"
+                    rows={3}
+                    className="resize-none"
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      onClick={handleSendReply}
+                      disabled={sendingReply || !replyText.trim()}
+                      className="gap-2"
+                    >
+                      {sendingReply ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Send reply
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
