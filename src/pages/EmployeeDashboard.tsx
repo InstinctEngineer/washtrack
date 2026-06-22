@@ -419,7 +419,7 @@ export default function EmployeeDashboard() {
 
   // Batch submit handler
   const handleBatchSubmit = async () => {
-    if (!user || pendingEntries.size === 0) return;
+    if (!user || (pendingEntries.size === 0 && !carsWashedDirty)) return;
     
     setIsSubmitting(true);
     try {
@@ -435,20 +435,59 @@ export default function EmployeeDashboard() {
         notes: noteText,
       }));
       
-      const { data: insertedLogs, error } = await supabase
-        .from('work_logs')
-        .insert(entries)
-        .select('id');
-      
-      if (error) {
-        // Handle unique constraint violation
-        if (error.code === '23505') {
-          toast.error('Some items were already logged for this date');
-          await fetchCompletedItems();
-          setPendingEntries(new Map());
-          return;
+      let insertedLogs: { id: string }[] | null = null;
+      if (entries.length > 0) {
+        const { data, error } = await supabase
+          .from('work_logs')
+          .insert(entries)
+          .select('id');
+        if (error) {
+          if (error.code === '23505') {
+            toast.error('Some items were already logged for this date');
+            await fetchCompletedItems();
+            setPendingEntries(new Map());
+            return;
+          }
+          throw error;
         }
-        throw error;
+        insertedLogs = data;
+      }
+
+      // Cars Washed upsert (single row per user/rate_config/date)
+      let carsWashedSaved = false;
+      if (carsWashedConfig && carsWashedDirty) {
+        if (savedCarsWashedLogId) {
+          if (carsWashedQty === 0) {
+            const { error } = await supabase
+              .from('work_logs')
+              .delete()
+              .eq('id', savedCarsWashedLogId);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from('work_logs')
+              .update({ quantity: carsWashedQty, notes: noteText })
+              .eq('id', savedCarsWashedLogId);
+            if (error) throw error;
+          }
+        } else if (carsWashedQty > 0) {
+          const { data, error } = await supabase
+            .from('work_logs')
+            .insert({
+              work_item_id: null,
+              rate_config_id: carsWashedConfig.id,
+              employee_id: user.id,
+              work_date: workDateStr,
+              quantity: carsWashedQty,
+              notes: noteText,
+            })
+            .select('id');
+          if (error) throw error;
+          if (data && data.length > 0) {
+            insertedLogs = [...(insertedLogs || []), ...data];
+          }
+        }
+        carsWashedSaved = true;
       }
       
       // If there was a note, also create employee_comments entry for finance visibility
@@ -464,12 +503,14 @@ export default function EmployeeDashboard() {
         });
       }
       
+      const totalCount = pendingEntries.size + (carsWashedSaved ? 1 : 0);
       const noteMsg = noteText ? ' with note' : '';
-      toast.success(`Submitted ${pendingEntries.size} ${pendingEntries.size === 1 ? 'entry' : 'entries'}${noteMsg}`);
+      toast.success(`Submitted ${totalCount} ${totalCount === 1 ? 'entry' : 'entries'}${noteMsg}`);
       setPendingEntries(new Map());
       setWorkNote('');
       fetchRecentLogs();
       fetchCompletedItems();
+      fetchSavedCarsWashed();
     } catch (error: any) {
       toast.error(error.message || 'Failed to submit entries');
     } finally {
