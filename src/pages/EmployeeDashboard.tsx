@@ -886,7 +886,6 @@ export default function EmployeeDashboard() {
             value={carsWashedQty}
             onChange={setCarsWashedQty}
             savedValue={savedCarsWashedQty}
-            rate={carsWashedConfig.rate}
           />
         )}
 

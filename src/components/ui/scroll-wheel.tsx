@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ScrollWheelProps {
@@ -85,21 +83,10 @@ export function ScrollWheel({
   };
 
   return (
-    <div className={cn('flex items-center justify-center gap-4 select-none', className)}>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="h-12 w-12 rounded-full shrink-0"
-        onClick={() => adjust(-1)}
-        aria-label="Decrease"
-      >
-        <Minus className="h-5 w-5" />
-      </Button>
-
+    <div className={cn('flex items-center justify-center select-none', className)}>
       <div
-        className="relative"
-        style={{ height: containerHeight, width: 140 }}
+        className="relative w-full max-w-[260px]"
+        style={{ height: containerHeight }}
         tabIndex={0}
         onKeyDown={onKeyDown}
         role="spinbutton"
@@ -183,17 +170,6 @@ export function ScrollWheel({
           </div>
         </div>
       </div>
-
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="h-12 w-12 rounded-full shrink-0"
-        onClick={() => adjust(1)}
-        aria-label="Increase"
-      >
-        <Plus className="h-5 w-5" />
-      </Button>
     </div>
   );
 }
