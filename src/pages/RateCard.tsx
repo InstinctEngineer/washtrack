@@ -202,6 +202,46 @@ const RateCard = () => {
     return true;
   });
 
+  // Sort rate configs
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortValue = (rc: RateConfig, column: SortColumn) => {
+    switch (column) {
+      case 'client': return rc.client?.name?.toLowerCase() || '';
+      case 'location': return rc.location?.name?.toLowerCase() || '';
+      case 'work_type': return rc.work_type?.name?.toLowerCase() || '';
+      case 'frequency': return rc.frequency || '';
+      case 'rate': return rc.rate ?? Number.MAX_VALUE;
+      case 'status': return rc.needs_rate_review ? 1 : 0;
+      default: return '';
+    }
+  };
+
+  const sortedConfigs = useMemo(() => {
+    if (!sortColumn) return filteredConfigs;
+    return [...filteredConfigs].sort((a, b) => {
+      const aValue = getSortValue(a, sortColumn);
+      const bValue = getSortValue(b, sortColumn);
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredConfigs, sortColumn, sortDirection]);
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) return <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />;
+    return sortDirection === 'asc'
+      ? <ArrowUp className="ml-1 h-4 w-4" />
+      : <ArrowDown className="ml-1 h-4 w-4" />;
+  };
+
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async () => {
