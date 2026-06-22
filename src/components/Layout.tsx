@@ -209,12 +209,24 @@ export const Layout = ({ children }: LayoutProps) => {
               <Menu className="h-5 w-5" />
             </Button>
             <Link to="/" className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#1e3a5f] to-[#2d8cc4] flex items-center justify-center shadow-md transition-transform hover:scale-110">
-                <span className="text-white font-bold text-sm">WT</span>
-              </div>
-              <span className="hidden sm:inline font-bold text-lg bg-gradient-to-r from-[#1e3a5f] to-[#2d8cc4] bg-clip-text text-transparent">
-                WashTrack
-              </span>
+              {isPayrollMode ? (
+                <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#0f3d22] to-[#22c55e] flex items-center justify-center shadow-md transition-transform hover:scale-110">
+                  <span className="text-white font-bold text-sm">PR</span>
+                </div>
+              ) : (
+                <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#1e3a5f] to-[#2d8cc4] flex items-center justify-center shadow-md transition-transform hover:scale-110">
+                  <span className="text-white font-bold text-sm">WT</span>
+                </div>
+              )}
+              {isPayrollMode ? (
+                <span className="hidden sm:inline font-bold text-lg bg-gradient-to-r from-[#0f3d22] to-[#22c55e] bg-clip-text text-transparent">
+                  ES&amp;D Payroll
+                </span>
+              ) : (
+                <span className="hidden sm:inline font-bold text-lg bg-gradient-to-r from-[#1e3a5f] to-[#2d8cc4] bg-clip-text text-transparent">
+                  WashTrack
+                </span>
+              )}
               <span className="hidden sm:inline text-sm text-muted-foreground">for</span>
               <img 
                 src={esAndDLogo} 
@@ -225,6 +237,7 @@ export const Layout = ({ children }: LayoutProps) => {
           </div>
 
           <div className="flex items-center gap-2">
+            <ModeSwitcher isPayroll={isPayrollMode} />
             <ErrorReportButton />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
