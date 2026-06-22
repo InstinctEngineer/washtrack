@@ -123,6 +123,7 @@ export default function AdminDashboard() {
     setErrorReports(prev =>
       prev.map(r => r.id === reportId ? { ...r, status: newStatus } : r)
     );
+    setSelectedReport(prev => (prev && prev.id === reportId ? { ...prev, status: newStatus } : prev));
     setStats(prev => ({
       ...prev,
       openReports: prev.openReports + (newStatus === 'open' ? 1 : -1),
