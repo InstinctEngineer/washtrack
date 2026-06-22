@@ -96,6 +96,11 @@ const RateCard = () => {
   const [filterWorkType, setFilterWorkType] = useState<string>('all');
   const [showNeedsReview, setShowNeedsReview] = useState(false);
 
+  // Sorting
+  type SortColumn = 'client' | 'location' | 'work_type' | 'frequency' | 'rate' | 'status' | null;
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
   // Form state
   const [formClientId, setFormClientId] = useState('');
   const [formLocationId, setFormLocationId] = useState('');
