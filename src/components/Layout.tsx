@@ -39,6 +39,8 @@ import { UserRole } from '@/types/database';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { ErrorReportButton } from '@/components/ErrorReportButton';
+import { usePayrollMode } from '@/hooks/usePayrollMode';
+import { ModeSwitcher } from '@/components/ModeSwitcher';
 import {
   Dialog,
   DialogContent,
@@ -55,6 +57,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const { userProfile, userRole, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isPayrollMode = usePayrollMode();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showIOSDialog, setShowIOSDialog] = useState(false);
   const [showAndroidDialog, setShowAndroidDialog] = useState(false);
@@ -72,6 +75,16 @@ export const Layout = ({ children }: LayoutProps) => {
     if (!userProfile || !userRole) return [];
 
     const navItems: Array<{ label: string; icon: any; path: string; section?: string; badge?: number }> = [];
+
+    // Payroll mode has its own dedicated nav.
+    if (isPayrollMode) {
+      if (hasRoleOrHigher(userRole, 'finance' as UserRole)) {
+        navItems.push(
+          { label: 'Payroll Dashboard', icon: LayoutDashboard, path: '/payroll/dashboard', section: 'Payroll' },
+        );
+      }
+      return navItems;
+    }
 
     // Dashboard section - show all dashboards user has access to
     if (hasRoleOrHigher(userRole, 'employee' as UserRole)) {
