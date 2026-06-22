@@ -306,6 +306,21 @@ serve(async (req) => {
 
     console.log('User role assigned successfully');
 
+    // Send welcome email (non-blocking). Failures do NOT fail account creation.
+    let email_sent = false;
+    let email_error: string | undefined;
+    try {
+      const result = await sendWelcomeEmail(supabaseAdmin, { email, name });
+      email_sent = result.sent;
+      email_error = result.error;
+      if (!email_sent) {
+        console.error('Welcome email failed:', email_error);
+      }
+    } catch (e) {
+      console.error('Welcome email threw:', e);
+      email_error = e instanceof Error ? e.message : 'Unknown error';
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true,
@@ -313,7 +328,9 @@ serve(async (req) => {
           id: authData.user.id,
           email: authData.user.email,
           employee_id: employee_id
-        }
+        },
+        email_sent,
+        email_error
       }), 
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
