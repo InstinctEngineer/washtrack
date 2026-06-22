@@ -144,27 +144,18 @@ export const CreateUserModal = ({
     setIsSubmitting(true);
 
     try {
+      // Always auto-generate a password; the user sets their own via the email link
+      const generatedPassword = generatePassword();
+
       // Validate
       if (
         !formData.name ||
         !formData.email ||
-        !formData.password ||
         formData.locations.length === 0
       ) {
         toast({
           title: "Validation Error",
-          description: "All required fields must be filled, including password and at least one location.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const passwordError = validatePassword(formData.password);
-      if (passwordError) {
-        toast({
-          title: "Invalid Password",
-          description: passwordError,
+          description: "Name, email, and at least one location are required.",
           variant: "destructive",
         });
         setIsSubmitting(false);
@@ -240,7 +231,7 @@ export const CreateUserModal = ({
             manager_id: formData.role === "finance" || formData.role === "admin" || formData.role === "super_admin"
               ? null
               : formData.manager_id || null,
-            password: formData.password
+            password: generatedPassword
           }),
         }
       );
@@ -360,32 +351,6 @@ export const CreateUserModal = ({
                 }
                 required
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="password"
-                  type="text"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  placeholder="Enter password or generate one"
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setFormData({ ...formData, password: generatePassword() })}
-                >
-                  Generate
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Must be 8+ characters with uppercase, lowercase, and number
-              </p>
             </div>
 
             <div className="space-y-2">
