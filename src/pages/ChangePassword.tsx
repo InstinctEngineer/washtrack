@@ -42,29 +42,29 @@ export const ChangePassword = () => {
     setIsSubmitting(true);
 
     try {
-      // Update the password AND clear the reset flag in a single call
-      // to avoid session invalidation issues between separate calls
+      // IMPORTANT: clear must_change_password in the users table BEFORE
+      // calling auth.updateUser. auth.updateUser fires a USER_UPDATED auth
+      // event, which causes AuthContext to refetch the profile. If the flag
+      // is still true at that moment, AuthContext hard-redirects back to
+      // /change-password and the user appears stuck on this page.
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        const { error: flagUpdateError } = await supabase
+          .from('users')
+          .update({ must_change_password: false })
+          .eq('id', currentUser.id);
+
+        if (flagUpdateError) {
+          console.error('Error updating must_change_password flag:', flagUpdateError);
+        }
+      }
+
       const { error: updateError } = await supabase.auth.updateUser({
         password: formData.newPassword,
         data: { password_reset_required: false }
       });
 
       if (updateError) throw updateError;
-
-      // Get user and clear must_change_password flag in users table
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (currentUser) {
-        const { error: flagUpdateError } = await supabase
-          .from('users')
-          .update({ 
-            must_change_password: false,
-          })
-          .eq('id', currentUser.id);
-        
-        if (flagUpdateError) {
-          console.error('Error updating must_change_password flag:', flagUpdateError);
-        }
-      }
 
       logAuthEvent('auth_password_change', { user_id: currentUser?.id, email: currentUser?.email });
 
@@ -73,30 +73,9 @@ export const ChangePassword = () => {
         description: "Your password has been successfully changed",
       });
 
-      // Redirect to appropriate dashboard based on role
-      if (currentUser) {
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", currentUser.id)
-          .single();
-
-        const role = roleData?.role;
-        
-        switch (role) {
-          case "admin":
-            navigate("/admin/dashboard");
-            break;
-          case "finance":
-            navigate("/finance/dashboard");
-            break;
-          case "manager":
-            navigate("/manager/dashboard");
-            break;
-          default:
-            navigate("/employee/dashboard");
-        }
-      }
+      // Send through root redirect so the user lands on the correct
+      // dashboard for their role without us duplicating that logic here.
+      navigate("/", { replace: true });
     } catch (error: any) {
       console.error("Error changing password:", error);
       logAuthEvent('auth_error', { error: error.message, context: 'password_change' });
