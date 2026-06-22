@@ -346,6 +346,40 @@ You will be asked to set a new password when you first login.`;
     setTimeout(() => setCopiedEmail(false), 2000);
   };
 
+  const resendInvite = async () => {
+    if (!generatedEmail) return;
+    setResending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-welcome-email", {
+        body: { email: generatedEmail, name: generatedName },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setEmailSent(true);
+        setEmailError(undefined);
+        toast({ title: "Invite sent", description: `Email sent to ${generatedEmail}` });
+      } else {
+        setEmailSent(false);
+        setEmailError(data?.error);
+        toast({
+          title: "Email failed",
+          description: data?.error || "Unable to send invite",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      setEmailSent(false);
+      setEmailError(e?.message);
+      toast({
+        title: "Email failed",
+        description: e?.message || "Unable to send invite",
+        variant: "destructive",
+      });
+    } finally {
+      setResending(false);
+    }
+  };
+
   const markAsShared = async () => {
     if (!createdUserId) return;
     
