@@ -401,6 +401,38 @@ export type Database = {
           },
         ]
       }
+      error_report_replies: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          report_id: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          report_id: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          report_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "error_report_replies_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "error_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       error_reports: {
         Row: {
           admin_response: string | null
