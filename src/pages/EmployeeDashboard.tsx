@@ -560,6 +560,20 @@ export default function EmployeeDashboard() {
     });
   }, [recentLogs, filterWorkType]);
 
+  const logsSort = useTableSort(filteredLogs, {
+    initialColumn: 'date',
+    initialDirection: 'desc',
+    getValue: (log, col) => {
+      switch (col) {
+        case 'date': return log.work_date;
+        case 'item': return log.work_item?.identifier
+          || log.direct_rate_config?.work_type?.name || '';
+        case 'qty': return Number(log.quantity);
+        default: return '';
+      }
+    },
+  });
+
   // Add vehicle handler
   const handleAddVehicle = (typeName: string) => {
     setAddVehiclePreselectedType(typeName);
@@ -960,13 +974,13 @@ export default function EmployeeDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Item / Service</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
+                      <SortableTableHead column="date" sortColumn={logsSort.sortColumn} sortDirection={logsSort.sortDirection} onSort={logsSort.handleSort}>Date</SortableTableHead>
+                      <SortableTableHead column="item" sortColumn={logsSort.sortColumn} sortDirection={logsSort.sortDirection} onSort={logsSort.handleSort}>Item / Service</SortableTableHead>
+                      <SortableTableHead column="qty" sortColumn={logsSort.sortColumn} sortDirection={logsSort.sortDirection} onSort={logsSort.handleSort} align="right">Qty</SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredLogs.map((log) => {
+                    {logsSort.sortedData.map((log) => {
                       const info = getLogDisplayInfo(log);
                       const isFlagged = backToBackFlags.has(log.id);
                       
