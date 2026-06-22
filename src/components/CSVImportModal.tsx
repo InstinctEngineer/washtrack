@@ -630,9 +630,14 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
       queryClient.invalidateQueries({ queryKey: ["work-types"] });
       queryClient.invalidateQueries({ queryKey: ["rate-configs"] });
 
+      const totalSkipped =
+        parsedRows.filter(r => r.isSkipped).length + skippedDuringImport.length;
+      const skippedText =
+        totalSkipped > 0 ? ` ${totalSkipped} already existed and were skipped.` : "";
+      const failedText = failedCount > 0 ? ` ${failedCount} failed.` : "";
       toast({
         title: "Import complete",
-        description: `Successfully imported ${successCount} services.${failedCount > 0 ? ` ${failedCount} failed.` : ""}`,
+        description: `Imported ${successCount} new service${successCount === 1 ? "" : "s"}.${skippedText}${failedText}`,
       });
     } catch (error) {
       console.error("Import error:", error);
