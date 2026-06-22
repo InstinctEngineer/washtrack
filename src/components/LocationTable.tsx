@@ -33,6 +33,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortableTableHead } from '@/components/SortableTableHead';
 
 interface LocationTableProps {
   locations: Location[];
@@ -58,8 +60,6 @@ export const LocationTable = ({
 }: LocationTableProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [sortField, setSortField] = useState<'name' | 'employees'>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [stats, setStats] = useState<LocationStats>({});
   const [clients, setClients] = useState<Client[]>([]);
   const [deactivateDialog, setDeactivateDialog] = useState<{ open: boolean; location: Location | null }>({
@@ -104,8 +104,8 @@ export const LocationTable = ({
     }
   }, [locations]);
 
-  const filteredAndSortedLocations = useMemo(() => {
-    let filtered = locations.filter((location) => {
+  const filteredLocations = useMemo(() => {
+    return locations.filter((location) => {
       const matchesSearch =
         location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         location.address?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -117,30 +117,24 @@ export const LocationTable = ({
 
       return matchesSearch && matchesStatus;
     });
+  }, [locations, searchTerm, statusFilter]);
 
-    filtered.sort((a, b) => {
-      let comparison = 0;
-
-      if (sortField === 'name') {
-        comparison = a.name.localeCompare(b.name);
-      } else if (sortField === 'employees') {
-        comparison = (stats[a.id]?.employeeCount || 0) - (stats[b.id]?.employeeCount || 0);
-      }
-
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-
-    return filtered;
-  }, [locations, searchTerm, statusFilter, sortField, sortDirection, stats]);
-
-  const handleSort = (field: 'name' | 'employees') => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
+  const { sortedData: filteredAndSortedLocations, sortColumn, sortDirection, handleSort } = useTableSort(
+    filteredLocations,
+    {
+      initialColumn: 'name',
+      getValue: (loc, col) => {
+        switch (col) {
+          case 'name': return loc.name;
+          case 'client': return stats[loc.id]?.clientName || '';
+          case 'address': return loc.address || '';
+          case 'employees': return stats[loc.id]?.employeeCount || 0;
+          case 'is_active': return loc.is_active;
+          default: return '';
+        }
+      },
     }
-  };
+  );
 
   const handleDeactivateClick = (location: Location) => {
     setDeactivateDialog({ open: true, location });
@@ -194,21 +188,11 @@ export const LocationTable = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('name')}
-              >
-                Location Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Address</TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('employees')}
-              >
-                Active Employees {sortField === 'employees' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </TableHead>
-              <TableHead>Status</TableHead>
+              <SortableTableHead column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Location Name</SortableTableHead>
+              <SortableTableHead column="client" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Client</SortableTableHead>
+              <SortableTableHead column="address" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Address</SortableTableHead>
+              <SortableTableHead column="employees" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Active Employees</SortableTableHead>
+              <SortableTableHead column="is_active" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Status</SortableTableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
