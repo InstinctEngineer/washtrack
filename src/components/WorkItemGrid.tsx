@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Package, ChevronRight, ChevronDown, Check, Plus } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Check, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { RateConfigWithDetails } from '@/components/LogWorkModal';
