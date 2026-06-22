@@ -13,6 +13,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { findSimilarMatches } from '@/lib/fuzzyMatch';
 import { format } from 'date-fns';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortableTableHead } from '@/components/SortableTableHead';
 
 interface Req {
   id: string;
@@ -150,6 +152,30 @@ export default function DealershipRequests() {
   const pending = requests.filter((r) => r.status === 'pending');
   const processed = requests.filter((r) => r.status !== 'pending');
 
+  const pendingSort = useTableSort(pending, {
+    getValue: (r, col) => {
+      switch (col) {
+        case 'created_at': return new Date(r.created_at);
+        case 'requester_name': return r.requester_name || '';
+        case 'proposed_client_name': return r.proposed_client_name;
+        case 'proposed_location_name': return r.proposed_location_name;
+        case 'address': return [r.address, r.city, r.state].filter(Boolean).join(', ');
+        default: return '';
+      }
+    },
+  });
+  const processedSort = useTableSort(processed.slice(0, 30), {
+    getValue: (r, col) => {
+      switch (col) {
+        case 'created_at': return new Date(r.created_at);
+        case 'proposed_client_name': return r.proposed_client_name;
+        case 'proposed_location_name': return r.proposed_location_name;
+        case 'status': return r.status;
+        default: return '';
+      }
+    },
+  });
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -169,16 +195,16 @@ export default function DealershipRequests() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Requested</TableHead>
-                    <TableHead>By</TableHead>
-                    <TableHead>Dealership</TableHead>
-                    <TableHead>Lot</TableHead>
-                    <TableHead>Address</TableHead>
+                    <SortableTableHead column="created_at" sortColumn={pendingSort.sortColumn} sortDirection={pendingSort.sortDirection} onSort={pendingSort.handleSort}>Requested</SortableTableHead>
+                    <SortableTableHead column="requester_name" sortColumn={pendingSort.sortColumn} sortDirection={pendingSort.sortDirection} onSort={pendingSort.handleSort}>By</SortableTableHead>
+                    <SortableTableHead column="proposed_client_name" sortColumn={pendingSort.sortColumn} sortDirection={pendingSort.sortDirection} onSort={pendingSort.handleSort}>Dealership</SortableTableHead>
+                    <SortableTableHead column="proposed_location_name" sortColumn={pendingSort.sortColumn} sortDirection={pendingSort.sortDirection} onSort={pendingSort.handleSort}>Lot</SortableTableHead>
+                    <SortableTableHead column="address" sortColumn={pendingSort.sortColumn} sortDirection={pendingSort.sortDirection} onSort={pendingSort.handleSort}>Address</SortableTableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pending.map((r) => (
+                  {pendingSort.sortedData.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>{format(new Date(r.created_at), 'MMM d')}</TableCell>
                       <TableCell>{r.requester_name}</TableCell>
@@ -207,14 +233,14 @@ export default function DealershipRequests() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Dealership</TableHead>
-                    <TableHead>Lot</TableHead>
-                    <TableHead>Status</TableHead>
+                    <SortableTableHead column="created_at" sortColumn={processedSort.sortColumn} sortDirection={processedSort.sortDirection} onSort={processedSort.handleSort}>Date</SortableTableHead>
+                    <SortableTableHead column="proposed_client_name" sortColumn={processedSort.sortColumn} sortDirection={processedSort.sortDirection} onSort={processedSort.handleSort}>Dealership</SortableTableHead>
+                    <SortableTableHead column="proposed_location_name" sortColumn={processedSort.sortColumn} sortDirection={processedSort.sortDirection} onSort={processedSort.handleSort}>Lot</SortableTableHead>
+                    <SortableTableHead column="status" sortColumn={processedSort.sortColumn} sortDirection={processedSort.sortDirection} onSort={processedSort.handleSort}>Status</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {processed.slice(0, 30).map((r) => (
+                  {processedSort.sortedData.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>{format(new Date(r.created_at), 'MMM d')}</TableCell>
                       <TableCell>{r.proposed_client_name}</TableCell>
