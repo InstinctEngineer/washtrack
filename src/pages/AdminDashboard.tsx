@@ -47,9 +47,13 @@ export default function AdminDashboard() {
   const [loadingReports, setLoadingReports] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null);
 
-  const { sortedData: sortedReports, sortColumn, sortDirection, handleSort } = useTableSort(
-    [] as ErrorReport[],
-    { initialColumn: 'created_at', initialDirection: 'desc' }
+  const { sortedData: displayedReports, sortColumn, sortDirection, handleSort } = useTableSort<ErrorReport>(
+    errorReports,
+    {
+      initialColumn: 'created_at',
+      initialDirection: 'desc',
+      getValue: (r, col) => (col === 'created_at' ? new Date(r.created_at) : (r as any)[col]),
+    }
   );
 
   const fetchErrorReports = async () => {
