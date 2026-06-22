@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Copy, Check, Mail } from "lucide-react";
+import { Copy, Check, Mail, AlertTriangle, Loader2, Send } from "lucide-react";
 
 interface CreateUserModalProps {
   open: boolean;
@@ -62,6 +62,9 @@ export const CreateUserModal = ({
   const [createdUserId, setCreatedUserId] = useState("");
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [markedAsShared, setMarkedAsShared] = useState(false);
+  const [emailSent, setEmailSent] = useState<boolean | null>(null);
+  const [emailError, setEmailError] = useState<string | undefined>(undefined);
+  const [resending, setResending] = useState(false);
 
   const getInitialFormData = () => ({
     name: initialData?.name || "",
@@ -273,6 +276,8 @@ export const CreateUserModal = ({
       setCreatedUserId(result.user.id);
       setCopiedEmail(false);
       setMarkedAsShared(false);
+      setEmailSent(result.email_sent ?? false);
+      setEmailError(result.email_error);
       setShowPasswordDialog(true);
 
       // Reset form
@@ -339,6 +344,40 @@ You will be asked to set a new password when you first login.`;
       description: "Complete welcome message copied to clipboard",
     });
     setTimeout(() => setCopiedEmail(false), 2000);
+  };
+
+  const resendInvite = async () => {
+    if (!generatedEmail) return;
+    setResending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-welcome-email", {
+        body: { email: generatedEmail, name: generatedName },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setEmailSent(true);
+        setEmailError(undefined);
+        toast({ title: "Invite sent", description: `Email sent to ${generatedEmail}` });
+      } else {
+        setEmailSent(false);
+        setEmailError(data?.error);
+        toast({
+          title: "Email failed",
+          description: data?.error || "Unable to send invite",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      setEmailSent(false);
+      setEmailError(e?.message);
+      toast({
+        title: "Email failed",
+        description: e?.message || "Unable to send invite",
+        variant: "destructive",
+      });
+    } finally {
+      setResending(false);
+    }
   };
 
   const markAsShared = async () => {
@@ -599,6 +638,38 @@ You will be asked to set a new password when you first login.`;
                 <p>
                   User <strong>{generatedEmail}</strong> has been created.
                 </p>
+
+                {/* Welcome email status */}
+                <div className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${emailSent ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-900' : 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900'}`}>
+                  <div className="flex items-center gap-2 text-sm">
+                    {emailSent ? (
+                      <>
+                        <Check className="h-4 w-4 text-green-600" />
+                        <span>Welcome email sent to {generatedEmail}</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <span>
+                          Welcome email failed{emailError ? `: ${emailError}` : ''}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={resendInvite}
+                    disabled={resending}
+                  >
+                    {resending ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Send className="h-3 w-3 mr-1" />
+                    )}
+                    Resend invite
+                  </Button>
+                </div>
                 
                 {/* Email-ready message preview */}
                 <div className="bg-muted p-4 rounded-lg text-sm font-mono whitespace-pre-wrap text-foreground border">

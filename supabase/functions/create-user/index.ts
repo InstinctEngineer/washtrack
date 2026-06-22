@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { sendWelcomeEmail } from "../_shared/welcome-email.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -305,6 +306,21 @@ serve(async (req) => {
 
     console.log('User role assigned successfully');
 
+    // Send welcome email (non-blocking). Failures do NOT fail account creation.
+    let email_sent = false;
+    let email_error: string | undefined;
+    try {
+      const result = await sendWelcomeEmail(supabaseAdmin, { email, name });
+      email_sent = result.sent;
+      email_error = result.error;
+      if (!email_sent) {
+        console.error('Welcome email failed:', email_error);
+      }
+    } catch (e) {
+      console.error('Welcome email threw:', e);
+      email_error = e instanceof Error ? e.message : 'Unknown error';
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true,
@@ -312,7 +328,9 @@ serve(async (req) => {
           id: authData.user.id,
           email: authData.user.email,
           employee_id: employee_id
-        }
+        },
+        email_sent,
+        email_error
       }), 
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
