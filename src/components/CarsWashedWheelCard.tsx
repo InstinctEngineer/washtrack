@@ -30,10 +30,9 @@ export function CarsWashedWheelCard({ value, onChange, savedValue, rate }: CarsW
           {dirty ? (
             <span className="text-primary font-medium">
               Will save {value} car{value === 1 ? '' : 's'} when you submit
-              {rate ? ` · $${(value * rate).toFixed(2)}` : ''}
             </span>
           ) : (
-            <span>Tap the number to type it directly · use −/+ to step</span>
+            <span>Tap the number to type it directly</span>
           )}
         </div>
       </CardContent>
