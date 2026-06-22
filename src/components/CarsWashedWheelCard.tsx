@@ -6,10 +6,9 @@ interface CarsWashedWheelCardProps {
   value: number;
   onChange: (n: number) => void;
   savedValue: number | null;
-  rate?: number | null;
 }
 
-export function CarsWashedWheelCard({ value, onChange, savedValue, rate }: CarsWashedWheelCardProps) {
+export function CarsWashedWheelCard({ value, onChange, savedValue }: CarsWashedWheelCardProps) {
   const dirty = savedValue !== null ? value !== savedValue : value > 0;
   return (
     <Card data-demo="cars-washed-wheel" className="border-primary/30">
