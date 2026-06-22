@@ -45,6 +45,8 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Plus, Search, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortableTableHead } from '@/components/SortableTableHead';
 
 interface WorkType {
   id: string;
@@ -87,6 +89,16 @@ const WorkTypes = () => {
   // Filter by search
   const filteredWorkTypes = workTypes.filter(wt =>
     wt.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const { sortedData: sortedWorkTypes, sortColumn, sortDirection, handleSort } = useTableSort(
+    filteredWorkTypes,
+    {
+      getValue: (wt, col) => {
+        if (col === 'rate_type') return wt.rate_type === 'per_unit' ? 'Per Unit' : 'Hourly';
+        return (wt as any)[col];
+      },
+    }
   );
 
   // Create mutation
@@ -308,15 +320,15 @@ const WorkTypes = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Rate Type</TableHead>
-                          <TableHead>Service</TableHead>
-                          <TableHead>Active</TableHead>
+                          <SortableTableHead column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Name</SortableTableHead>
+                          <SortableTableHead column="rate_type" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Rate Type</SortableTableHead>
+                          <SortableTableHead column="is_service" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Service</SortableTableHead>
+                          <SortableTableHead column="is_active" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Active</SortableTableHead>
                           {canManageWorkTypes && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredWorkTypes.map((wt) => (
+                        {sortedWorkTypes.map((wt) => (
                           <TableRow key={wt.id}>
                             <TableCell className="font-medium">{wt.name}</TableCell>
                             <TableCell>
