@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 const FROM = "WashTrack Errors <noreply@mail.esd2.com>";
-const GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
 
 function escapeHtml(s: string): string {
   return s
@@ -105,10 +104,9 @@ serve(async (req) => {
     }
 
     const recipient = Deno.env.get("ERROR_REPORT_EMAIL");
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     const resendKey = Deno.env.get("RESEND_API_KEY");
-    if (!recipient || !lovableKey || !resendKey) {
-      console.error("Missing required env: ERROR_REPORT_EMAIL/LOVABLE_API_KEY/RESEND_API_KEY");
+    if (!recipient || !resendKey) {
+      console.error("Missing required env: ERROR_REPORT_EMAIL/RESEND_API_KEY");
       return new Response(JSON.stringify({ error: "Email not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -181,12 +179,11 @@ serve(async (req) => {
       appLink,
     });
 
-    const resp = await fetch(`${GATEWAY_URL}/emails`, {
+    const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": resendKey,
+        Authorization: `Bearer ${resendKey}`,
       },
       body: JSON.stringify({
         from: FROM,

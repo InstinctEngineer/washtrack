@@ -61,15 +61,12 @@ export default function AdminDashboard() {
   const [errorReports, setErrorReports] = useState<ErrorReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null);
-  const [responseText, setResponseText] = useState('');
-  const [sendingResponse, setSendingResponse] = useState(false);
   const [replies, setReplies] = useState<ErrorReportReply[]>([]);
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
 
   useEffect(() => {
-    setResponseText(selectedReport?.admin_response || '');
     setReplyText('');
     if (!selectedReport?.id) {
       setReplies([]);
@@ -187,48 +184,6 @@ export default function AdminDashboard() {
       ...prev,
       openReports: prev.openReports + (newStatus === 'open' ? 1 : -1),
     }));
-  };
-
-  const handleSendResponse = async () => {
-    if (!selectedReport || !user?.id || !responseText.trim()) return;
-    setSendingResponse(true);
-    try {
-      const trimmed = responseText.trim();
-      const now = new Date().toISOString();
-
-      const { error: updateErr } = await supabase
-        .from('error_reports')
-        .update({
-          admin_response: trimmed,
-          responded_at: now,
-          responded_by: user.id,
-          status: 'resolved',
-        })
-        .eq('id', selectedReport.id);
-      if (updateErr) throw updateErr;
-
-      toast({ title: 'Response sent', description: 'The reporter will see it in their Error Reports.' });
-
-      setErrorReports(prev =>
-        prev.map(r =>
-          r.id === selectedReport.id
-            ? { ...r, admin_response: trimmed, responded_at: now, responded_by: user.id, status: 'resolved' }
-            : r
-        )
-      );
-      setStats(prev => ({
-        ...prev,
-        openReports: prev.openReports - (selectedReport.status === 'open' ? 1 : 0),
-      }));
-      setSelectedReport(prev =>
-        prev ? { ...prev, admin_response: trimmed, responded_at: now, responded_by: user.id, status: 'resolved' } : prev
-      );
-    } catch (err: any) {
-      console.error('Failed to send response:', err);
-      toast({ title: 'Failed to send response', description: err.message, variant: 'destructive' });
-    } finally {
-      setSendingResponse(false);
-    }
   };
 
   const handleSendReply = async () => {

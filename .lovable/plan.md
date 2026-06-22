@@ -1,57 +1,30 @@
-## Goal
+## Problems
 
-When an admin creates a user, automatically email them a secure one-time link that lands on the existing `/change-password` screen. No auth setting changes, no impact on existing users or login flow.
+1. The admin error-report modal shows two reply systems: the legacy "Response to user" block (Textarea + "Send response" / "Mark resolved" footer buttons) and the newer "Conversation" thread (replies list + "Send reply" button). Only one is needed.
+2. Submitting a new error report does not email `nwarder@esd2.com`. `send-error-report-email` currently sends through the Lovable Resend connector gateway, which rejects the request with `lovable_api_key_not_registered`. The working `send-welcome-email` function bypasses the gateway and calls Resend directly with `RESEND_API_KEY`.
 
-## Approach
+## Changes
 
-One new email-sending edge function, called by `create-user` after success and re-callable from a "Resend invite" button in the success dialog. Email failures never block account creation.
+### 1) Consolidate the admin reply UI (`src/pages/AdminDashboard.tsx`)
 
-## What gets built
+Keep only the threaded "Conversation" panel.
 
-### 1. New edge function: `supabase/functions/send-welcome-email/index.ts`
+- Remove the "Response to user" section: label, helper text, the `Textarea` bound to `responseText`, and related state (`responseText`, `sendingResponse`).
+- Remove the "Send response" footer button and `handleSendResponse`. Keep "Close" and "Mark resolved / Reopen".
+- Drop the `useEffect` line that seeds `responseText` from `selectedReport.admin_response`.
+- No schema change; `error_report_replies` remains the single source of truth (matching `MyErrorReports`).
 
-Inputs (POST JSON): `{ email, name }`.
+### 2) Make the error-report email use the same path as user-creation emails (`supabase/functions/send-error-report-email/index.ts`)
 
-Logic:
-- CORS + verify caller session has `finance`/`admin`/`super_admin` (same pattern as `create-user`).
-- Use service-role client to call `supabaseAdmin.auth.admin.generateLink({ type: 'recovery', email, options: { redirectTo: `${APP_URL}/change-password` } })`. This produces a one-time link that signs the user in via the recovery flow and lands them on the existing change-password page (which already clears `must_change_password`).
-- POST to `https://api.resend.com/emails` with `Authorization: Bearer ${RESEND_API_KEY}`:
-  - `from`: `"WashTrack <noreply@mail.esd2.com>"`
-  - `to`: user email
-  - `subject`: `Welcome to WashTrack — set your password`
-  - `html`: branded message with a CTA button linking to the generated `action_link`, plain-text fallback link, expiry note.
-- Returns `{ success: true }` on send, `{ success: false, error }` (HTTP 200) on Resend/link failure so callers can show a soft warning.
+Mirror `_shared/welcome-email.ts`'s approach so it works with the existing, proven setup.
 
-Registered in `supabase/config.toml` with `verify_jwt = true` (admin-only).
+- Stop calling `https://connector-gateway.lovable.dev/resend/emails` with `LOVABLE_API_KEY` + `X-Connection-Api-Key`.
+- Call `https://api.resend.com/emails` directly with `Authorization: Bearer ${RESEND_API_KEY}`.
+- Remove the `LOVABLE_API_KEY` env check; keep `RESEND_API_KEY` and `ERROR_REPORT_EMAIL` checks.
+- Keep the rest of the function (auth check, report lookup, signed screenshot URL, HTML builder) unchanged.
 
-### 2. Wire into `create-user` (non-blocking)
+No new secrets required — `RESEND_API_KEY` is already configured and in use by the welcome email flow.
 
-After the user/role/locations inserts succeed, fire the email send inline using the service-role client (no extra auth hop): same `generateLink` + Resend POST helper, wrapped in try/catch. Result returned to the client as `{ success, user, email_sent: boolean, email_error?: string }`. Any failure is logged and swallowed — the 200 response still goes out.
+## Out of scope
 
-Refactor: extract the send logic into `supabase/functions/_shared/welcome-email.ts` so both `create-user` and `send-welcome-email` use the same code path.
-
-### 3. UI: `src/components/CreateUserModal.tsx`
-
-In the existing success dialog (which still shows the temp password for admin reference):
-- Show a small status line: "Welcome email sent to {email}" (green check) or "Email failed to send" (amber) based on `email_sent` from the response.
-- Add a **Resend invite** button next to it. On click, invoke the new `send-welcome-email` function with the created user's email/name; toast success/failure. Button shows a spinner while sending and is enabled regardless of initial status.
-
-No changes to the form, validation, password generation, or the `must_change_password = true` behavior (already set server-side).
-
-### 4. Nothing else changes
-
-- No auth config tool calls, no migrations, no changes to `ChangePassword.tsx`, no changes to existing-user flows.
-- `APP_URL` and `RESEND_API_KEY` secrets already in place.
-- Domain `mail.esd2.com` reused as-is.
-
-## Files
-
-- Add: `supabase/functions/send-welcome-email/index.ts`
-- Add: `supabase/functions/_shared/welcome-email.ts`
-- Edit: `supabase/functions/create-user/index.ts` (call helper, return `email_sent`)
-- Edit: `supabase/config.toml` (register new function)
-- Edit: `src/components/CreateUserModal.tsx` (status line + Resend invite button)
-
-## Recovery link → change-password behavior
-
-The Supabase `recovery` link redirects to `/change-password?...` with a recovery session attached. Existing `ChangePassword.tsx` already calls `supabase.auth.updateUser({ password, data: { password_reset_required: false } })` and clears `must_change_password` in the users table, so the new user lands authenticated, sets a password, and the flag clears automatically.
+- No changes to `MyErrorReports.tsx`, `ErrorReportButton.tsx`, or DB schema. Legacy `admin_response` / `responded_at` columns stay in place untouched.
