@@ -152,9 +152,12 @@ export default function EmployeeDashboard() {
     getCurrentCutoff().then(setCutoffDate);
   }, []);
 
+  // Has anything to submit?
+  const hasPending = pendingEntries.size > 0 || carsWashedDirty;
+
   // Track submit button visibility for glow transition
   useEffect(() => {
-    if (!submitButtonRef.current || pendingEntries.size === 0) {
+    if (!submitButtonRef.current || !hasPending) {
       setIsSubmitButtonVisible(false);
       return;
     }
@@ -171,7 +174,7 @@ export default function EmployeeDashboard() {
 
     observer.observe(submitButtonRef.current);
     return () => observer.disconnect();
-  }, [pendingEntries.size, carsWashedDirty]);
+  }, [hasPending]);
 
   // Fetch locations for employee
   useEffect(() => {
