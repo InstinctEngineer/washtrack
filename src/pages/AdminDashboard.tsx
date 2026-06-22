@@ -20,6 +20,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortableTableHead } from '@/components/SortableTableHead';
 
 interface ErrorReport {
   id: string;
@@ -44,6 +46,11 @@ export default function AdminDashboard() {
   const [errorReports, setErrorReports] = useState<ErrorReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null);
+
+  const { sortedData: sortedReports, sortColumn, sortDirection, handleSort } = useTableSort(
+    [] as ErrorReport[],
+    { initialColumn: 'created_at', initialDirection: 'desc' }
+  );
 
   const fetchErrorReports = async () => {
     setLoadingReports(true);
@@ -272,16 +279,16 @@ export default function AdminDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Reporter</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Page</TableHead>
+                      <SortableTableHead column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Status</SortableTableHead>
+                      <SortableTableHead column="reporter_name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Reporter</SortableTableHead>
+                      <SortableTableHead column="description" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Description</SortableTableHead>
+                      <SortableTableHead column="page_url" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Page</SortableTableHead>
                       <TableHead>Screenshot</TableHead>
-                      <TableHead>Time</TableHead>
+                      <SortableTableHead column="created_at" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Time</SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {errorReports.map((report) => (
+                    {displayedReports.map((report) => (
                       <TableRow
                         key={report.id}
                         className={`cursor-pointer hover:bg-muted/40 ${report.status === 'open' ? 'bg-destructive/5' : ''}`}
