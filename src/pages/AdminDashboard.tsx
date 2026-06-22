@@ -153,6 +153,62 @@ export default function AdminDashboard() {
     }));
   };
 
+  const handleSendResponse = async () => {
+    if (!selectedReport || !user?.id || !responseText.trim()) return;
+    setSendingResponse(true);
+    try {
+      const trimmed = responseText.trim();
+      const now = new Date().toISOString();
+
+      const { error: updateErr } = await supabase
+        .from('error_reports')
+        .update({
+          admin_response: trimmed,
+          responded_at: now,
+          responded_by: user.id,
+          status: 'resolved',
+        })
+        .eq('id', selectedReport.id);
+      if (updateErr) throw updateErr;
+
+      const messageBody =
+        `Response to your error report:\n\n${trimmed}\n\n` +
+        `— — —\nOriginal report (${format(new Date(selectedReport.created_at), 'PPpp')}):\n` +
+        `${selectedReport.description}` +
+        (selectedReport.page_url ? `\n\nPage: ${selectedReport.page_url}` : '');
+
+      const { error: msgErr } = await supabase.from('employee_comments').insert({
+        employee_id: user.id,
+        recipient_id: selectedReport.reported_by,
+        comment_text: messageBody,
+        week_start_date: format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+      });
+      if (msgErr) throw msgErr;
+
+      toast({ title: 'Response sent', description: 'The user has been messaged.' });
+
+      setErrorReports(prev =>
+        prev.map(r =>
+          r.id === selectedReport.id
+            ? { ...r, admin_response: trimmed, responded_at: now, responded_by: user.id, status: 'resolved' }
+            : r
+        )
+      );
+      setStats(prev => ({
+        ...prev,
+        openReports: prev.openReports - (selectedReport.status === 'open' ? 1 : 0),
+      }));
+      setSelectedReport(prev =>
+        prev ? { ...prev, admin_response: trimmed, responded_at: now, responded_by: user.id, status: 'resolved' } : prev
+      );
+    } catch (err: any) {
+      console.error('Failed to send response:', err);
+      toast({ title: 'Failed to send response', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingResponse(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
