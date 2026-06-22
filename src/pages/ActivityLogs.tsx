@@ -15,6 +15,8 @@ import { Separator } from '@/components/ui/separator';
 import { RefreshCw, Activity, Search, ArrowUp, ArrowDown, Clock, User, MousePointerClick, FileText, Globe, Tag, Info, Database, Link2, LayoutDashboard, ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ErrorScreenshotViewer } from '@/components/ErrorScreenshotViewer';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortableTableHead } from '@/components/SortableTableHead';
 
 const ACTION_GROUPS: { label: string; actions: string[] }[] = [
   { label: '── Navigation', actions: ['page_view'] },
@@ -204,6 +206,21 @@ export default function ActivityLogs() {
     );
   }, [logs, search, users]);
 
+  // Client-side sort for non-time columns (overrides server time order when active).
+  const clientSort = useTableSort(filteredLogs, {
+    getValue: (log, col) => {
+      switch (col) {
+        case 'user': return users[log.user_id] || log.user_id;
+        case 'action': return ACTION_LABELS[log.action] || log.action;
+        case 'page': return log.page || '';
+        case 'target': return log.target || '';
+        case 'metadata': return log.metadata ? JSON.stringify(log.metadata) : '';
+        default: return '';
+      }
+    },
+  });
+  const displayedLogs = clientSort.sortColumn ? clientSort.sortedData : filteredLogs;
+
   const uniqueUsers = useMemo(() => {
     const ids = [...new Set(logs.map(l => l.user_id))];
     return ids.map(id => ({ id, name: users[id] || id.slice(0, 8) }));
@@ -332,22 +349,22 @@ export default function ActivityLogs() {
                         <TableRow>
                           <TableHead
                             className="cursor-pointer select-none hover:bg-muted/50"
-                            onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                            onClick={() => { clientSort.setSortColumn(null); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}
                           >
                             <div className="flex items-center gap-1">
                               Time
                               {sortDir === 'desc' ? <ArrowDown className="h-3 w-3" /> : <ArrowUp className="h-3 w-3" />}
                             </div>
                           </TableHead>
-                          <TableHead>User</TableHead>
-                          <TableHead>Action</TableHead>
-                          <TableHead>Page</TableHead>
-                          <TableHead>Target</TableHead>
-                          <TableHead>Metadata</TableHead>
+                          <SortableTableHead column="user" sortColumn={clientSort.sortColumn} sortDirection={clientSort.sortDirection} onSort={clientSort.handleSort}>User</SortableTableHead>
+                          <SortableTableHead column="action" sortColumn={clientSort.sortColumn} sortDirection={clientSort.sortDirection} onSort={clientSort.handleSort}>Action</SortableTableHead>
+                          <SortableTableHead column="page" sortColumn={clientSort.sortColumn} sortDirection={clientSort.sortDirection} onSort={clientSort.handleSort}>Page</SortableTableHead>
+                          <SortableTableHead column="target" sortColumn={clientSort.sortColumn} sortDirection={clientSort.sortDirection} onSort={clientSort.handleSort}>Target</SortableTableHead>
+                          <SortableTableHead column="metadata" sortColumn={clientSort.sortColumn} sortDirection={clientSort.sortDirection} onSort={clientSort.handleSort}>Metadata</SortableTableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredLogs.map(log => (
+                        {displayedLogs.map(log => (
                           <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
                             <TableCell className="whitespace-nowrap text-xs">
                               {format(new Date(log.client_timestamp || log.created_at), 'MMM d, HH:mm:ss')}
@@ -379,7 +396,7 @@ export default function ActivityLogs() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        {filteredLogs.length === 0 && (
+                        {displayedLogs.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                               No activity logs found
