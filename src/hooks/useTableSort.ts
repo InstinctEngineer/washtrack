@@ -26,7 +26,13 @@ export function useTableSort<T extends Record<string, any>>(
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
-      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        // Third click clears the sort.
+        setSortColumn(null);
+        setSortDirection(initialDirection);
+      }
     } else {
       setSortColumn(column);
       setSortDirection('asc');
