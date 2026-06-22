@@ -1074,7 +1074,7 @@ export default function EmployeeDashboard() {
                 ))}
               </div>
             ) : filteredLogs.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
+              <p className="text-center text-sm text-muted-foreground py-2">
                 {recentLogs.length === 0 ? 'No entries this week' : 'No entries match the selected filter'}
               </p>
             ) : (

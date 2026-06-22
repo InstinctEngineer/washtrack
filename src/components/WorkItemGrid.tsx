@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Package, ChevronRight, ChevronDown, Check, Plus } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Check, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { RateConfigWithDetails } from '@/components/LogWorkModal';
@@ -195,9 +195,8 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
 
   if (workItems.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-        <p>No vehicles or equipment configured for this location</p>
+      <div className="text-center text-muted-foreground py-2">
+        <p className="text-sm">No vehicles or equipment configured for this location</p>
       </div>
     );
   }
