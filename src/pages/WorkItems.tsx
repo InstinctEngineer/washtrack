@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -178,20 +178,65 @@ const WorkItems = () => {
           work_type:work_types(id, name, rate_type)
         `)
         .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .range(0, 49999);
+        .order('created_at', { ascending: false });
+      // Bounded by PostgREST max-rows (1000). Currently <200 rows; safe.
       if (error) throw error;
       return data as RateConfigOption[];
     },
   });
 
-  // Fetch work items
-  const { data: workItems = [], isLoading } = useQuery({
-    queryKey: ['work-items'],
+  // Debounce search input so each keystroke doesn't fire a query
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Resolve rate_config_ids that match the client/location/work-type filters.
+  // PostgREST embed filters don't filter the parent rows, so we pre-resolve
+  // the matching rate_config ids from the (small) rateConfigs list and use
+  // .in('rate_config_id', ...) on the work_items query.
+  const filterRateConfigIds = useMemo<string[] | null>(() => {
+    if (filterClient === 'all' && filterLocation === 'all' && filterWorkType === 'all') {
+      return null; // no filter → don't constrain
+    }
+    return rateConfigs
+      .filter((rc) => {
+        if (filterClient !== 'all' && rc.client_id !== filterClient) return false;
+        if (filterLocation !== 'all' && rc.location_id !== filterLocation) return false;
+        if (filterWorkType !== 'all' && rc.work_type_id !== filterWorkType) return false;
+        return true;
+      })
+      .map((rc) => rc.id);
+  }, [rateConfigs, filterClient, filterLocation, filterWorkType]);
+
+  // Wait for rateConfigs before running filtered queries, otherwise we'd
+  // short-circuit to [] just because the dependency hasn't loaded yet.
+  const rateConfigsReady = rateConfigs.length > 0;
+  const hasClassicFilter =
+    filterClient !== 'all' || filterLocation !== 'all' || filterWorkType !== 'all';
+
+  // Fetch work items — filtered server-side (PostgREST caps at 1000 rows)
+  const { data: workItemsResp, isLoading } = useQuery({
+    queryKey: [
+      'work-items',
+      debouncedSearch,
+      filterClient,
+      filterLocation,
+      filterWorkType,
+      filterRateConfigIds?.length ?? 0,
+    ],
+    enabled: !hasClassicFilter || rateConfigsReady,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Short-circuit if filters resolve to zero rate_configs
+      if (filterRateConfigIds && filterRateConfigIds.length === 0) {
+        return { rows: [] as WorkItem[], capped: false };
+      }
+
+      let query = supabase
         .from('work_items')
-        .select(`
+        .select(
+          `
           *,
           rate_config:rate_configs(
             id, client_id, location_id, work_type_id, frequency, rate, needs_rate_review, is_active,
@@ -199,24 +244,33 @@ const WorkItems = () => {
             location:locations(id, name),
             work_type:work_types(id, name, rate_type)
           )
-        `)
+        `,
+          { count: 'exact' }
+        )
         .order('identifier')
-        .range(0, 49999);
+        .range(0, 999);
+
+      if (debouncedSearch) {
+        query = query.ilike('identifier', `%${debouncedSearch}%`);
+      }
+      if (filterRateConfigIds) {
+        query = query.in('rate_config_id', filterRateConfigIds);
+      }
+
+      const { data, error, count } = await query;
       if (error) throw error;
-      return data as WorkItem[];
+      return {
+        rows: (data || []) as WorkItem[],
+        capped: typeof count === 'number' && count > (data?.length ?? 0),
+      };
     },
   });
 
-  // Filter work items
-  const filteredItems = workItems.filter(item => {
-    const rc = item.rate_config;
-    if (!rc) return false;
-    if (filterClient !== 'all' && rc.client_id !== filterClient) return false;
-    if (filterLocation !== 'all' && rc.location_id !== filterLocation) return false;
-    if (filterWorkType !== 'all' && rc.work_type_id !== filterWorkType) return false;
-    if (search && !item.identifier.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const workItems = workItemsResp?.rows ?? [];
+  const resultsCapped = workItemsResp?.capped ?? false;
+
+  // No more client-side filtering — server already filtered.
+  const filteredItems = workItems;
 
   const { sortedData: sortedItems, sortColumn, sortDirection, handleSort } = useTableSort(
     filteredItems,
