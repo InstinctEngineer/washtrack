@@ -169,6 +169,27 @@ All colors MUST be HSL.
   --chart-5: 38 92% 50%;
 }
 
+@layer components {
+  .mode-invoicing-active {
+    background-color: hsl(var(--mode-invoicing));
+    color: hsl(var(--mode-invoicing-foreground));
+  }
+
+  .mode-payroll-active {
+    background-color: hsl(var(--mode-payroll));
+    color: hsl(var(--mode-payroll-foreground));
+  }
+
+  .mode-invoicing-text {
+    color: hsl(var(--mode-invoicing));
+  }
+
+  .mode-payroll-text {
+    color: hsl(var(--mode-payroll));
+  }
+}
+
+
 @layer base {
   * {
     @apply border-border;
