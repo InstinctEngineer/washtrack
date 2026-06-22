@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { CutoffBanner } from '@/components/CutoffBanner';
 import { WorkItemGrid, WorkItemWithDetails } from '@/components/WorkItemGrid';
 import { LogWorkModal, RateConfigWithDetails } from '@/components/LogWorkModal';
+import { CarsWashedWheelCard } from '@/components/CarsWashedWheelCard';
 import { GuidedDemo } from '@/components/GuidedDemo';
 import { AddVehicleModal } from '@/components/AddVehicleModal';
 import { DealershipWashCard } from '@/components/dealership/DealershipWashCard';
@@ -115,6 +116,11 @@ export default function EmployeeDashboard() {
   
   // Work type filter for recent entries
   const [filterWorkType, setFilterWorkType] = useState<string>('all');
+
+  // Cars Washed scroll-wheel state
+  const [carsWashedQty, setCarsWashedQty] = useState(0);
+  const [savedCarsWashedQty, setSavedCarsWashedQty] = useState<number | null>(null);
+  const [savedCarsWashedLogId, setSavedCarsWashedLogId] = useState<string | null>(null);
   
   // Comment modal state
   const [commentModalOpen, setCommentModalOpen] = useState(false);
@@ -126,6 +132,19 @@ export default function EmployeeDashboard() {
   // Submit button visibility tracking for glow effect
   const [isSubmitButtonVisible, setIsSubmitButtonVisible] = useState(false);
   const submitButtonRef = useRef<HTMLDivElement>(null);
+
+  // Identify the Cars Washed rate config (now stored as 'hourly' rate_type)
+  const carsWashedConfig = useMemo(
+    () => hourlyConfigs.find(c => c.work_type.name.toLowerCase() === 'cars washed') || null,
+    [hourlyConfigs]
+  );
+  const gridHourlyConfigs = useMemo(
+    () => hourlyConfigs.filter(c => c.work_type.name.toLowerCase() !== 'cars washed'),
+    [hourlyConfigs]
+  );
+  const carsWashedDirty =
+    !!carsWashedConfig &&
+    (savedCarsWashedQty !== null ? carsWashedQty !== savedCarsWashedQty : carsWashedQty > 0);
   
 
   // Fetch cutoff date
@@ -152,7 +171,7 @@ export default function EmployeeDashboard() {
 
     observer.observe(submitButtonRef.current);
     return () => observer.disconnect();
-  }, [pendingEntries.size]);
+  }, [pendingEntries.size, carsWashedDirty]);
 
   // Fetch locations for employee
   useEffect(() => {
