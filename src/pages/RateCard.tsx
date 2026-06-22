@@ -51,7 +51,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, ChevronDown, Trash2 } from 'lucide-react';
+import { Loader2, Plus, ChevronDown, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface RateConfig {
   id: string;
