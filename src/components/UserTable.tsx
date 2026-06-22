@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Search, KeyRound, ChevronDown, Copy, Mail, Loader2 } from "lucide-react";
+import { Edit, Search, KeyRound, ChevronDown, Copy, Mail, Loader2, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,16 @@ import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface UserTableProps {
   users: (User & {
@@ -47,6 +57,7 @@ interface UserTableProps {
   setStatusFilter: (value: string) => void;
   searchQuery: string;
   setSearchQuery: (value: string) => void;
+  currentUserRole?: string | null;
 }
 
 const roleColors: Record<UserRole, string> = {
@@ -69,12 +80,45 @@ export const UserTable = ({
   setStatusFilter,
   searchQuery,
   setSearchQuery,
+  currentUserRole,
 }: UserTableProps) => {
   const { toast } = useToast();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isTableOpen, setIsTableOpen] = useState(true);
   const [resendingFor, setResendingFor] = useState<string | null>(null);
   const [resettingFor, setResettingFor] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const isSuperAdmin = currentUserRole === "super_admin";
+
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { user_id: deleteTarget.id },
+      });
+      if (error) throw error;
+      if (data && data.success === false) {
+        throw new Error(data.error || "Failed to delete user");
+      }
+      toast({
+        title: "User deleted",
+        description: `${deleteTarget.name} has been permanently removed.`,
+      });
+      setDeleteTarget(null);
+      onRefresh();
+    } catch (err: any) {
+      console.error("delete-user error:", err);
+      toast({
+        title: "Failed to delete user",
+        description: err.message || "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const sendAccountEmail = async (
     user: User,
