@@ -6,12 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Link } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users, MapPin, Settings, Building2, AlertTriangle } from 'lucide-react';
+import { Users, MapPin, Settings, Building2, AlertTriangle, Send, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentCutoff } from '@/lib/cutoff';
-import { format } from 'date-fns';
+import { format, startOfWeek } from 'date-fns';
 import { ErrorScreenshotViewer } from '@/components/ErrorScreenshotViewer';
 import { toast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -32,9 +34,13 @@ interface ErrorReport {
   status: string;
   created_at: string;
   reporter_name?: string;
+  admin_response?: string | null;
+  responded_at?: string | null;
+  responded_by?: string | null;
 }
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     activeUsers: 0,
     totalUsers: 0,
@@ -46,6 +52,12 @@ export default function AdminDashboard() {
   const [errorReports, setErrorReports] = useState<ErrorReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null);
+  const [responseText, setResponseText] = useState('');
+  const [sendingResponse, setSendingResponse] = useState(false);
+
+  useEffect(() => {
+    setResponseText(selectedReport?.admin_response || '');
+  }, [selectedReport?.id]);
 
   const { sortedData: displayedReports, sortColumn, sortDirection, handleSort } = useTableSort<ErrorReport>(
     errorReports,
