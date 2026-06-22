@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { AlertTriangle, ChevronDown, CheckCircle2, Clock } from 'lucide-react';
+import { AlertTriangle, ChevronDown, CheckCircle2, Clock, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ErrorReport {
@@ -13,6 +13,8 @@ interface ErrorReport {
   page_url: string | null;
   status: string;
   created_at: string;
+  admin_response: string | null;
+  responded_at: string | null;
 }
 
 export function MyErrorReports() {
@@ -28,7 +30,7 @@ export function MyErrorReports() {
       setLoading(true);
       const { data, error } = await supabase
         .from('error_reports')
-        .select('id, description, page_url, status, created_at')
+        .select('id, description, page_url, status, created_at, admin_response, responded_at')
         .eq('reported_by', user.id)
         .order('created_at', { ascending: false });
 
@@ -103,6 +105,20 @@ export function MyErrorReports() {
                       </>
                     )}
                   </div>
+                  {report.admin_response && (
+                    <div className="mt-2 rounded-md border border-primary/20 bg-primary/5 p-2.5">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-primary mb-1">
+                        <MessageSquare className="h-3 w-3" />
+                        Admin response
+                        {report.responded_at && (
+                          <span className="font-normal text-muted-foreground">
+                            · {format(new Date(report.responded_at), 'MMM d, h:mm a')}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap leading-snug">{report.admin_response}</p>
+                    </div>
+                  )}
                 </div>
                 <Badge
                   variant={report.status === 'open' ? 'destructive' : 'secondary'}
