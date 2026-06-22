@@ -231,7 +231,7 @@ export const CreateUserModal = ({
             manager_id: formData.role === "finance" || formData.role === "admin" || formData.role === "super_admin"
               ? null
               : formData.manager_id || null,
-            password: formData.password
+            password: generatedPassword
           }),
         }
       );
