@@ -1,40 +1,36 @@
-## What's actually happening
+## What I found
 
-I checked the database. **Every identifier in your CSV is already present in `work_items`** under client `Fed Ex BMI Ramp` / location `Fed Ex BMI Ramp` with the matching work type and frequency (402640, 402987, 603498, 711717, 708954, etc. — all 25 rows already exist).
+- DB: identifier `710750` exists (Fed Ex BMI Ramp / Fed Ex Trailer / Weekly / $37.50, rate_config active).
+- UI `/admin/items` search for `710750` returns **"No work items match your filters"**, and the page badge shows `Work Items 1000`.
+- Network: the `work_items` request returns `Content-Range: 0-999/*` — the server enforces a hard `max-rows=1000` cap that overrides my `.range(0, 49999)`. There are 1502 rows; alphabetically `710750` sits past row 1000, so the client never receives it.
 
-So the import isn't silently failing. The `CSVImportModal` correctly detects them as duplicates in its "already exists" check and skips them. The toast just says "Successfully imported 0 services" without making it obvious that 25 rows were skipped.
-
-But there's a real bug behind why you can't *find* them in the Work Items UI:
-
-### Root cause: 1000-row PostgREST cap on Work Items page
-
-`src/pages/WorkItems.tsx` loads work items with:
-
-```ts
-supabase.from('work_items').select(`*, rate_config:rate_configs(...)`).order('identifier')
-```
-
-There's no `.range()` or pagination. PostgREST defaults to a **1000-row maximum** per request. The `work_items` table currently has **1502 rows**. The page only ever sees the first 1000 (ordered by `identifier` ASC), and the search box filters that already-truncated client-side array — so any identifier that lives beyond row 1000 is invisible, no matter what you type in search.
-
-That's why the imported rows look "missing" even though they exist in the database.
+The previous fix doesn't work. I need to filter server-side.
 
 ## Plan
 
-### 1. Fix Work Items page to see all rows
-- In `src/pages/WorkItems.tsx`, change the work-items query to fetch beyond the 1000-row cap. Add `.range(0, 9999)` (and bump later if needed) so all current rows load.
-- Same treatment for the `rate_configs` query on that page if it has the same shape.
+Rework `src/pages/WorkItems.tsx` so the visible rows come from server filters instead of "fetch-all-then-filter-in-JS".
 
-### 2. Make the search actually work at scale
-- Even with `.range(0, 9999)`, client-side filtering of thousands of rows is fragile. Switch the identifier search to **server-side**: when `search` is non-empty, add `.ilike('identifier', `%${search}%`)` to the Supabase query (debounced ~250ms) and drop that part of the client-side filter. Keep client/location/work-type filters as Supabase `.eq()` filters too so the page stays snappy.
+### 1. Server-side filtering for the `work_items` query
+- Make the query key depend on `search`, `filterClient`, `filterLocation`, `filterWorkType` so it re-runs when they change.
+- Debounce `search` ~250 ms (small helper hook) so each keystroke doesn't fire a request.
+- Apply filters on the server:
+  - `search`: `.ilike('identifier', `%${debouncedSearch}%`)`
+  - `filterClient` / `filterLocation` / `filterWorkType`: pre-resolve the matching `rate_config_id`s from the already-loaded `rateConfigs` array (132 rows total — cheap) and add `.in('rate_config_id', ids)` to the `work_items` query. If the resolved list is empty, short-circuit to `[]` without hitting the network.
+- Keep `.range(0, 999)` (server cap). With filters applied, results virtually always fit; if a filter set ever exceeds 1000, surface a "Refine filters to see more" hint at the bottom of the table.
+- Drop the now-redundant client-side `filteredItems` filtering; sorting via `useTableSort` stays.
 
-### 3. Clarify CSV import summary
-In `src/components/CSVImportModal.tsx`:
-- The post-import toast and the results banner currently show only `success` / `failed`. Add a third count: **skipped (already exists)**, computed from rows where `isSkipped` is true (both pre-import duplicate detection and import-time 23505 skips).
-- Update toast to read e.g. `"Imported 0 new services. 25 already existed and were skipped."` so a no-op import doesn't look like a successful add.
+### 2. Same fix for the `rate_configs` selection list on this page
+- `rate-configs-all` (used by the Add/Edit form) is also server-capped at 1000. Confirmed only 132 rows today, so it's fine — leave as is but add a brief comment that it's bounded.
 
-### 4. Audit other tables for the same 1000-row cap
-Quick pass over the other heavy list pages (`RateCard.tsx`, `WorkTypes.tsx`, `LocationTable.tsx`, `UserTable.tsx`, `ActivityLogs.tsx`) — any query without `.range()` on a table that could exceed 1000 rows gets the same `.range(0, 9999)` fix or server-side search. I'll only touch the ones that actually risk overflow.
+### 3. Tighten the import toast (carry-over)
+Already in place from last turn, no change.
+
+### Verification (after build)
+- Reload `/admin/items`, type `710750`, confirm the row appears.
+- Clear search, pick "Fed Ex BMI Ramp" client filter, confirm all 25 imported identifiers (402640, 402987, 603498, …, 711717) show up.
+- Spot-check sorting still works on identifier/work-type/rate.
 
 ### Out of scope
-- No schema or RLS changes.
-- Not deleting or modifying the existing duplicate work_items already in the DB (e.g. the `705847.` variant) — flag only.
+- No pagination UI (server filters make the visible set small).
+- No schema changes; no edit to the global `max-rows` setting.
+- Other pages with large tables (`activity_logs` is already paginated; `work_logs`/`rate_configs` are under 1500 and date-filtered in their pages) — not touching this turn.
