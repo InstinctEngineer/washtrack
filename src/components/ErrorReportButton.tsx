@@ -72,17 +72,28 @@ export function ErrorReportButton() {
       }
 
       // Insert directly into error_reports table
-      const { error: insertError } = await supabase.from('error_reports').insert({
-        reported_by: userProfile.id,
-        description: description.trim(),
-        screenshot_url: screenshotUrl,
-        page_url: window.location.pathname,
-        user_agent: navigator.userAgent,
-        viewport: `${window.innerWidth}x${window.innerHeight}`,
-      });
+      const { data: inserted, error: insertError } = await supabase
+        .from('error_reports')
+        .insert({
+          reported_by: userProfile.id,
+          description: description.trim(),
+          screenshot_url: screenshotUrl,
+          page_url: window.location.pathname,
+          user_agent: navigator.userAgent,
+          viewport: `${window.innerWidth}x${window.innerHeight}`,
+        })
+        .select('id')
+        .single();
 
       if (insertError) {
         throw insertError;
+      }
+
+      // Fire-and-forget email notification to the admin recipient
+      if (inserted?.id) {
+        supabase.functions
+          .invoke('send-error-report-email', { body: { reportId: inserted.id } })
+          .catch((err) => console.error('Error report email failed:', err));
       }
 
       // Log to activity logs
