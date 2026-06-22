@@ -282,8 +282,12 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {errorReports.map((report) => (
-                      <TableRow key={report.id} className={report.status === 'open' ? 'bg-destructive/5' : ''}>
-                        <TableCell>
+                      <TableRow
+                        key={report.id}
+                        className={`cursor-pointer hover:bg-muted/40 ${report.status === 'open' ? 'bg-destructive/5' : ''}`}
+                        onClick={() => setSelectedReport(report)}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-2">
                             <Switch
                               checked={report.status === 'resolved'}
@@ -299,7 +303,7 @@ export default function AdminDashboard() {
                           <p className="truncate text-sm">{report.description}</p>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{report.page_url}</TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           {report.screenshot_url ? (
                             <ErrorScreenshotViewer screenshotPath={report.screenshot_url} />
                           ) : (
@@ -317,6 +321,69 @@ export default function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={!!selectedReport} onOpenChange={(o) => !o && setSelectedReport(null)}>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                Error Report
+              </DialogTitle>
+              <DialogDescription>Full details of the submitted issue.</DialogDescription>
+            </DialogHeader>
+
+            {selectedReport && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium">{selectedReport.reporter_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(selectedReport.created_at), 'PPpp')}
+                    </p>
+                  </div>
+                  <Badge variant={selectedReport.status === 'open' ? 'destructive' : 'secondary'}>
+                    {selectedReport.status}
+                  </Badge>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Description</p>
+                  <p className="text-sm whitespace-pre-wrap rounded-md border bg-muted/30 p-3">
+                    {selectedReport.description}
+                  </p>
+                </div>
+
+                {selectedReport.page_url && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Page</p>
+                    <p className="text-sm font-mono break-all">{selectedReport.page_url}</p>
+                  </div>
+                )}
+
+                {selectedReport.screenshot_url && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Screenshot</p>
+                    <ErrorScreenshotViewer screenshotPath={selectedReport.screenshot_url} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setSelectedReport(null)}>
+                Close
+              </Button>
+              {selectedReport && (
+                <Button
+                  variant={selectedReport.status === 'open' ? 'default' : 'secondary'}
+                  onClick={() => toggleReportStatus(selectedReport.id, selectedReport.status)}
+                >
+                  {selectedReport.status === 'open' ? 'Mark resolved' : 'Reopen'}
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
