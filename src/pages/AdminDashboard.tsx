@@ -445,6 +445,29 @@ export default function AdminDashboard() {
                     <ErrorScreenshotViewer screenshotPath={selectedReport.screenshot_url} />
                   </div>
                 )}
+
+                <div className="space-y-2 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium uppercase text-muted-foreground">
+                      Response to user
+                    </p>
+                    {selectedReport.responded_at && (
+                      <p className="text-xs text-muted-foreground">
+                        Last sent {format(new Date(selectedReport.responded_at), 'PPp')}
+                      </p>
+                    )}
+                  </div>
+                  <Textarea
+                    value={responseText}
+                    onChange={(e) => setResponseText(e.target.value)}
+                    placeholder="Write a response. The user will receive this as a message along with their original report."
+                    rows={4}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Sending will message {selectedReport.reporter_name} and mark this report resolved.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -453,12 +476,26 @@ export default function AdminDashboard() {
                 Close
               </Button>
               {selectedReport && (
-                <Button
-                  variant={selectedReport.status === 'open' ? 'default' : 'secondary'}
-                  onClick={() => toggleReportStatus(selectedReport.id, selectedReport.status)}
-                >
-                  {selectedReport.status === 'open' ? 'Mark resolved' : 'Reopen'}
-                </Button>
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={() => toggleReportStatus(selectedReport.id, selectedReport.status)}
+                  >
+                    {selectedReport.status === 'open' ? 'Mark resolved' : 'Reopen'}
+                  </Button>
+                  <Button
+                    onClick={handleSendResponse}
+                    disabled={sendingResponse || !responseText.trim()}
+                    className="gap-2"
+                  >
+                    {sendingResponse ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    {selectedReport.admin_response ? 'Send update' : 'Send response'}
+                  </Button>
+                </>
               )}
             </DialogFooter>
           </DialogContent>
