@@ -276,6 +276,8 @@ export const CreateUserModal = ({
       setCreatedUserId(result.user.id);
       setCopiedEmail(false);
       setMarkedAsShared(false);
+      setEmailSent(result.email_sent ?? false);
+      setEmailError(result.email_error);
       setShowPasswordDialog(true);
 
       // Reset form
