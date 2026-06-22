@@ -502,12 +502,24 @@ const RateCard = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Client</TableHead>
-                          <TableHead>Location</TableHead>
-                          <TableHead>Work Type</TableHead>
-                          <TableHead>Frequency</TableHead>
-                          <TableHead>Rate</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('client')}>
+                            <div className="flex items-center">Client{getSortIcon('client')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('location')}>
+                            <div className="flex items-center">Location{getSortIcon('location')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('work_type')}>
+                            <div className="flex items-center">Work Type{getSortIcon('work_type')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('frequency')}>
+                            <div className="flex items-center">Frequency{getSortIcon('frequency')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('rate')}>
+                            <div className="flex items-center">Rate{getSortIcon('rate')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('status')}>
+                            <div className="flex items-center">Status{getSortIcon('status')}</div>
+                          </TableHead>
                           <TableHead>Active</TableHead>
                           {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
