@@ -24,6 +24,8 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getCurrentCutoff } from '@/lib/cutoff';
 import { cn } from '@/lib/utils';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortableTableHead } from '@/components/SortableTableHead';
 import {
   AlertDialog,
   AlertDialogAction,
