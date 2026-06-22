@@ -178,7 +178,8 @@ const WorkItems = () => {
           work_type:work_types(id, name, rate_type)
         `)
         .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, 49999);
       if (error) throw error;
       return data as RateConfigOption[];
     },
@@ -199,7 +200,8 @@ const WorkItems = () => {
             work_type:work_types(id, name, rate_type)
           )
         `)
-        .order('identifier');
+        .order('identifier')
+        .range(0, 49999);
       if (error) throw error;
       return data as WorkItem[];
     },
