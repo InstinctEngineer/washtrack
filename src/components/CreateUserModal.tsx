@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Copy, Check, Mail, AlertTriangle, Loader2, Send } from "lucide-react";
+import { Check, AlertTriangle, Loader2, Send } from "lucide-react";
 
 interface CreateUserModalProps {
   open: boolean;
@@ -55,13 +55,8 @@ export const CreateUserModal = ({
   const { userRole } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [generatedPassword, setGeneratedPassword] = useState("");
   const [generatedEmail, setGeneratedEmail] = useState("");
-  const [generatedEmployeeId, setGeneratedEmployeeId] = useState("");
   const [generatedName, setGeneratedName] = useState("");
-  const [createdUserId, setCreatedUserId] = useState("");
-  const [copiedEmail, setCopiedEmail] = useState(false);
-  const [markedAsShared, setMarkedAsShared] = useState(false);
   const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [emailError, setEmailError] = useState<string | undefined>(undefined);
   const [resending, setResending] = useState(false);
@@ -269,13 +264,8 @@ export const CreateUserModal = ({
 
       if (locationError) throw locationError;
 
-      setGeneratedPassword(formData.password);
       setGeneratedEmail(formData.email);
-      setGeneratedEmployeeId(result.user.employee_id);
       setGeneratedName(formData.name);
-      setCreatedUserId(result.user.id);
-      setCopiedEmail(false);
-      setMarkedAsShared(false);
       setEmailSent(result.email_sent ?? false);
       setEmailError(result.email_error);
       setShowPasswordDialog(true);
@@ -301,49 +291,6 @@ export const CreateUserModal = ({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const copyPassword = () => {
-    navigator.clipboard.writeText(generatedPassword);
-    toast({
-      title: "Copied",
-      description: "Password copied to clipboard",
-    });
-  };
-
-  const copyEmployeeId = () => {
-    navigator.clipboard.writeText(generatedEmployeeId);
-    toast({
-      title: "Copied",
-      description: "Employee ID copied to clipboard",
-    });
-  };
-
-  const getEmailMessage = () => {
-    return `Welcome to WashTrack ${generatedName}!
-Emp ID: ${generatedEmployeeId}
-
-
-Your login credentials:
-
-Username: ${generatedEmail}
-Temporary Password: ${generatedPassword}
-
-
-Login at: https://washtracking.com/login
-
-
-You will be asked to set a new password when you first login.`;
-  };
-
-  const copyEmailMessage = async () => {
-    await navigator.clipboard.writeText(getEmailMessage());
-    setCopiedEmail(true);
-    toast({
-      title: "Copied for Email",
-      description: "Complete welcome message copied to clipboard",
-    });
-    setTimeout(() => setCopiedEmail(false), 2000);
   };
 
   const resendInvite = async () => {
@@ -378,30 +325,6 @@ You will be asked to set a new password when you first login.`;
     } finally {
       setResending(false);
     }
-  };
-
-  const markAsShared = async () => {
-    if (!createdUserId) return;
-    
-    const { error } = await supabase
-      .from('users')
-      .update({ credentials_shared_at: new Date().toISOString() })
-      .eq('id', createdUserId);
-    
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to mark credentials as shared",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setMarkedAsShared(true);
-    toast({
-      title: "Marked as Shared",
-      description: "Credential sharing has been tracked",
-    });
   };
 
   return (
@@ -671,72 +594,10 @@ You will be asked to set a new password when you first login.`;
                   </Button>
                 </div>
                 
-                {/* Email-ready message preview */}
-                <div className="bg-muted p-4 rounded-lg text-sm font-mono whitespace-pre-wrap text-foreground border">
-                  {getEmailMessage()}
-                </div>
-
-                {/* Copy for Email button */}
-                <Button
-                  onClick={copyEmailMessage}
-                  className="w-full"
-                  variant={copiedEmail ? "secondary" : "default"}
-                >
-                  {copiedEmail ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="h-4 w-4 mr-2" />
-                      Copy for Email
-                    </>
-                  )}
-                </Button>
-
-                {/* Individual copy buttons */}
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={copyEmployeeId}
-                  >
-                    <Copy className="h-3 w-3 mr-1" />
-                    Copy Employee ID
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={copyPassword}
-                  >
-                    <Copy className="h-3 w-3 mr-1" />
-                    Copy Password
-                  </Button>
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  ⚠️ User must change password on first login. Make sure to save
-                  this information - it won't be shown again.
-                </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row gap-2 sm:justify-between">
-            <Button
-              variant={markedAsShared ? "secondary" : "outline"}
-              onClick={markAsShared}
-              disabled={markedAsShared}
-            >
-              {markedAsShared ? (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  Marked as Shared
-                </>
-              ) : (
-                "Mark as Shared"
-              )}
-            </Button>
+          <AlertDialogFooter className="flex-row gap-2 sm:justify-end">
             <AlertDialogAction onClick={() => setShowPasswordDialog(false)}>
               Done
             </AlertDialogAction>
