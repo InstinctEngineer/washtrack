@@ -1,25 +1,19 @@
-## Problem
+## Goal
+Make Error Report rows on the Admin Dashboard clickable to open a full-details modal.
 
-In Messages, the "Read by" list shows "Unknown" for some users. Root cause: the `get_user_display_info` RPC filters `WHERE is_active = true`, so any deactivated user (e.g., Rylie Bender in the current data) returns no row and the UI falls back to "Unknown". The same issue would also affect deactivated message authors and reply authors.
+## Changes
 
-## Fix
+**`src/pages/AdminDashboard.tsx`**
+- Add `selectedReport` state (`ErrorReport | null`) and a `Dialog` from `@/components/ui/dialog`.
+- Make each `TableRow` in the Error Reports table clickable (`cursor-pointer hover:bg-muted/40`) — `onClick` sets `selectedReport`.
+- Prevent row-click triggering when the user interacts with the status `Switch` or the screenshot viewer (wrap those cells' inner controls with `onClick={(e) => e.stopPropagation()}`).
+- Render a details `Dialog` (`max-h-[90vh] overflow-y-auto`) showing:
+  - Reporter name + status badge
+  - Full description (not truncated)
+  - Page URL, viewport, user agent, submitted time
+  - Screenshot via `ErrorScreenshotViewer` (inline variant) when present
+  - A "Mark resolved / Reopen" button that calls the existing `toggleReportStatus` and updates the open dialog's report state
 
-Update the `get_user_display_info` security-definer function to return display info for **all** users (active or inactive). Returning only `id` + `name` remains safe — it's the same minimal data exposed today, just no longer hidden when an account is deactivated.
-
-```sql
-CREATE OR REPLACE FUNCTION public.get_user_display_info(user_ids uuid[])
-RETURNS TABLE(id uuid, name text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-AS $$
-  SELECT u.id, u.name
-  FROM public.users u
-  WHERE u.id = ANY(user_ids);
-$$;
-```
-
-No frontend changes required — `Messages.tsx` will now resolve names for deactivated users automatically, eliminating the "Unknown" labels in Read by, message authors, recipients, and replies.
-
-## Out of scope
-
-- No schema changes, no RLS changes, no UI changes.
-- Not adding an "(inactive)" badge — can be a follow-up if you want it.
+## Notes
+- No DB or RLS changes. No new components. Existing `toggleReportStatus` and `ErrorScreenshotViewer` are reused.
+- Keeps the MyErrorReports collapsible on Messages unchanged.
