@@ -594,72 +594,10 @@ export const CreateUserModal = ({
                   </Button>
                 </div>
                 
-                {/* Email-ready message preview */}
-                <div className="bg-muted p-4 rounded-lg text-sm font-mono whitespace-pre-wrap text-foreground border">
-                  {getEmailMessage()}
-                </div>
-
-                {/* Copy for Email button */}
-                <Button
-                  onClick={copyEmailMessage}
-                  className="w-full"
-                  variant={copiedEmail ? "secondary" : "default"}
-                >
-                  {copiedEmail ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="h-4 w-4 mr-2" />
-                      Copy for Email
-                    </>
-                  )}
-                </Button>
-
-                {/* Individual copy buttons */}
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={copyEmployeeId}
-                  >
-                    <Copy className="h-3 w-3 mr-1" />
-                    Copy Employee ID
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={copyPassword}
-                  >
-                    <Copy className="h-3 w-3 mr-1" />
-                    Copy Password
-                  </Button>
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  ⚠️ User must change password on first login. Make sure to save
-                  this information - it won't be shown again.
-                </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row gap-2 sm:justify-between">
-            <Button
-              variant={markedAsShared ? "secondary" : "outline"}
-              onClick={markAsShared}
-              disabled={markedAsShared}
-            >
-              {markedAsShared ? (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  Marked as Shared
-                </>
-              ) : (
-                "Mark as Shared"
-              )}
-            </Button>
+          <AlertDialogFooter className="flex-row gap-2 sm:justify-end">
             <AlertDialogAction onClick={() => setShowPasswordDialog(false)}>
               Done
             </AlertDialogAction>
