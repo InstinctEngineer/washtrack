@@ -12,6 +12,14 @@ import { getCurrentCutoff } from '@/lib/cutoff';
 import { format } from 'date-fns';
 import { ErrorScreenshotViewer } from '@/components/ErrorScreenshotViewer';
 import { toast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 interface ErrorReport {
   id: string;
@@ -35,6 +43,7 @@ export default function AdminDashboard() {
   const [cutoffDate, setCutoffDate] = useState<Date | null>(null);
   const [errorReports, setErrorReports] = useState<ErrorReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
+  const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null);
 
   const fetchErrorReports = async () => {
     setLoadingReports(true);
