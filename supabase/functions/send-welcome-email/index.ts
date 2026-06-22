@@ -55,6 +55,7 @@ serve(async (req) => {
     const body = await req.json();
     const email = String(body?.email ?? "").trim();
     const name = body?.name ? String(body.name) : undefined;
+    const mode = body?.mode === "reset" ? "reset" : "welcome";
     if (!email) {
       return new Response(JSON.stringify({ error: "email is required" }), {
         status: 400,
@@ -68,7 +69,7 @@ serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
 
-    const result = await sendWelcomeEmail(supabaseAdmin, { email, name });
+    const result = await sendWelcomeEmail(supabaseAdmin, { email, name, mode });
 
     return new Response(
       JSON.stringify({ success: result.sent, error: result.error }),

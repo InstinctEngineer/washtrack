@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Search, KeyRound, ChevronDown, Copy, Mail } from "lucide-react";
+import { Edit, Search, KeyRound, ChevronDown, Copy, Mail, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
@@ -26,15 +26,6 @@ import { EditUserModal } from "@/components/EditUserModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -81,67 +72,41 @@ export const UserTable = ({
 }: UserTableProps) => {
   const { toast } = useToast();
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
-  const [newPassword, setNewPassword] = useState("");
-  const [isResetting, setIsResetting] = useState(false);
   const [isTableOpen, setIsTableOpen] = useState(true);
+  const [resendingFor, setResendingFor] = useState<string | null>(null);
+  const [resettingFor, setResettingFor] = useState<string | null>(null);
 
-  const handleResetPassword = async () => {
-    if (!resetPasswordUser || !newPassword) {
-      toast({
-        title: "Validation Error",
-        description: "Password is required",
-        variant: "destructive",
-      });
+  const sendAccountEmail = async (
+    user: User,
+    mode: "welcome" | "reset",
+  ) => {
+    if (!user.email) {
+      toast({ title: "No email on file", variant: "destructive" });
       return;
     }
-
-    if (newPassword.length < 6) {
-      toast({
-        title: "Validation Error",
-        description: "Password must be at least 6 characters",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsResetting(true);
-
+    const setter = mode === "reset" ? setResettingFor : setResendingFor;
+    setter(user.id);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error("No active session");
-      }
-
-      const { data, error } = await supabase.functions.invoke(
-        "reset-user-password",
-        {
-          body: {
-            userId: resetPasswordUser.id,
-            newPassword: newPassword,
-          },
-        }
-      );
-
-      if (error) throw error;
-
-      toast({
-        title: "Password Reset",
-        description: `Password for ${resetPasswordUser.name} has been reset successfully`,
+      const { data, error } = await supabase.functions.invoke("send-welcome-email", {
+        body: { email: user.email, name: user.name, mode },
       });
-
-      setResetPasswordUser(null);
-      setNewPassword("");
-    } catch (error: any) {
-      console.error("Error resetting password:", error);
+      if (error) throw error;
+      if (data && data.success === false) {
+        throw new Error(data.error || "Failed to send email");
+      }
       toast({
-        title: "Error",
-        description: error.message || "Failed to reset password",
+        title: mode === "reset" ? "Password reset email sent" : "Setup email resent",
+        description: `Sent to ${user.email}.`,
+      });
+    } catch (err: any) {
+      console.error("send-welcome-email error:", err);
+      toast({
+        title: "Failed to send email",
+        description: err.message || "Unknown error",
         variant: "destructive",
       });
     } finally {
-      setIsResetting(false);
+      setter(null);
     }
   };
 
@@ -279,11 +244,23 @@ export const UserTable = ({
                         <Badge variant={user.is_active ? "default" : "secondary"}>
                           {user.is_active ? "Active" : "Inactive"}
                         </Badge>
-                        {!user.credentials_shared_at && user.must_change_password && (
-                          <Badge variant="outline" className="text-orange-600 border-orange-300 gap-1">
-                            <Mail className="h-3 w-3" />
-                            Pending
-                          </Badge>
+                        {user.must_change_password && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-orange-600 border-orange-300 hover:bg-orange-50 gap-1"
+                            onClick={() => sendAccountEmail(user, "welcome")}
+                            disabled={resendingFor === user.id}
+                            title="Resend account setup email"
+                          >
+                            {resendingFor === user.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Mail className="h-3 w-3" />
+                            )}
+                            Resend Email
+                          </Button>
                         )}
                       </div>
                     </TableCell>
@@ -308,10 +285,15 @@ export const UserTable = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setResetPasswordUser(user)}
-                          title="Reset password"
+                          onClick={() => sendAccountEmail(user, "reset")}
+                          disabled={resettingFor === user.id}
+                          title="Send password reset email"
                         >
-                          <KeyRound className="h-4 w-4" />
+                          {resettingFor === user.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <KeyRound className="h-4 w-4" />
+                          )}
                         </Button>
                       </div>
                     </TableCell>
@@ -336,57 +318,6 @@ export const UserTable = ({
         />
       )}
 
-      <Dialog
-        open={!!resetPasswordUser}
-        onOpenChange={(open) => {
-          if (!open) {
-            setResetPasswordUser(null);
-            setNewPassword("");
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
-            <DialogDescription>
-              Set a new temporary password for {resetPasswordUser?.name}. The user
-              should change this password after logging in.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
-              <Input
-                id="new-password"
-                type="text"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter temporary password"
-                minLength={6}
-              />
-              <p className="text-xs text-muted-foreground">
-                Minimum 6 characters
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setResetPasswordUser(null);
-                setNewPassword("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleResetPassword} disabled={isResetting}>
-              {isResetting ? "Resetting..." : "Reset Password"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
