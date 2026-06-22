@@ -58,6 +58,11 @@ All colors MUST be HSL.
     --chart-3: 38 92% 50%;
     --chart-4: 271 81% 56%;
     --chart-5: 0 84% 60%;
+
+    --mode-invoicing: 217 91% 60%;
+    --mode-invoicing-foreground: 0 0% 100%;
+    --mode-payroll: 142 71% 29%;
+    --mode-payroll-foreground: 0 0% 100%;
   }
 
   .dark {
@@ -109,6 +114,11 @@ All colors MUST be HSL.
     --chart-3: 38 92% 50%;
     --chart-4: 271 81% 56%;
     --chart-5: 0 84% 60%;
+
+    --mode-invoicing: 217 91% 60%;
+    --mode-invoicing-foreground: 0 0% 100%;
+    --mode-payroll: 142 71% 45%;
+    --mode-payroll-foreground: 0 0% 100%;
   }
 }
 
