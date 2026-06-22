@@ -144,27 +144,18 @@ export const CreateUserModal = ({
     setIsSubmitting(true);
 
     try {
+      // Always auto-generate a password; the user sets their own via the email link
+      const generatedPassword = generatePassword();
+
       // Validate
       if (
         !formData.name ||
         !formData.email ||
-        !formData.password ||
         formData.locations.length === 0
       ) {
         toast({
           title: "Validation Error",
-          description: "All required fields must be filled, including password and at least one location.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const passwordError = validatePassword(formData.password);
-      if (passwordError) {
-        toast({
-          title: "Invalid Password",
-          description: passwordError,
+          description: "Name, email, and at least one location are required.",
           variant: "destructive",
         });
         setIsSubmitting(false);
