@@ -54,6 +54,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Plus, Search, ChevronDown, Pencil, Trash2, Upload, ArrowRight } from 'lucide-react';
 import { CSVImportModal } from '@/components/CSVImportModal';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortableTableHead } from '@/components/SortableTableHead';
 
 interface WorkItem {
   id: string;
@@ -213,6 +215,25 @@ const WorkItems = () => {
     if (search && !item.identifier.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  const { sortedData: sortedItems, sortColumn, sortDirection, handleSort } = useTableSort(
+    filteredItems,
+    {
+      getValue: (item, col) => {
+        const rc = item.rate_config;
+        switch (col) {
+          case 'identifier': return item.identifier;
+          case 'work_type': return rc?.work_type?.name || '';
+          case 'frequency': return rc?.frequency || '';
+          case 'rate': return rc?.rate ?? -Infinity;
+          case 'client': return rc?.client?.name || '';
+          case 'location': return rc?.location?.name || '';
+          case 'is_active': return item.is_active;
+          default: return '';
+        }
+      },
+    }
+  );
 
   // Get available rate configs based on form selections
   const availableRateConfigs = rateConfigs.filter(rc => {
@@ -516,18 +537,18 @@ const WorkItems = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Identifier</TableHead>
-                          <TableHead>Work Type</TableHead>
-                          <TableHead>Frequency</TableHead>
-                          <TableHead>Rate</TableHead>
-                          <TableHead>Client</TableHead>
-                          <TableHead>Location</TableHead>
-                          <TableHead>Active</TableHead>
+                          <SortableTableHead column="identifier" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Identifier</SortableTableHead>
+                          <SortableTableHead column="work_type" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Work Type</SortableTableHead>
+                          <SortableTableHead column="frequency" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Frequency</SortableTableHead>
+                          <SortableTableHead column="rate" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Rate</SortableTableHead>
+                          <SortableTableHead column="client" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Client</SortableTableHead>
+                          <SortableTableHead column="location" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Location</SortableTableHead>
+                          <SortableTableHead column="is_active" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Active</SortableTableHead>
                           {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredItems.map((item) => {
+                        {sortedItems.map((item) => {
                           const rc = item.rate_config;
                           return (
                             <TableRow key={item.id}>

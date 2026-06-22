@@ -24,6 +24,8 @@ import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { EditUserModal } from "@/components/EditUserModal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTableSort } from "@/hooks/useTableSort";
+import { SortableTableHead } from "@/components/SortableTableHead";
 import {
   Dialog,
   DialogContent,
@@ -82,18 +84,7 @@ export const UserTable = ({
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [isResetting, setIsResetting] = useState(false);
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isTableOpen, setIsTableOpen] = useState(true);
-
-  const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortColumn(column);
-      setSortDirection("asc");
-    }
-  };
 
   const handleResetPassword = async () => {
     if (!resetPasswordUser || !newPassword) {
@@ -154,32 +145,19 @@ export const UserTable = ({
     }
   };
 
-  const sortedUsers = [...users].sort((a, b) => {
-    if (!sortColumn) return 0;
-
-    let aValue: any;
-    let bValue: any;
-
-    switch (sortColumn) {
-      case "name":
-        aValue = a.name;
-        bValue = b.name;
-        break;
-      case "employee_id":
-        aValue = a.employee_id;
-        bValue = b.employee_id;
-        break;
-      case "role":
-        aValue = roleMap.get(a.id) || a.role;
-        bValue = roleMap.get(b.id) || b.role;
-        break;
-      default:
-        return 0;
-    }
-
-    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
-    return 0;
+  const { sortedData: sortedUsers, sortColumn, sortDirection, handleSort } = useTableSort(users, {
+    getValue: (u, col) => {
+      switch (col) {
+        case "employee_id": return u.employee_id || "";
+        case "name": return u.name;
+        case "email": return u.email || "";
+        case "location": return (u.locations && u.locations[0]?.name) || "";
+        case "role": return roleMap.get(u.id) || u.role;
+        case "manager": return u.manager?.name || "";
+        case "is_active": return u.is_active;
+        default: return "";
+      }
+    },
   });
 
   if (isLoading) {
@@ -243,28 +221,13 @@ export const UserTable = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("employee_id")}
-              >
-                Employee ID {sortColumn === "employee_id" && (sortDirection === "asc" ? "↑" : "↓")}
-              </TableHead>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("name")}
-              >
-                Name {sortColumn === "name" && (sortDirection === "asc" ? "↑" : "↓")}
-              </TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("role")}
-              >
-                Role {sortColumn === "role" && (sortDirection === "asc" ? "↑" : "↓")}
-              </TableHead>
-              <TableHead>Manager</TableHead>
-              <TableHead>Status</TableHead>
+              <SortableTableHead column="employee_id" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Employee ID</SortableTableHead>
+              <SortableTableHead column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Name</SortableTableHead>
+              <SortableTableHead column="email" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Email</SortableTableHead>
+              <SortableTableHead column="location" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Location</SortableTableHead>
+              <SortableTableHead column="role" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Role</SortableTableHead>
+              <SortableTableHead column="manager" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Manager</SortableTableHead>
+              <SortableTableHead column="is_active" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Status</SortableTableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>

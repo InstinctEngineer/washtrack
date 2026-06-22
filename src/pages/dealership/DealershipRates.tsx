@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Trash2, DollarSign } from 'lucide-react';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortableTableHead } from '@/components/SortableTableHead';
 
 interface RateRow {
   id: string;
@@ -32,6 +34,18 @@ export default function DealershipRates() {
 
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ client_id: '', location_id: '__all__', rate: '5.25' });
+
+  const { sortedData: sortedRates, sortColumn, sortDirection, handleSort } = useTableSort(rates, {
+    getValue: (r, col) => {
+      switch (col) {
+        case 'client': return r.client_name || '';
+        case 'location': return r.location_name || '';
+        case 'rate': return Number(r.rate_per_vehicle);
+        case 'status': return r.is_active;
+        default: return '';
+      }
+    },
+  });
 
   const load = async () => {
     setLoading(true);
@@ -145,15 +159,15 @@ export default function DealershipRates() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead className="text-right">Rate</TableHead>
-                    <TableHead>Status</TableHead>
+                    <SortableTableHead column="client" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Client</SortableTableHead>
+                    <SortableTableHead column="location" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Location</SortableTableHead>
+                    <SortableTableHead column="rate" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} align="right">Rate</SortableTableHead>
+                    <SortableTableHead column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Status</SortableTableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rates.map((r) => (
+                  {sortedRates.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.client_name || r.client_id}</TableCell>
                       <TableCell>{r.location_name || <span className="text-muted-foreground">All locations</span>}</TableCell>
