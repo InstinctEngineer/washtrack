@@ -55,7 +55,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const { userProfile, userRole, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showIOSDialog, setShowIOSDialog] = useState(false);
   const [showAndroidDialog, setShowAndroidDialog] = useState(false);
   const { unreadCount } = useUnreadMessageCount();
@@ -190,8 +190,8 @@ export const Layout = ({ children }: LayoutProps) => {
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label="Toggle navigation menu"
             >
               <Menu className="h-5 w-5" />
             </Button>
@@ -244,9 +244,9 @@ export const Layout = ({ children }: LayoutProps) => {
       <div className="flex">
         {/* Side Navigation */}
         <aside className={`
+          ${sidebarOpen ? 'block' : 'hidden'}
           fixed lg:sticky top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64 
-          border-r bg-card transition-transform lg:translate-x-0
-          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+          border-r bg-card
         `}>
           <nav className="h-full p-4 overflow-y-auto">
             <div className="flex flex-col gap-4">
@@ -268,7 +268,9 @@ export const Layout = ({ children }: LayoutProps) => {
                             : 'hover:bg-accent hover:text-accent-foreground'
                           }
                         `}
-                        onClick={() => setMobileMenuOpen(false)}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) setSidebarOpen(false);
+                        }}
                       >
                         <item.icon className="h-4 w-4" />
                         {item.label}
@@ -318,10 +320,10 @@ export const Layout = ({ children }: LayoutProps) => {
       </div>
 
       {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
+      {sidebarOpen && (
         <div 
           className="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
+          onClick={() => setSidebarOpen(false)}
         />
       )}
 
