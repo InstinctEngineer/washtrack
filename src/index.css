@@ -112,6 +112,53 @@ All colors MUST be HSL.
   }
 }
 
+/* ============================================================
+   Payroll Mode Theme Override
+   Activated when <html data-mode="payroll"> is set.
+   Every shadcn surface re-themes automatically via these tokens.
+   ============================================================ */
+:root[data-mode="payroll"] {
+  --background: 150 25% 97%;
+  --foreground: 150 30% 12%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 150 30% 12%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 150 30% 12%;
+
+  --primary: 142 71% 29%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 142 35% 90%;
+  --secondary-foreground: 150 30% 15%;
+
+  --muted: 142 25% 94%;
+  --muted-foreground: 150 15% 40%;
+
+  --accent: 142 60% 90%;
+  --accent-foreground: 150 30% 15%;
+
+  --border: 142 30% 85%;
+  --input: 142 30% 85%;
+  --ring: 142 71% 45%;
+
+  --sidebar-background: 150 45% 18%;
+  --sidebar-foreground: 142 30% 95%;
+  --sidebar-primary: 142 71% 45%;
+  --sidebar-primary-foreground: 150 45% 12%;
+  --sidebar-accent: 150 40% 25%;
+  --sidebar-accent-foreground: 142 30% 95%;
+  --sidebar-border: 150 40% 25%;
+  --sidebar-ring: 142 71% 45%;
+
+  --chart-1: 142 71% 29%;
+  --chart-2: 142 71% 45%;
+  --chart-3: 86 60% 50%;
+  --chart-4: 168 71% 35%;
+  --chart-5: 38 92% 50%;
+}
+
 @layer base {
   * {
     @apply border-border;
