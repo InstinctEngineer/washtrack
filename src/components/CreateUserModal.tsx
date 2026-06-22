@@ -264,13 +264,8 @@ export const CreateUserModal = ({
 
       if (locationError) throw locationError;
 
-      setGeneratedPassword(formData.password);
       setGeneratedEmail(formData.email);
-      setGeneratedEmployeeId(result.user.employee_id);
       setGeneratedName(formData.name);
-      setCreatedUserId(result.user.id);
-      setCopiedEmail(false);
-      setMarkedAsShared(false);
       setEmailSent(result.email_sent ?? false);
       setEmailError(result.email_error);
       setShowPasswordDialog(true);
@@ -296,49 +291,6 @@ export const CreateUserModal = ({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const copyPassword = () => {
-    navigator.clipboard.writeText(generatedPassword);
-    toast({
-      title: "Copied",
-      description: "Password copied to clipboard",
-    });
-  };
-
-  const copyEmployeeId = () => {
-    navigator.clipboard.writeText(generatedEmployeeId);
-    toast({
-      title: "Copied",
-      description: "Employee ID copied to clipboard",
-    });
-  };
-
-  const getEmailMessage = () => {
-    return `Welcome to WashTrack ${generatedName}!
-Emp ID: ${generatedEmployeeId}
-
-
-Your login credentials:
-
-Username: ${generatedEmail}
-Temporary Password: ${generatedPassword}
-
-
-Login at: https://washtracking.com/login
-
-
-You will be asked to set a new password when you first login.`;
-  };
-
-  const copyEmailMessage = async () => {
-    await navigator.clipboard.writeText(getEmailMessage());
-    setCopiedEmail(true);
-    toast({
-      title: "Copied for Email",
-      description: "Complete welcome message copied to clipboard",
-    });
-    setTimeout(() => setCopiedEmail(false), 2000);
   };
 
   const resendInvite = async () => {
@@ -373,30 +325,6 @@ You will be asked to set a new password when you first login.`;
     } finally {
       setResending(false);
     }
-  };
-
-  const markAsShared = async () => {
-    if (!createdUserId) return;
-    
-    const { error } = await supabase
-      .from('users')
-      .update({ credentials_shared_at: new Date().toISOString() })
-      .eq('id', createdUserId);
-    
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to mark credentials as shared",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setMarkedAsShared(true);
-    toast({
-      title: "Marked as Shared",
-      description: "Credential sharing has been tracked",
-    });
   };
 
   return (
