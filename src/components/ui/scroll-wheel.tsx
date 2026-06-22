@@ -170,17 +170,6 @@ export function ScrollWheel({
           </div>
         </div>
       </div>
-
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="h-12 w-12 rounded-full shrink-0"
-        onClick={() => adjust(1)}
-        aria-label="Increase"
-      >
-        <Plus className="h-5 w-5" />
-      </Button>
     </div>
   );
 }
