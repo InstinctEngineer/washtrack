@@ -195,9 +195,8 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
 
   if (workItems.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-        <p>No vehicles or equipment configured for this location</p>
+      <div className="text-center text-muted-foreground py-2">
+        <p className="text-sm">No vehicles or equipment configured for this location</p>
       </div>
     );
   }
