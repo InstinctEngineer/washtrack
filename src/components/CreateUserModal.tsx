@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Copy, Check, Mail, AlertTriangle, Loader2, Send } from "lucide-react";
+import { Check, AlertTriangle, Loader2, Send } from "lucide-react";
 
 interface CreateUserModalProps {
   open: boolean;
