@@ -880,6 +880,16 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
 
+        {/* Cars Washed scroll wheel (count-based) */}
+        {carsWashedConfig && (
+          <CarsWashedWheelCard
+            value={carsWashedQty}
+            onChange={setCarsWashedQty}
+            savedValue={savedCarsWashedQty}
+            rate={carsWashedConfig.rate}
+          />
+        )}
+
         {/* Vehicles / Equipment Section */}
         <Card data-demo="vehicles-grid">
           <CardHeader>
@@ -902,7 +912,7 @@ export default function EmployeeDashboard() {
                 onToggle={handleWorkItemToggle}
                 onAddVehicle={handleAddVehicle}
                 refreshKey={vehicleRefreshKey}
-                hourlyConfigs={hourlyConfigs}
+                hourlyConfigs={gridHourlyConfigs}
                 onSelectHourly={handleHourlySelect}
               />
             )}
@@ -910,7 +920,7 @@ export default function EmployeeDashboard() {
         </Card>
 
         {/* Selection Summary & Submit Button */}
-        {pendingEntries.size > 0 && (
+        {hasPending && (
           <div className="space-y-3">
             <Card data-demo="selection-summary" className="border-green-500/50 bg-green-500/5">
               <CardContent className="p-4">
@@ -918,17 +928,20 @@ export default function EmployeeDashboard() {
                   <div className="flex items-center gap-2">
                     <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
                       <span className="font-bold text-green-600 dark:text-green-400">
-                        {pendingEntries.size}
+                        {pendingEntries.size + (carsWashedDirty ? 1 : 0)}
                       </span>
                     </div>
                     <span className="text-sm font-medium">
-                      {pendingEntries.size === 1 ? 'vehicle' : 'vehicles'} selected
+                      pending {pendingEntries.size + (carsWashedDirty ? 1 : 0) === 1 ? 'entry' : 'entries'}
                     </span>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleClearSelections}
+                    onClick={() => {
+                      handleClearSelections();
+                      setCarsWashedQty(savedCarsWashedQty ?? 0);
+                    }}
                     className="text-muted-foreground hover:text-destructive"
                   >
                     <X className="h-4 w-4 mr-1" />
@@ -968,7 +981,8 @@ export default function EmployeeDashboard() {
                   ) : (
                     <>
                       <Send className="h-5 w-5 mr-2" />
-                      SUBMIT {pendingEntries.size} {pendingEntries.size === 1 ? 'ENTRY' : 'ENTRIES'}
+                      SUBMIT {pendingEntries.size + (carsWashedDirty ? 1 : 0)}{' '}
+                      {pendingEntries.size + (carsWashedDirty ? 1 : 0) === 1 ? 'ENTRY' : 'ENTRIES'}
                     </>
                   )}
                 </Button>
@@ -981,7 +995,7 @@ export default function EmployeeDashboard() {
         )}
 
         {/* Bottom Edge Glow - shows when items selected but Submit button not visible */}
-        {pendingEntries.size > 0 && !isSubmitButtonVisible && (
+        {hasPending && !isSubmitButtonVisible && (
           <div 
             className={cn(
               "fixed bottom-0 left-0 right-0 h-2",
