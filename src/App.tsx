@@ -31,6 +31,7 @@ import NotFound from "./pages/NotFound";
 import DealershipRates from "./pages/dealership/DealershipRates";
 import DealershipRequests from "./pages/dealership/DealershipRequests";
 import DealershipReport from "./pages/dealership/DealershipReport";
+import PayrollDashboard from "./pages/payroll/PayrollDashboard";
 
 const queryClient = new QueryClient();
 
@@ -209,6 +210,20 @@ const App = () => (
             />
 
             {/* Catch-all 404 */}
+            {/* Payroll Routes (Finance+) */}
+            <Route
+              path="/payroll"
+              element={<Navigate to="/payroll/dashboard" replace />}
+            />
+            <Route
+              path="/payroll/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['finance', 'admin']}>
+                  <PayrollDashboard />
+                </ProtectedRoute>
+              }
+            />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
