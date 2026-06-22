@@ -525,7 +525,7 @@ const RateCard = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredConfigs.map((rc) => (
+                        {sortedConfigs.map((rc) => (
                           <TableRow key={rc.id}>
                             <TableCell className="font-medium">{rc.client?.name || 'Unknown'}</TableCell>
                             <TableCell>{rc.location?.name || 'Unknown'}</TableCell>
