@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { CutoffBanner } from '@/components/CutoffBanner';
 import { WorkItemGrid, WorkItemWithDetails } from '@/components/WorkItemGrid';
 import { LogWorkModal, RateConfigWithDetails } from '@/components/LogWorkModal';
+import { CarsWashedWheelCard } from '@/components/CarsWashedWheelCard';
 import { GuidedDemo } from '@/components/GuidedDemo';
 import { AddVehicleModal } from '@/components/AddVehicleModal';
 import { DealershipWashCard } from '@/components/dealership/DealershipWashCard';
@@ -115,6 +116,11 @@ export default function EmployeeDashboard() {
   
   // Work type filter for recent entries
   const [filterWorkType, setFilterWorkType] = useState<string>('all');
+
+  // Cars Washed scroll-wheel state
+  const [carsWashedQty, setCarsWashedQty] = useState(0);
+  const [savedCarsWashedQty, setSavedCarsWashedQty] = useState<number | null>(null);
+  const [savedCarsWashedLogId, setSavedCarsWashedLogId] = useState<string | null>(null);
   
   // Comment modal state
   const [commentModalOpen, setCommentModalOpen] = useState(false);
@@ -126,6 +132,19 @@ export default function EmployeeDashboard() {
   // Submit button visibility tracking for glow effect
   const [isSubmitButtonVisible, setIsSubmitButtonVisible] = useState(false);
   const submitButtonRef = useRef<HTMLDivElement>(null);
+
+  // Identify the Cars Washed rate config (now stored as 'hourly' rate_type)
+  const carsWashedConfig = useMemo(
+    () => hourlyConfigs.find(c => c.work_type.name.toLowerCase() === 'cars washed') || null,
+    [hourlyConfigs]
+  );
+  const gridHourlyConfigs = useMemo(
+    () => hourlyConfigs.filter(c => c.work_type.name.toLowerCase() !== 'cars washed'),
+    [hourlyConfigs]
+  );
+  const carsWashedDirty =
+    !!carsWashedConfig &&
+    (savedCarsWashedQty !== null ? carsWashedQty !== savedCarsWashedQty : carsWashedQty > 0);
   
 
   // Fetch cutoff date
@@ -133,9 +152,12 @@ export default function EmployeeDashboard() {
     getCurrentCutoff().then(setCutoffDate);
   }, []);
 
+  // Has anything to submit?
+  const hasPending = pendingEntries.size > 0 || carsWashedDirty;
+
   // Track submit button visibility for glow transition
   useEffect(() => {
-    if (!submitButtonRef.current || pendingEntries.size === 0) {
+    if (!submitButtonRef.current || !hasPending) {
       setIsSubmitButtonVisible(false);
       return;
     }
@@ -152,7 +174,7 @@ export default function EmployeeDashboard() {
 
     observer.observe(submitButtonRef.current);
     return () => observer.disconnect();
-  }, [pendingEntries.size]);
+  }, [hasPending]);
 
   // Fetch locations for employee
   useEffect(() => {
@@ -248,6 +270,38 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     fetchCompletedItems();
   }, [fetchCompletedItems]);
+
+  // Fetch existing Cars Washed log for this user/location/date
+  const fetchSavedCarsWashed = useCallback(async () => {
+    if (!user?.id || !carsWashedConfig) {
+      setSavedCarsWashedQty(null);
+      setSavedCarsWashedLogId(null);
+      setCarsWashedQty(0);
+      return;
+    }
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('work_logs')
+      .select('id, quantity')
+      .eq('employee_id', user.id)
+      .eq('rate_config_id', carsWashedConfig.id)
+      .eq('work_date', dateStr)
+      .is('work_item_id', null)
+      .maybeSingle();
+    if (data) {
+      setSavedCarsWashedLogId(data.id);
+      setSavedCarsWashedQty(Number(data.quantity));
+      setCarsWashedQty(Number(data.quantity));
+    } else {
+      setSavedCarsWashedLogId(null);
+      setSavedCarsWashedQty(null);
+      setCarsWashedQty(0);
+    }
+  }, [user?.id, carsWashedConfig, selectedDate]);
+
+  useEffect(() => {
+    fetchSavedCarsWashed();
+  }, [fetchSavedCarsWashed]);
 
   // Fetch recent work logs for the selected location (all employees)
   const fetchRecentLogs = useCallback(async () => {
@@ -365,7 +419,7 @@ export default function EmployeeDashboard() {
 
   // Batch submit handler
   const handleBatchSubmit = async () => {
-    if (!user || pendingEntries.size === 0) return;
+    if (!user || (pendingEntries.size === 0 && !carsWashedDirty)) return;
     
     setIsSubmitting(true);
     try {
@@ -381,20 +435,59 @@ export default function EmployeeDashboard() {
         notes: noteText,
       }));
       
-      const { data: insertedLogs, error } = await supabase
-        .from('work_logs')
-        .insert(entries)
-        .select('id');
-      
-      if (error) {
-        // Handle unique constraint violation
-        if (error.code === '23505') {
-          toast.error('Some items were already logged for this date');
-          await fetchCompletedItems();
-          setPendingEntries(new Map());
-          return;
+      let insertedLogs: { id: string }[] | null = null;
+      if (entries.length > 0) {
+        const { data, error } = await supabase
+          .from('work_logs')
+          .insert(entries)
+          .select('id');
+        if (error) {
+          if (error.code === '23505') {
+            toast.error('Some items were already logged for this date');
+            await fetchCompletedItems();
+            setPendingEntries(new Map());
+            return;
+          }
+          throw error;
         }
-        throw error;
+        insertedLogs = data;
+      }
+
+      // Cars Washed upsert (single row per user/rate_config/date)
+      let carsWashedSaved = false;
+      if (carsWashedConfig && carsWashedDirty) {
+        if (savedCarsWashedLogId) {
+          if (carsWashedQty === 0) {
+            const { error } = await supabase
+              .from('work_logs')
+              .delete()
+              .eq('id', savedCarsWashedLogId);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from('work_logs')
+              .update({ quantity: carsWashedQty, notes: noteText })
+              .eq('id', savedCarsWashedLogId);
+            if (error) throw error;
+          }
+        } else if (carsWashedQty > 0) {
+          const { data, error } = await supabase
+            .from('work_logs')
+            .insert({
+              work_item_id: null,
+              rate_config_id: carsWashedConfig.id,
+              employee_id: user.id,
+              work_date: workDateStr,
+              quantity: carsWashedQty,
+              notes: noteText,
+            })
+            .select('id');
+          if (error) throw error;
+          if (data && data.length > 0) {
+            insertedLogs = [...(insertedLogs || []), ...data];
+          }
+        }
+        carsWashedSaved = true;
       }
       
       // If there was a note, also create employee_comments entry for finance visibility
@@ -410,12 +503,14 @@ export default function EmployeeDashboard() {
         });
       }
       
+      const totalCount = pendingEntries.size + (carsWashedSaved ? 1 : 0);
       const noteMsg = noteText ? ' with note' : '';
-      toast.success(`Submitted ${pendingEntries.size} ${pendingEntries.size === 1 ? 'entry' : 'entries'}${noteMsg}`);
+      toast.success(`Submitted ${totalCount} ${totalCount === 1 ? 'entry' : 'entries'}${noteMsg}`);
       setPendingEntries(new Map());
       setWorkNote('');
       fetchRecentLogs();
       fetchCompletedItems();
+      fetchSavedCarsWashed();
     } catch (error: any) {
       toast.error(error.message || 'Failed to submit entries');
     } finally {
@@ -785,6 +880,16 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
 
+        {/* Cars Washed scroll wheel (count-based) */}
+        {carsWashedConfig && (
+          <CarsWashedWheelCard
+            value={carsWashedQty}
+            onChange={setCarsWashedQty}
+            savedValue={savedCarsWashedQty}
+            rate={carsWashedConfig.rate}
+          />
+        )}
+
         {/* Vehicles / Equipment Section */}
         <Card data-demo="vehicles-grid">
           <CardHeader>
@@ -807,7 +912,7 @@ export default function EmployeeDashboard() {
                 onToggle={handleWorkItemToggle}
                 onAddVehicle={handleAddVehicle}
                 refreshKey={vehicleRefreshKey}
-                hourlyConfigs={hourlyConfigs}
+                hourlyConfigs={gridHourlyConfigs}
                 onSelectHourly={handleHourlySelect}
               />
             )}
@@ -815,7 +920,7 @@ export default function EmployeeDashboard() {
         </Card>
 
         {/* Selection Summary & Submit Button */}
-        {pendingEntries.size > 0 && (
+        {hasPending && (
           <div className="space-y-3">
             <Card data-demo="selection-summary" className="border-green-500/50 bg-green-500/5">
               <CardContent className="p-4">
@@ -823,17 +928,20 @@ export default function EmployeeDashboard() {
                   <div className="flex items-center gap-2">
                     <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
                       <span className="font-bold text-green-600 dark:text-green-400">
-                        {pendingEntries.size}
+                        {pendingEntries.size + (carsWashedDirty ? 1 : 0)}
                       </span>
                     </div>
                     <span className="text-sm font-medium">
-                      {pendingEntries.size === 1 ? 'vehicle' : 'vehicles'} selected
+                      pending {pendingEntries.size + (carsWashedDirty ? 1 : 0) === 1 ? 'entry' : 'entries'}
                     </span>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleClearSelections}
+                    onClick={() => {
+                      handleClearSelections();
+                      setCarsWashedQty(savedCarsWashedQty ?? 0);
+                    }}
                     className="text-muted-foreground hover:text-destructive"
                   >
                     <X className="h-4 w-4 mr-1" />
@@ -873,7 +981,8 @@ export default function EmployeeDashboard() {
                   ) : (
                     <>
                       <Send className="h-5 w-5 mr-2" />
-                      SUBMIT {pendingEntries.size} {pendingEntries.size === 1 ? 'ENTRY' : 'ENTRIES'}
+                      SUBMIT {pendingEntries.size + (carsWashedDirty ? 1 : 0)}{' '}
+                      {pendingEntries.size + (carsWashedDirty ? 1 : 0) === 1 ? 'ENTRY' : 'ENTRIES'}
                     </>
                   )}
                 </Button>
@@ -886,7 +995,7 @@ export default function EmployeeDashboard() {
         )}
 
         {/* Bottom Edge Glow - shows when items selected but Submit button not visible */}
-        {pendingEntries.size > 0 && !isSubmitButtonVisible && (
+        {hasPending && !isSubmitButtonVisible && (
           <div 
             className={cn(
               "fixed bottom-0 left-0 right-0 h-2",
