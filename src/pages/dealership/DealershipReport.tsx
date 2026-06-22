@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import { Download } from 'lucide-react';
 import { exportToExcel } from '@/lib/excelExporter';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortableTableHead } from '@/components/SortableTableHead';
 
 interface ReportRow {
   client_id: string;
@@ -58,6 +60,20 @@ export default function DealershipReport() {
 
   const grandTotal = rows.reduce((s, r) => s + r.total_amount, 0);
   const grandVehicles = rows.reduce((s, r) => s + r.vehicle_count, 0);
+
+  const { sortedData: sortedRows, sortColumn, sortDirection, handleSort } = useTableSort(rows, {
+    getValue: (r, col) => {
+      switch (col) {
+        case 'client_name': return r.client_name;
+        case 'location_name': return r.location_name;
+        case 'work_date': return r.work_date;
+        case 'vehicle_count': return r.vehicle_count;
+        case 'rate_applied': return r.rate_applied;
+        case 'total_amount': return r.total_amount;
+        default: return '';
+      }
+    },
+  });
 
   const handleExport = () => {
     if (rows.length === 0) return toast.error('Nothing to export');
@@ -125,16 +141,16 @@ export default function DealershipReport() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Vehicles</TableHead>
-                    <TableHead className="text-right">Rate</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <SortableTableHead column="client_name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Client</SortableTableHead>
+                    <SortableTableHead column="location_name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Location</SortableTableHead>
+                    <SortableTableHead column="work_date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Date</SortableTableHead>
+                    <SortableTableHead column="vehicle_count" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} align="right">Vehicles</SortableTableHead>
+                    <SortableTableHead column="rate_applied" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} align="right">Rate</SortableTableHead>
+                    <SortableTableHead column="total_amount" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} align="right">Total</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((r, i) => (
+                  {sortedRows.map((r, i) => (
                     <TableRow key={i}>
                       <TableCell className="font-medium">{r.client_name}</TableCell>
                       <TableCell>{r.location_name}</TableCell>
