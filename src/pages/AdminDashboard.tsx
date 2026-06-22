@@ -61,15 +61,12 @@ export default function AdminDashboard() {
   const [errorReports, setErrorReports] = useState<ErrorReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null);
-  const [responseText, setResponseText] = useState('');
-  const [sendingResponse, setSendingResponse] = useState(false);
   const [replies, setReplies] = useState<ErrorReportReply[]>([]);
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
 
   useEffect(() => {
-    setResponseText(selectedReport?.admin_response || '');
     setReplyText('');
     if (!selectedReport?.id) {
       setReplies([]);
@@ -187,48 +184,6 @@ export default function AdminDashboard() {
       ...prev,
       openReports: prev.openReports + (newStatus === 'open' ? 1 : -1),
     }));
-  };
-
-  const handleSendResponse = async () => {
-    if (!selectedReport || !user?.id || !responseText.trim()) return;
-    setSendingResponse(true);
-    try {
-      const trimmed = responseText.trim();
-      const now = new Date().toISOString();
-
-      const { error: updateErr } = await supabase
-        .from('error_reports')
-        .update({
-          admin_response: trimmed,
-          responded_at: now,
-          responded_by: user.id,
-          status: 'resolved',
-        })
-        .eq('id', selectedReport.id);
-      if (updateErr) throw updateErr;
-
-      toast({ title: 'Response sent', description: 'The reporter will see it in their Error Reports.' });
-
-      setErrorReports(prev =>
-        prev.map(r =>
-          r.id === selectedReport.id
-            ? { ...r, admin_response: trimmed, responded_at: now, responded_by: user.id, status: 'resolved' }
-            : r
-        )
-      );
-      setStats(prev => ({
-        ...prev,
-        openReports: prev.openReports - (selectedReport.status === 'open' ? 1 : 0),
-      }));
-      setSelectedReport(prev =>
-        prev ? { ...prev, admin_response: trimmed, responded_at: now, responded_by: user.id, status: 'resolved' } : prev
-      );
-    } catch (err: any) {
-      console.error('Failed to send response:', err);
-      toast({ title: 'Failed to send response', description: err.message, variant: 'destructive' });
-    } finally {
-      setSendingResponse(false);
-    }
   };
 
   const handleSendReply = async () => {
@@ -491,29 +446,6 @@ export default function AdminDashboard() {
                 )}
 
                 <div className="space-y-2 border-t pt-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium uppercase text-muted-foreground">
-                      Response to user
-                    </p>
-                    {selectedReport.responded_at && (
-                      <p className="text-xs text-muted-foreground">
-                        Last sent {format(new Date(selectedReport.responded_at), 'PPp')}
-                      </p>
-                    )}
-                  </div>
-                  <Textarea
-                    value={responseText}
-                    onChange={(e) => setResponseText(e.target.value)}
-                    placeholder="Write a response. It will appear in the reporter's Error Reports section."
-                    rows={4}
-                    className="resize-none"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Sending will notify {selectedReport.reporter_name} in their Error Reports and mark this report resolved.
-                  </p>
-                </div>
-
-                <div className="space-y-2 border-t pt-4">
                   <p className="text-xs font-medium uppercase text-muted-foreground">Conversation</p>
                   {loadingReplies ? (
                     <p className="text-xs text-muted-foreground">Loading…</p>
@@ -559,26 +491,12 @@ export default function AdminDashboard() {
                 Close
               </Button>
               {selectedReport && (
-                <>
-                  <Button
-                    variant="secondary"
-                    onClick={() => toggleReportStatus(selectedReport.id, selectedReport.status)}
-                  >
-                    {selectedReport.status === 'open' ? 'Mark resolved' : 'Reopen'}
-                  </Button>
-                  <Button
-                    onClick={handleSendResponse}
-                    disabled={sendingResponse || !responseText.trim()}
-                    className="gap-2"
-                  >
-                    {sendingResponse ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    {selectedReport.admin_response ? 'Send update' : 'Send response'}
-                  </Button>
-                </>
+                <Button
+                  variant="secondary"
+                  onClick={() => toggleReportStatus(selectedReport.id, selectedReport.status)}
+                >
+                  {selectedReport.status === 'open' ? 'Mark resolved' : 'Reopen'}
+                </Button>
               )}
             </DialogFooter>
           </DialogContent>
