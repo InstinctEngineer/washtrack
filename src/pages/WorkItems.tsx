@@ -658,6 +658,11 @@ const WorkItems = () => {
                     </Table>
                   </div>
                 )}
+                {resultsCapped && filteredItems.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-3 text-center">
+                    Showing the first {filteredItems.length} matches. Refine your search or filters to narrow further.
+                  </p>
+                )}
               </CardContent>
             </CollapsibleContent>
           </Collapsible>
