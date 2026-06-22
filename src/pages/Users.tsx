@@ -301,6 +301,7 @@ const Users = () => {
           setStatusFilter={setStatusFilter}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
+          currentUserRole={userRole}
         />
 
         <CreateUserModal

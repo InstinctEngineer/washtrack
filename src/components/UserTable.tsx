@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Search, KeyRound, ChevronDown, Copy, Mail, Loader2 } from "lucide-react";
+import { Edit, Search, KeyRound, ChevronDown, Copy, Mail, Loader2, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,16 @@ import { useTableSort } from "@/hooks/useTableSort";
 import { SortableTableHead } from "@/components/SortableTableHead";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface UserTableProps {
   users: (User & {
@@ -47,6 +57,7 @@ interface UserTableProps {
   setStatusFilter: (value: string) => void;
   searchQuery: string;
   setSearchQuery: (value: string) => void;
+  currentUserRole?: string | null;
 }
 
 const roleColors: Record<UserRole, string> = {
@@ -69,12 +80,45 @@ export const UserTable = ({
   setStatusFilter,
   searchQuery,
   setSearchQuery,
+  currentUserRole,
 }: UserTableProps) => {
   const { toast } = useToast();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isTableOpen, setIsTableOpen] = useState(true);
   const [resendingFor, setResendingFor] = useState<string | null>(null);
   const [resettingFor, setResettingFor] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const isSuperAdmin = currentUserRole === "super_admin";
+
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { user_id: deleteTarget.id },
+      });
+      if (error) throw error;
+      if (data && data.success === false) {
+        throw new Error(data.error || "Failed to delete user");
+      }
+      toast({
+        title: "User deleted",
+        description: `${deleteTarget.name} has been permanently removed.`,
+      });
+      setDeleteTarget(null);
+      onRefresh();
+    } catch (err: any) {
+      console.error("delete-user error:", err);
+      toast({
+        title: "Failed to delete user",
+        description: err.message || "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const sendAccountEmail = async (
     user: User,
@@ -295,6 +339,17 @@ export const UserTable = ({
                             <KeyRound className="h-4 w-4" />
                           )}
                         </Button>
+                        {isSuperAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteTarget(user)}
+                            title="Permanently delete user"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -317,6 +372,39 @@ export const UserTable = ({
           }}
         />
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && !isDeleting && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently delete this user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}),
+              their login, role assignments, messages, error reports, and related records.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteUser();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete permanently"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
           </CardContent>
         </CollapsibleContent>
