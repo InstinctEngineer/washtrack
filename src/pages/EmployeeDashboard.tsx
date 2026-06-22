@@ -271,6 +271,38 @@ export default function EmployeeDashboard() {
     fetchCompletedItems();
   }, [fetchCompletedItems]);
 
+  // Fetch existing Cars Washed log for this user/location/date
+  const fetchSavedCarsWashed = useCallback(async () => {
+    if (!user?.id || !carsWashedConfig) {
+      setSavedCarsWashedQty(null);
+      setSavedCarsWashedLogId(null);
+      setCarsWashedQty(0);
+      return;
+    }
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('work_logs')
+      .select('id, quantity')
+      .eq('employee_id', user.id)
+      .eq('rate_config_id', carsWashedConfig.id)
+      .eq('work_date', dateStr)
+      .is('work_item_id', null)
+      .maybeSingle();
+    if (data) {
+      setSavedCarsWashedLogId(data.id);
+      setSavedCarsWashedQty(Number(data.quantity));
+      setCarsWashedQty(Number(data.quantity));
+    } else {
+      setSavedCarsWashedLogId(null);
+      setSavedCarsWashedQty(null);
+      setCarsWashedQty(0);
+    }
+  }, [user?.id, carsWashedConfig, selectedDate]);
+
+  useEffect(() => {
+    fetchSavedCarsWashed();
+  }, [fetchSavedCarsWashed]);
+
   // Fetch recent work logs for the selected location (all employees)
   const fetchRecentLogs = useCallback(async () => {
     if (!selectedLocationId) return;
