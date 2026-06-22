@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Users, MapPin, Settings, Building2, AlertTriangle, Send, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentCutoff } from '@/lib/cutoff';
-import { format, startOfWeek } from 'date-fns';
+import { format } from 'date-fns';
 import { ErrorScreenshotViewer } from '@/components/ErrorScreenshotViewer';
 import { toast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
@@ -39,6 +39,15 @@ interface ErrorReport {
   responded_by?: string | null;
 }
 
+interface ErrorReportReply {
+  id: string;
+  report_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  user_name?: string;
+}
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState({
@@ -54,9 +63,36 @@ export default function AdminDashboard() {
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null);
   const [responseText, setResponseText] = useState('');
   const [sendingResponse, setSendingResponse] = useState(false);
+  const [replies, setReplies] = useState<ErrorReportReply[]>([]);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [loadingReplies, setLoadingReplies] = useState(false);
 
   useEffect(() => {
     setResponseText(selectedReport?.admin_response || '');
+    setReplyText('');
+    if (!selectedReport?.id) {
+      setReplies([]);
+      return;
+    }
+    const loadReplies = async () => {
+      setLoadingReplies(true);
+      const { data, error } = await supabase
+        .from('error_report_replies')
+        .select('*')
+        .eq('report_id', selectedReport.id)
+        .order('created_at', { ascending: true });
+      if (!error && data) {
+        const userIds = [...new Set(data.map(r => r.user_id))];
+        const { data: users } = await supabase.rpc('get_user_display_info', { user_ids: userIds });
+        const nameMap = new Map((users || []).map((u: any) => [u.id, u.name]));
+        setReplies(data.map(r => ({ ...r, user_name: nameMap.get(r.user_id) || 'Unknown' })));
+      } else {
+        setReplies([]);
+      }
+      setLoadingReplies(false);
+    };
+    loadReplies();
   }, [selectedReport?.id]);
 
   const { sortedData: displayedReports, sortColumn, sortDirection, handleSort } = useTableSort<ErrorReport>(
@@ -171,21 +207,7 @@ export default function AdminDashboard() {
         .eq('id', selectedReport.id);
       if (updateErr) throw updateErr;
 
-      const messageBody =
-        `Response to your error report:\n\n${trimmed}\n\n` +
-        `— — —\nOriginal report (${format(new Date(selectedReport.created_at), 'PPpp')}):\n` +
-        `${selectedReport.description}` +
-        (selectedReport.page_url ? `\n\nPage: ${selectedReport.page_url}` : '');
-
-      const { error: msgErr } = await supabase.from('employee_comments').insert({
-        employee_id: user.id,
-        recipient_id: selectedReport.reported_by,
-        comment_text: messageBody,
-        week_start_date: format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
-      });
-      if (msgErr) throw msgErr;
-
-      toast({ title: 'Response sent', description: 'The user has been messaged.' });
+      toast({ title: 'Response sent', description: 'The reporter will see it in their Error Reports.' });
 
       setErrorReports(prev =>
         prev.map(r =>
@@ -206,6 +228,28 @@ export default function AdminDashboard() {
       toast({ title: 'Failed to send response', description: err.message, variant: 'destructive' });
     } finally {
       setSendingResponse(false);
+    }
+  };
+
+  const handleSendReply = async () => {
+    if (!selectedReport || !user?.id || !replyText.trim()) return;
+    setSendingReply(true);
+    try {
+      const body = replyText.trim();
+      const { data, error } = await supabase
+        .from('error_report_replies')
+        .insert({ report_id: selectedReport.id, user_id: user.id, body })
+        .select('*')
+        .single();
+      if (error) throw error;
+      const { data: users } = await supabase.rpc('get_user_display_info', { user_ids: [user.id] });
+      const name = (users || []).find((u: any) => u.id === user.id)?.name || 'You';
+      setReplies(prev => [...prev, { ...(data as any), user_name: name }]);
+      setReplyText('');
+    } catch (err: any) {
+      toast({ title: 'Failed to send reply', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingReply(false);
     }
   };
 
