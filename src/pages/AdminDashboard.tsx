@@ -6,12 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Link } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users, MapPin, Settings, Building2, AlertTriangle } from 'lucide-react';
+import { Users, MapPin, Settings, Building2, AlertTriangle, Send, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentCutoff } from '@/lib/cutoff';
-import { format } from 'date-fns';
+import { format, startOfWeek } from 'date-fns';
 import { ErrorScreenshotViewer } from '@/components/ErrorScreenshotViewer';
 import { toast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -32,9 +34,13 @@ interface ErrorReport {
   status: string;
   created_at: string;
   reporter_name?: string;
+  admin_response?: string | null;
+  responded_at?: string | null;
+  responded_by?: string | null;
 }
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     activeUsers: 0,
     totalUsers: 0,
@@ -46,6 +52,12 @@ export default function AdminDashboard() {
   const [errorReports, setErrorReports] = useState<ErrorReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null);
+  const [responseText, setResponseText] = useState('');
+  const [sendingResponse, setSendingResponse] = useState(false);
+
+  useEffect(() => {
+    setResponseText(selectedReport?.admin_response || '');
+  }, [selectedReport?.id]);
 
   const { sortedData: displayedReports, sortColumn, sortDirection, handleSort } = useTableSort<ErrorReport>(
     errorReports,
@@ -139,6 +151,62 @@ export default function AdminDashboard() {
       ...prev,
       openReports: prev.openReports + (newStatus === 'open' ? 1 : -1),
     }));
+  };
+
+  const handleSendResponse = async () => {
+    if (!selectedReport || !user?.id || !responseText.trim()) return;
+    setSendingResponse(true);
+    try {
+      const trimmed = responseText.trim();
+      const now = new Date().toISOString();
+
+      const { error: updateErr } = await supabase
+        .from('error_reports')
+        .update({
+          admin_response: trimmed,
+          responded_at: now,
+          responded_by: user.id,
+          status: 'resolved',
+        })
+        .eq('id', selectedReport.id);
+      if (updateErr) throw updateErr;
+
+      const messageBody =
+        `Response to your error report:\n\n${trimmed}\n\n` +
+        `— — —\nOriginal report (${format(new Date(selectedReport.created_at), 'PPpp')}):\n` +
+        `${selectedReport.description}` +
+        (selectedReport.page_url ? `\n\nPage: ${selectedReport.page_url}` : '');
+
+      const { error: msgErr } = await supabase.from('employee_comments').insert({
+        employee_id: user.id,
+        recipient_id: selectedReport.reported_by,
+        comment_text: messageBody,
+        week_start_date: format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+      });
+      if (msgErr) throw msgErr;
+
+      toast({ title: 'Response sent', description: 'The user has been messaged.' });
+
+      setErrorReports(prev =>
+        prev.map(r =>
+          r.id === selectedReport.id
+            ? { ...r, admin_response: trimmed, responded_at: now, responded_by: user.id, status: 'resolved' }
+            : r
+        )
+      );
+      setStats(prev => ({
+        ...prev,
+        openReports: prev.openReports - (selectedReport.status === 'open' ? 1 : 0),
+      }));
+      setSelectedReport(prev =>
+        prev ? { ...prev, admin_response: trimmed, responded_at: now, responded_by: user.id, status: 'resolved' } : prev
+      );
+    } catch (err: any) {
+      console.error('Failed to send response:', err);
+      toast({ title: 'Failed to send response', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingResponse(false);
+    }
   };
 
   return (
@@ -377,6 +445,29 @@ export default function AdminDashboard() {
                     <ErrorScreenshotViewer screenshotPath={selectedReport.screenshot_url} />
                   </div>
                 )}
+
+                <div className="space-y-2 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium uppercase text-muted-foreground">
+                      Response to user
+                    </p>
+                    {selectedReport.responded_at && (
+                      <p className="text-xs text-muted-foreground">
+                        Last sent {format(new Date(selectedReport.responded_at), 'PPp')}
+                      </p>
+                    )}
+                  </div>
+                  <Textarea
+                    value={responseText}
+                    onChange={(e) => setResponseText(e.target.value)}
+                    placeholder="Write a response. The user will receive this as a message along with their original report."
+                    rows={4}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Sending will message {selectedReport.reporter_name} and mark this report resolved.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -385,12 +476,26 @@ export default function AdminDashboard() {
                 Close
               </Button>
               {selectedReport && (
-                <Button
-                  variant={selectedReport.status === 'open' ? 'default' : 'secondary'}
-                  onClick={() => toggleReportStatus(selectedReport.id, selectedReport.status)}
-                >
-                  {selectedReport.status === 'open' ? 'Mark resolved' : 'Reopen'}
-                </Button>
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={() => toggleReportStatus(selectedReport.id, selectedReport.status)}
+                  >
+                    {selectedReport.status === 'open' ? 'Mark resolved' : 'Reopen'}
+                  </Button>
+                  <Button
+                    onClick={handleSendResponse}
+                    disabled={sendingResponse || !responseText.trim()}
+                    className="gap-2"
+                  >
+                    {sendingResponse ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    {selectedReport.admin_response ? 'Send update' : 'Send response'}
+                  </Button>
+                </>
               )}
             </DialogFooter>
           </DialogContent>

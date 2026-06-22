@@ -403,33 +403,42 @@ export type Database = {
       }
       error_reports: {
         Row: {
+          admin_response: string | null
           created_at: string
           description: string
           id: string
           page_url: string | null
           reported_by: string
+          responded_at: string | null
+          responded_by: string | null
           screenshot_url: string | null
           status: string
           user_agent: string | null
           viewport: string | null
         }
         Insert: {
+          admin_response?: string | null
           created_at?: string
           description: string
           id?: string
           page_url?: string | null
           reported_by: string
+          responded_at?: string | null
+          responded_by?: string | null
           screenshot_url?: string | null
           status?: string
           user_agent?: string | null
           viewport?: string | null
         }
         Update: {
+          admin_response?: string | null
           created_at?: string
           description?: string
           id?: string
           page_url?: string | null
           reported_by?: string
+          responded_at?: string | null
+          responded_by?: string | null
           screenshot_url?: string | null
           status?: string
           user_agent?: string | null
