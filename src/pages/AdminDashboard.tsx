@@ -504,13 +504,52 @@ export default function AdminDashboard() {
                   <Textarea
                     value={responseText}
                     onChange={(e) => setResponseText(e.target.value)}
-                    placeholder="Write a response. The user will receive this as a message along with their original report."
+                    placeholder="Write a response. It will appear in the reporter's Error Reports section."
                     rows={4}
                     className="resize-none"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Sending will message {selectedReport.reporter_name} and mark this report resolved.
+                    Sending will notify {selectedReport.reporter_name} in their Error Reports and mark this report resolved.
                   </p>
+                </div>
+
+                <div className="space-y-2 border-t pt-4">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Conversation</p>
+                  {loadingReplies ? (
+                    <p className="text-xs text-muted-foreground">Loading…</p>
+                  ) : replies.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No replies yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {replies.map((r) => (
+                        <div key={r.id} className="rounded-md border bg-muted/30 p-2.5">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                            <span className="font-medium text-foreground">{r.user_name}</span>
+                            <span>{format(new Date(r.created_at), 'MMM d, h:mm a')}</span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{r.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Reply to the reporter…"
+                    rows={3}
+                    className="resize-none"
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      onClick={handleSendReply}
+                      disabled={sendingReply || !replyText.trim()}
+                      className="gap-2"
+                    >
+                      {sendingReply ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Send reply
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
