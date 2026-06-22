@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Copy, Check, Mail } from "lucide-react";
+import { Copy, Check, Mail, AlertTriangle, Loader2, Send } from "lucide-react";
 
 interface CreateUserModalProps {
   open: boolean;
@@ -62,6 +62,9 @@ export const CreateUserModal = ({
   const [createdUserId, setCreatedUserId] = useState("");
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [markedAsShared, setMarkedAsShared] = useState(false);
+  const [emailSent, setEmailSent] = useState<boolean | null>(null);
+  const [emailError, setEmailError] = useState<string | undefined>(undefined);
+  const [resending, setResending] = useState(false);
 
   const getInitialFormData = () => ({
     name: initialData?.name || "",
