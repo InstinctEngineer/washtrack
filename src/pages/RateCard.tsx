@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -51,7 +51,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, ChevronDown, Trash2 } from 'lucide-react';
+import { Loader2, Plus, ChevronDown, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface RateConfig {
   id: string;
@@ -95,6 +95,11 @@ const RateCard = () => {
   const [filterLocation, setFilterLocation] = useState<string>('all');
   const [filterWorkType, setFilterWorkType] = useState<string>('all');
   const [showNeedsReview, setShowNeedsReview] = useState(false);
+
+  // Sorting
+  type SortColumn = 'client' | 'location' | 'work_type' | 'frequency' | 'rate' | 'status' | null;
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Form state
   const [formClientId, setFormClientId] = useState('');
@@ -196,6 +201,46 @@ const RateCard = () => {
     if (showNeedsReview && !rc.needs_rate_review) return false;
     return true;
   });
+
+  // Sort rate configs
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortValue = (rc: RateConfig, column: SortColumn) => {
+    switch (column) {
+      case 'client': return rc.client?.name?.toLowerCase() || '';
+      case 'location': return rc.location?.name?.toLowerCase() || '';
+      case 'work_type': return rc.work_type?.name?.toLowerCase() || '';
+      case 'frequency': return rc.frequency || '';
+      case 'rate': return rc.rate ?? Number.MAX_VALUE;
+      case 'status': return rc.needs_rate_review ? 1 : 0;
+      default: return '';
+    }
+  };
+
+  const sortedConfigs = useMemo(() => {
+    if (!sortColumn) return filteredConfigs;
+    return [...filteredConfigs].sort((a, b) => {
+      const aValue = getSortValue(a, sortColumn);
+      const bValue = getSortValue(b, sortColumn);
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredConfigs, sortColumn, sortDirection]);
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) return <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />;
+    return sortDirection === 'asc'
+      ? <ArrowUp className="ml-1 h-4 w-4" />
+      : <ArrowDown className="ml-1 h-4 w-4" />;
+  };
 
   // Create mutation
   const createMutation = useMutation({
@@ -457,18 +502,30 @@ const RateCard = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Client</TableHead>
-                          <TableHead>Location</TableHead>
-                          <TableHead>Work Type</TableHead>
-                          <TableHead>Frequency</TableHead>
-                          <TableHead>Rate</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('client')}>
+                            <div className="flex items-center">Client{getSortIcon('client')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('location')}>
+                            <div className="flex items-center">Location{getSortIcon('location')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('work_type')}>
+                            <div className="flex items-center">Work Type{getSortIcon('work_type')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('frequency')}>
+                            <div className="flex items-center">Frequency{getSortIcon('frequency')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('rate')}>
+                            <div className="flex items-center">Rate{getSortIcon('rate')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('status')}>
+                            <div className="flex items-center">Status{getSortIcon('status')}</div>
+                          </TableHead>
                           <TableHead>Active</TableHead>
                           {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredConfigs.map((rc) => (
+                        {sortedConfigs.map((rc) => (
                           <TableRow key={rc.id}>
                             <TableCell className="font-medium">{rc.client?.name || 'Unknown'}</TableCell>
                             <TableCell>{rc.location?.name || 'Unknown'}</TableCell>
