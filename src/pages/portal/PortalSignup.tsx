@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { lovable } from '@/integrations/lovable';
 
 export default function PortalSignup() {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ export default function PortalSignup() {
   const [displayName, setDisplayName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -39,6 +41,26 @@ export default function PortalSignup() {
     }
   };
 
+  const handleGoogle = async () => {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: window.location.origin + '/portal/auth/callback',
+      });
+      if (result.error) {
+        setError(result.error.message || 'Google sign-in failed');
+        return;
+      }
+      if (result.redirected) return;
+      navigate('/portal/auth/callback', { replace: true });
+    } catch (e: any) {
+      setError(e?.message || 'Google sign-in failed');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1e3a5f] via-[#2d5a87] to-[#2d8cc4] p-4">
       <Card className="w-full max-w-md shadow-2xl border-0">
@@ -47,7 +69,23 @@ export default function PortalSignup() {
           <CardDescription>Create your client portal account</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleGoogle}
+              disabled={googleLoading || loading}
+            >
+              {googleLoading ? 'Opening Google…' : 'Continue with Google'}
+            </Button>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex-1 border-t" />
+              <span>or</span>
+              <div className="flex-1 border-t" />
+            </div>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
             <div className="space-y-2">
               <Label htmlFor="displayName">Your Name</Label>
