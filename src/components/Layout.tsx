@@ -37,6 +37,7 @@ import { hasRoleOrHigher } from '@/lib/roleUtils';
 import esAndDLogo from '@/assets/es-d-logo.png';
 import { UserRole } from '@/types/database';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
+import { usePendingPortalRequestCount } from '@/hooks/usePendingPortalRequestCount';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { ErrorReportButton } from '@/components/ErrorReportButton';
 import { usePayrollMode } from '@/hooks/usePayrollMode';
@@ -62,6 +63,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const [showIOSDialog, setShowIOSDialog] = useState(false);
   const [showAndroidDialog, setShowAndroidDialog] = useState(false);
   const { unreadCount } = useUnreadMessageCount();
+  const { pendingCount } = usePendingPortalRequestCount();
   const { canInstall, isIOS, isAndroid, isMobile, isInstalled, promptInstall, androidBrowser } = usePWAInstall();
   const [showUnsupportedDialog, setShowUnsupportedDialog] = useState(false);
   useActivityLogger();
@@ -150,7 +152,7 @@ export const Layout = ({ children }: LayoutProps) => {
         { label: 'Dealership Requests', icon: Car, path: '/admin/dealership-requests', section: 'Administration' }
       );
       navItems.push(
-        { label: 'Portal Requests', icon: UserCircle, path: '/admin/portal-requests', section: 'Client Portal' },
+        { label: 'Portal Requests', icon: UserCircle, path: '/admin/portal-requests', section: 'Client Portal', badge: pendingCount > 0 ? pendingCount : undefined },
       );
     }
 
