@@ -776,7 +776,9 @@ export default function Messages() {
                         onOpenChange={toggleExpanded}
                       >
                       <div className={`border rounded-lg transition-colors ${
-                        index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
+                        comment.is_portal_user
+                          ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800'
+                          : (index % 2 === 0 ? 'bg-card' : 'bg-muted/30')
                       } ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
                         {/* Message Header */}
                         <CollapsibleTrigger asChild>
@@ -790,6 +792,11 @@ export default function Messages() {
                                     ? (comment.employee?.name || 'Unknown') 
                                     : (comment.employee_id === user?.id ? 'You' : (comment.employee?.name || 'Office'))}
                                 </span>
+                                {comment.is_portal_user && (
+                                  <Badge className="text-xs px-1.5 py-0 bg-amber-500 hover:bg-amber-500 text-white border-transparent">
+                                    Portal User
+                                  </Badge>
+                                )}
                                 {comment.recipient && (
                                   <span className="text-xs text-muted-foreground">
                                     → {comment.recipient_id === user?.id ? 'You' : comment.recipient.name}
