@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, MapPin, User as UserIcon } from 'lucide-react';
+import esAndDLogo from '@/assets/es-d-logo.png';
 
 interface Props { title?: string; children: React.ReactNode; }
 
