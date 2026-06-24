@@ -294,6 +294,44 @@ export default function PortalUsers() {
               <Input id="work_location" value={editForm.work_location}
                 onChange={(e) => setEditForm({ ...editForm, work_location: e.target.value })} />
             </div>
+            <div>
+              <Label>Approved locations</Label>
+              <div className="mt-1 max-h-64 overflow-y-auto rounded-md border p-2 space-y-1">
+                {allLocations.length === 0 && (
+                  <p className="text-xs text-muted-foreground p-2">No locations available.</p>
+                )}
+                {allLocations.map((loc) => {
+                  const checked = editForm.location_ids.includes(loc.id);
+                  return (
+                    <label
+                      key={loc.id}
+                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          setEditForm((f) => ({
+                            ...f,
+                            location_ids: v
+                              ? [...f.location_ids, loc.id]
+                              : f.location_ids.filter((id) => id !== loc.id),
+                          }));
+                        }}
+                      />
+                      <span className="text-sm">
+                        {loc.name}
+                        {loc.client_name && (
+                          <span className="text-muted-foreground"> — {loc.client_name}</span>
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {editForm.location_ids.length} selected
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
