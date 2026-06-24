@@ -1,8 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, MapPin, User as UserIcon } from 'lucide-react';
+import { LogOut, MapPin, User as UserIcon, MessageSquare } from 'lucide-react';
 import esAndDLogo from '@/assets/es-d-logo.png';
+import { ErrorReportButton } from '@/components/ErrorReportButton';
 
 interface Props { title?: string; children: React.ReactNode; }
 
@@ -32,8 +33,12 @@ export const PortalShell = ({ title, children }: Props) => {
               <Link to="/portal/dashboard"><MapPin className="h-4 w-4 mr-1" /> Locations</Link>
             </Button>
             <Button variant="ghost" size="sm" asChild>
+              <Link to="/portal/messages"><MessageSquare className="h-4 w-4 mr-1" /> Messages</Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
               <Link to="/portal/request-access"><UserIcon className="h-4 w-4 mr-1" /> Request Access</Link>
             </Button>
+            <ErrorReportButton />
             <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate('/portal/login'); }}>
               <LogOut className="h-4 w-4 mr-1" /> Sign Out
             </Button>
