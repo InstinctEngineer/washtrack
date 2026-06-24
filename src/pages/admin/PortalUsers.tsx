@@ -13,7 +13,11 @@ interface PortalUserRow {
   id: string;
   email: string;
   display_name: string | null;
-  company_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  work_location: string | null;
+  approval_status: 'pending' | 'approved' | 'denied';
+  onboarding_completed: boolean;
   is_active: boolean;
   disabled_reason: string | null;
   last_login_at: string | null;
@@ -31,13 +35,16 @@ export default function PortalUsers() {
     const { data } = await supabase
       .from('client_portal_users')
       .select(`
-        id, email, display_name, company_name, is_active, disabled_reason,
-        last_login_at, created_at,
+        id, email, display_name, first_name, last_name, work_location,
+        approval_status, onboarding_completed,
+        is_active, disabled_reason, last_login_at, created_at,
         client_portal_location_access(location_id, locations(name))
       `)
       .order('created_at', { ascending: false });
     const rows: PortalUserRow[] = (data || []).map((u: any) => ({
-      id: u.id, email: u.email, display_name: u.display_name, company_name: u.company_name,
+      id: u.id, email: u.email, display_name: u.display_name,
+      first_name: u.first_name, last_name: u.last_name, work_location: u.work_location,
+      approval_status: u.approval_status, onboarding_completed: !!u.onboarding_completed,
       is_active: u.is_active, disabled_reason: u.disabled_reason, last_login_at: u.last_login_at,
       created_at: u.created_at,
       locations: (u.client_portal_location_access || []).map((a: any) => a.locations?.name).filter(Boolean),
@@ -68,8 +75,61 @@ export default function PortalUsers() {
 
   const canManage = userRole && hasRoleOrHigher(userRole, 'finance');
 
+  const setApproval = async (id: string, action: 'approve' | 'deny') => {
+    const { error } = await supabase.functions.invoke('set-portal-approval', {
+      body: { portal_user_id: id, action },
+    });
+    if (error) toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+    else { toast({ title: action === 'approve' ? 'Account approved' : 'Account denied' }); load(); }
+  };
+
+  const pending = users.filter((u) => u.approval_status === 'pending' && u.onboarding_completed);
+
   return (
     <Layout>
+      {pending.length > 0 && (
+        <Card className="mb-4 border-amber-500/50">
+          <CardHeader>
+            <CardTitle>Pending Approvals ({pending.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Work Location</TableHead>
+                    <TableHead>Signed Up</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pending.map((u) => (
+                    <TableRow key={u.id}>
+                      <TableCell className="font-medium">
+                        {[u.first_name, u.last_name].filter(Boolean).join(' ') || u.display_name || '-'}
+                      </TableCell>
+                      <TableCell>{u.email}</TableCell>
+                      <TableCell className="text-sm">{u.work_location || '-'}</TableCell>
+                      <TableCell className="text-xs">{new Date(u.created_at).toLocaleString()}</TableCell>
+                      <TableCell>
+                        {canManage && (
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => setApproval(u.id, 'approve')}>Approve</Button>
+                            <Button size="sm" variant="destructive" onClick={() => setApproval(u.id, 'deny')}>Deny</Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle>Client Portal Users</CardTitle></CardHeader>
         <CardContent>
@@ -78,30 +138,37 @@ export default function PortalUsers() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Email / Company</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Work Location</TableHead>
                   <TableHead>Locations</TableHead>
                   <TableHead>Last Login</TableHead>
+                  <TableHead>Approval</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loading && <TableRow><TableCell colSpan={6}>Loading…</TableCell></TableRow>}
+                {loading && <TableRow><TableCell colSpan={8}>Loading…</TableCell></TableRow>}
                 {!loading && users.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No portal users.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">No portal users.</TableCell></TableRow>
                 )}
                 {users.map((u) => (
                   <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.display_name || '-'}</TableCell>
-                    <TableCell>
-                      <div>{u.email}</div>
-                      {u.company_name && <div className="text-xs text-muted-foreground">{u.company_name}</div>}
+                    <TableCell className="font-medium">
+                      {[u.first_name, u.last_name].filter(Boolean).join(' ') || u.display_name || '-'}
                     </TableCell>
+                    <TableCell>{u.email}</TableCell>
+                    <TableCell className="text-xs">{u.work_location || <span className="text-muted-foreground">—</span>}</TableCell>
                     <TableCell className="text-xs">
                       {u.locations.length === 0 ? <span className="text-muted-foreground">None</span> : u.locations.join(', ')}
                     </TableCell>
                     <TableCell className="text-xs">
                       {u.last_login_at ? new Date(u.last_login_at).toLocaleString() : 'Never'}
+                    </TableCell>
+                    <TableCell>
+                      {u.approval_status === 'approved' && <Badge variant="default">Approved</Badge>}
+                      {u.approval_status === 'pending' && <Badge variant="secondary">{u.onboarding_completed ? 'Pending' : 'Onboarding'}</Badge>}
+                      {u.approval_status === 'denied' && <Badge variant="destructive">Denied</Badge>}
                     </TableCell>
                     <TableCell>
                       {u.is_active
@@ -112,9 +179,22 @@ export default function PortalUsers() {
                     </TableCell>
                     <TableCell>
                       {canManage && (
-                        u.is_active
-                          ? <Button size="sm" variant="outline" onClick={() => disable(u.id)}>Disable</Button>
-                          : <Button size="sm" onClick={() => reEnable(u.id)}>Re-enable</Button>
+                        <div className="flex flex-wrap gap-2">
+                          {u.approval_status === 'pending' && u.onboarding_completed && (
+                            <>
+                              <Button size="sm" onClick={() => setApproval(u.id, 'approve')}>Approve</Button>
+                              <Button size="sm" variant="destructive" onClick={() => setApproval(u.id, 'deny')}>Deny</Button>
+                            </>
+                          )}
+                          {u.approval_status === 'denied' && (
+                            <Button size="sm" onClick={() => setApproval(u.id, 'approve')}>Approve</Button>
+                          )}
+                          {u.approval_status === 'approved' && (
+                            u.is_active
+                              ? <Button size="sm" variant="outline" onClick={() => disable(u.id)}>Disable</Button>
+                              : <Button size="sm" onClick={() => reEnable(u.id)}>Re-enable</Button>
+                          )}
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
