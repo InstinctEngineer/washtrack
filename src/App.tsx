@@ -32,6 +32,14 @@ import DealershipRates from "./pages/dealership/DealershipRates";
 import DealershipRequests from "./pages/dealership/DealershipRequests";
 import DealershipReport from "./pages/dealership/DealershipReport";
 import PayrollDashboard from "./pages/payroll/PayrollDashboard";
+import PortalLogin from "./pages/portal/PortalLogin";
+import PortalSignup from "./pages/portal/PortalSignup";
+import PortalDashboard from "./pages/portal/PortalDashboard";
+import PortalRequestAccess from "./pages/portal/PortalRequestAccess";
+import PortalLocationHistory from "./pages/portal/PortalLocationHistory";
+import PortalRequests from "./pages/admin/PortalRequests";
+import PortalUsers from "./pages/admin/PortalUsers";
+import { PortalProtectedRoute } from "@/components/PortalProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +55,29 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/change-password" element={<ChangePassword />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
+
+            {/* Client Portal (public auth) */}
+            <Route path="/portal/login" element={<PortalLogin />} />
+            <Route path="/portal/signup" element={<PortalSignup />} />
+
+            {/* Client Portal (authed) */}
+            <Route path="/portal/dashboard" element={
+              <PortalProtectedRoute><PortalDashboard /></PortalProtectedRoute>
+            } />
+            <Route path="/portal/request-access" element={
+              <PortalProtectedRoute><PortalRequestAccess /></PortalProtectedRoute>
+            } />
+            <Route path="/portal/locations/:id" element={
+              <PortalProtectedRoute><PortalLocationHistory /></PortalProtectedRoute>
+            } />
+
+            {/* Internal admin: portal management */}
+            <Route path="/admin/portal-requests" element={
+              <ProtectedRoute allowedRoles={['finance', 'admin']}><PortalRequests /></ProtectedRoute>
+            } />
+            <Route path="/admin/portal-users" element={
+              <ProtectedRoute allowedRoles={['admin']}><PortalUsers /></ProtectedRoute>
+            } />
 
             {/* Protected Routes - Smart root redirect */}
             <Route path="/" element={<RootRedirect />} />
