@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user, userRole, loading } = useAuth();
+  const { user, userRole, isPortalUser, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -23,7 +23,16 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     );
   }
 
-  if (!user || !userRole) {
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Portal users are not allowed on internal routes
+  if (isPortalUser) {
+    return <Navigate to="/portal/dashboard" replace />;
+  }
+
+  if (!userRole) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
