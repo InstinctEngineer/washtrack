@@ -8,6 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface PortalUserRow {
   id: string;
@@ -83,6 +88,35 @@ export default function PortalUsers() {
     else { toast({ title: action === 'approve' ? 'Account approved' : 'Account denied' }); load(); }
   };
 
+  const deleteUser = async (id: string) => {
+    const { error } = await supabase.functions.invoke('delete-portal-user', {
+      body: { portal_user_id: id },
+    });
+    if (error) toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+    else { toast({ title: 'Account deleted' }); load(); }
+  };
+
+  const DeleteButton = ({ user }: { user: PortalUserRow }) => (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="destructive">Delete</Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete portal account?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently deletes <strong>{user.email}</strong>, their login, location access,
+            and access requests. They can sign up again from scratch. This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => deleteUser(user.id)}>Delete</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   const pending = users.filter((u) => u.approval_status === 'pending' && u.onboarding_completed);
 
   return (
@@ -118,6 +152,7 @@ export default function PortalUsers() {
                           <div className="flex gap-2">
                             <Button size="sm" onClick={() => setApproval(u.id, 'approve')}>Approve</Button>
                             <Button size="sm" variant="destructive" onClick={() => setApproval(u.id, 'deny')}>Deny</Button>
+                            <DeleteButton user={u} />
                           </div>
                         )}
                       </TableCell>
@@ -194,6 +229,7 @@ export default function PortalUsers() {
                               ? <Button size="sm" variant="outline" onClick={() => disable(u.id)}>Disable</Button>
                               : <Button size="sm" onClick={() => reEnable(u.id)}>Re-enable</Button>
                           )}
+                          <DeleteButton user={u} />
                         </div>
                       )}
                     </TableCell>
