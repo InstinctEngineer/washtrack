@@ -528,20 +528,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "employee_comments_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_comments_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "users_safe_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "employee_comments_recipient_id_fkey"
             columns: ["recipient_id"]
             isOneToOne: false
