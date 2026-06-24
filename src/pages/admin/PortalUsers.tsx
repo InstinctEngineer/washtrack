@@ -71,7 +71,7 @@ export default function PortalUsers() {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Work Location</TableHead>
-                  <TableHead>Locations</TableHead>
+                  <TableHead>Approved Locations</TableHead>
                   <TableHead>Last Login</TableHead>
                   <TableHead>Approval</TableHead>
                   <TableHead>Status</TableHead>
