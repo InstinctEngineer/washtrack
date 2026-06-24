@@ -14,3 +14,12 @@ verify_jwt = true
 
 [functions.delete-user]
 verify_jwt = true
+
+[functions.create-portal-user]
+verify_jwt = false
+
+[functions.record-portal-login]
+verify_jwt = true
+
+[functions.approve-portal-request]
+verify_jwt = true
