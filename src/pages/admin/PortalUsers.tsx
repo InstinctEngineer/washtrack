@@ -16,7 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Pencil, Power, Trash2 } from 'lucide-react';
+import { Edit, Power, Trash2 } from 'lucide-react';
 
 interface PortalUserRow {
   id: string;
@@ -174,38 +174,41 @@ export default function PortalUsers() {
                       {u.approval_status === 'denied' && <Badge variant="destructive">Denied</Badge>}
                     </TableCell>
                     <TableCell>
-                      {u.is_active
-                        ? <Badge variant="default">Active</Badge>
-                        : <Badge variant="destructive">
-                            Disabled{u.disabled_reason === 'inactivity_90d' ? ' (90d)' : ''}
-                          </Badge>}
+                      <Badge variant={u.is_active ? 'default' : 'secondary'}>
+                        {u.is_active
+                          ? 'Active'
+                          : `Inactive${u.disabled_reason === 'inactivity_90d' ? ' (90d)' : ''}`}
+                      </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                    <TableCell>
+                      <div className="flex gap-1">
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           onClick={() => openEdit(u)}
                           disabled={busyId === u.id}
+                          title="Edit portal user"
                         >
-                          <Pencil className="h-3.5 w-3.5 mr-1" />Edit
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           onClick={() => setConfirmToggle(u)}
                           disabled={busyId === u.id}
+                          title={u.is_active ? 'Deactivate account' : 'Activate account'}
                         >
-                          <Power className="h-3.5 w-3.5 mr-1" />
-                          {u.is_active ? 'Deactivate' : 'Activate'}
+                          <Power className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="destructive"
+                          variant="ghost"
                           size="sm"
                           onClick={() => setConfirmDelete(u)}
                           disabled={busyId === u.id}
+                          title="Permanently delete portal user"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         >
-                          <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
