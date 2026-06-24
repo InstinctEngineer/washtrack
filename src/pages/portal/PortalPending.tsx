@@ -19,12 +19,9 @@ export default function PortalPending() {
             Your account is being reviewed by our team. Once approved, you'll be able to sign in
             and request access to your locations' work history.
           </p>
-          {portalStatus?.work_location && (
-            <p className="text-xs text-muted-foreground">
-              Submitted as <span className="font-medium">{portalStatus.first_name} {portalStatus.last_name}</span>
-              {' · '}{portalStatus.work_location}
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground">
+            We'll review your details and enable your access shortly.
+          </p>
           <Button
             variant="outline"
             className="w-full"
