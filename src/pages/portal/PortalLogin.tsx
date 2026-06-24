@@ -11,6 +11,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { lovable } from '@/integrations/lovable';
+import esAndDLogo from '@/assets/es-d-logo.png';
+
 
 export default function PortalLogin() {
   const [email, setEmail] = useState('');
@@ -100,6 +102,13 @@ export default function PortalLogin() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1e3a5f] via-[#2d5a87] to-[#2d8cc4] p-4">
       <Card className="w-full max-w-md shadow-2xl border-0">
         <CardHeader className="text-center">
+          <div className="flex justify-center mb-3">
+            <img
+              src={esAndDLogo}
+              alt="ES&D Services Inc."
+              className="h-14 w-auto object-contain"
+            />
+          </div>
           <CardTitle className="text-2xl">Client Portal</CardTitle>
           <CardDescription>Sign in to view your wash history</CardDescription>
         </CardHeader>
