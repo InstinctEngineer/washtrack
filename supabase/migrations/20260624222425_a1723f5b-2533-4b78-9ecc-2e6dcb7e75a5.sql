@@ -1,0 +1,1 @@
+ALTER TABLE public.client_portal_users ADD COLUMN IF NOT EXISTS denial_note text;
