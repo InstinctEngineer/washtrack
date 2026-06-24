@@ -1,0 +1,1 @@
+CREATE POLICY "Comment authors can reply to their own conversation" ON public.message_replies FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id AND EXISTS (SELECT 1 FROM public.employee_comments ec WHERE ec.id = message_replies.comment_id AND ec.employee_id = auth.uid()));
