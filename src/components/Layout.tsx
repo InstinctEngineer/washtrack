@@ -149,6 +149,9 @@ export const Layout = ({ children }: LayoutProps) => {
         { label: 'Dealership Rates', icon: Car, path: '/admin/dealership-rates', section: 'Administration' },
         { label: 'Dealership Requests', icon: Car, path: '/admin/dealership-requests', section: 'Administration' }
       );
+      navItems.push(
+        { label: 'Portal Requests', icon: UserCircle, path: '/admin/portal-requests', section: 'Client Portal' },
+      );
     }
 
     // Admin-only features
@@ -161,6 +164,9 @@ export const Layout = ({ children }: LayoutProps) => {
       });
       navItems.push(
         { label: 'System Settings', icon: Settings, path: '/admin/settings', section: 'Admin Only' }
+      );
+      navItems.push(
+        { label: 'Portal Users', icon: Users, path: '/admin/portal-users', section: 'Client Portal' },
       );
     }
 

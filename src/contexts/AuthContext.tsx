@@ -11,6 +11,7 @@ interface AuthContextType {
   userProfile: User | null;
   userRole: UserRole | null;
   userLocations: string[];
+  isPortalUser: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
@@ -24,6 +25,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [userLocations, setUserLocations] = useState<string[]>([]);
+  const [isPortalUser, setIsPortalUser] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // We'll handle navigation separately to avoid hook context issues
@@ -46,7 +48,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Not an internal employee — check portal users
+        const { data: portal } = await supabase
+          .from('client_portal_users')
+          .select('id')
+          .eq('auth_user_id', userId)
+          .maybeSingle();
+        if (portal) {
+          setIsPortalUser(true);
+          setUserProfile(null);
+          setUserRole(null);
+          setUserLocations([]);
+        } else {
+          throw error;
+        }
+        return;
+      }
+      setIsPortalUser(false);
       setUserProfile(data as User);
 
       // Fetch highest role from user_roles table
@@ -85,6 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserProfile(null);
       setUserRole(null);
       setUserLocations([]);
+      setIsPortalUser(false);
     } finally {
       // Set loading to false only after profile fetch completes
       setLoading(false);
@@ -152,10 +172,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUserProfile(null);
     setUserRole(null);
     setUserLocations([]);
+    setIsPortalUser(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, userProfile, userRole, userLocations, loading, signOut, refreshUserProfile }}>
+    <AuthContext.Provider value={{ user, session, userProfile, userRole, userLocations, isPortalUser, loading, signOut, refreshUserProfile }}>
       {children}
     </AuthContext.Provider>
   );
