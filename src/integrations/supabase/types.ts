@@ -190,40 +190,61 @@ export type Database = {
       }
       client_portal_users: {
         Row: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           auth_user_id: string
           company_name: string | null
           created_at: string
           disabled_reason: string | null
           display_name: string | null
           email: string
+          first_name: string | null
           id: string
           is_active: boolean
           last_login_at: string | null
+          last_name: string | null
+          onboarding_completed: boolean
           updated_at: string
+          work_location: string | null
         }
         Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           auth_user_id: string
           company_name?: string | null
           created_at?: string
           disabled_reason?: string | null
           display_name?: string | null
           email: string
+          first_name?: string | null
           id?: string
           is_active?: boolean
           last_login_at?: string | null
+          last_name?: string | null
+          onboarding_completed?: boolean
           updated_at?: string
+          work_location?: string | null
         }
         Update: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           auth_user_id?: string
           company_name?: string | null
           created_at?: string
           disabled_reason?: string | null
           display_name?: string | null
           email?: string
+          first_name?: string | null
           id?: string
           is_active?: boolean
           last_login_at?: string | null
+          last_name?: string | null
+          onboarding_completed?: boolean
           updated_at?: string
+          work_location?: string | null
         }
         Relationships: []
       }
@@ -1530,6 +1551,18 @@ export type Database = {
       }
       get_last_monday: { Args: never; Returns: string }
       get_next_sunday: { Args: never; Returns: string }
+      get_portal_account_status: {
+        Args: never
+        Returns: {
+          approval_status: string
+          disabled_reason: string
+          first_name: string
+          is_active: boolean
+          last_name: string
+          onboarding_completed: boolean
+          work_location: string
+        }[]
+      }
       get_portal_dealership_history: {
         Args: { p_end: string; p_location_id: string; p_start: string }
         Returns: {
@@ -1642,6 +1675,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_portal_approved: { Args: { _user_id: string }; Returns: boolean }
       is_portal_user: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       portal_has_location: {
