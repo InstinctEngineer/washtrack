@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getDashboardPath } from '@/lib/roleUtils';
 
 export const RootRedirect = () => {
-  const { user, userRole, loading } = useAuth();
+  const { user, userRole, isPortalUser, loading } = useAuth();
 
   if (loading) {
     return (
@@ -14,6 +14,10 @@ export const RootRedirect = () => {
         </div>
       </div>
     );
+  }
+
+  if (user && isPortalUser) {
+    return <Navigate to="/portal/dashboard" replace />;
   }
 
   if (user && userRole) {
