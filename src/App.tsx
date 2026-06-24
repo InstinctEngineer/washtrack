@@ -37,6 +37,7 @@ import PortalSignup from "./pages/portal/PortalSignup";
 import PortalDashboard from "./pages/portal/PortalDashboard";
 import PortalRequestAccess from "./pages/portal/PortalRequestAccess";
 import PortalLocationHistory from "./pages/portal/PortalLocationHistory";
+import PortalMessages from "./pages/portal/PortalMessages";
 import PortalAuthCallback from "./pages/portal/PortalAuthCallback";
 import PortalOnboarding from "./pages/portal/PortalOnboarding";
 import PortalPending from "./pages/portal/PortalPending";
@@ -78,6 +79,9 @@ const App = () => (
             } />
             <Route path="/portal/request-access" element={
               <PortalProtectedRoute><PortalRequestAccess /></PortalProtectedRoute>
+            } />
+            <Route path="/portal/messages" element={
+              <PortalProtectedRoute><PortalMessages /></PortalProtectedRoute>
             } />
             <Route path="/portal/locations/:id" element={
               <PortalProtectedRoute><PortalLocationHistory /></PortalProtectedRoute>

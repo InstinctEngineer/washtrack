@@ -1,0 +1,1 @@
+CREATE POLICY "Portal users can view their accessible locations" ON public.locations FOR SELECT TO authenticated USING (public.portal_has_location(auth.uid(), id));

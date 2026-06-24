@@ -49,6 +49,7 @@ interface EmployeeComment {
     name: string;
     email?: string;
   };
+  is_portal_user?: boolean;
 }
 
 interface MessageRead {
@@ -247,12 +248,29 @@ export default function Messages() {
 
       const usersMap = new Map((usersData || []).map(u => [u.id, u]));
 
+      // Resolve portal users (they are not in the public.users table)
+      const missingUserIds = allUserIds.filter(id => !usersMap.has(id));
+      const portalUserIds = new Set<string>();
+      if (missingUserIds.length > 0) {
+        const { data: portalUsers } = await supabase
+          .from('client_portal_users')
+          .select('auth_user_id, first_name, last_name, email')
+          .in('auth_user_id', missingUserIds);
+        (portalUsers || []).forEach((p: any) => {
+          if (!p.auth_user_id) return;
+          portalUserIds.add(p.auth_user_id);
+          const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || p.email || 'Portal User';
+          usersMap.set(p.auth_user_id, { id: p.auth_user_id, name } as any);
+        });
+      }
+
       // Attach employee, recipient, and location data to comments
       const commentsWithData: EmployeeComment[] = rawComments.map(comment => ({
         ...comment,
         employee: usersMap.get(comment.employee_id) || undefined,
         location: comment.location_id ? locationsMap.get(comment.location_id) : undefined,
         recipient: comment.recipient_id ? usersMap.get(comment.recipient_id) : undefined,
+        is_portal_user: portalUserIds.has(comment.employee_id),
       }));
       setComments(commentsWithData);
 
@@ -758,7 +776,9 @@ export default function Messages() {
                         onOpenChange={toggleExpanded}
                       >
                       <div className={`border rounded-lg transition-colors ${
-                        index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
+                        comment.is_portal_user
+                          ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800'
+                          : (index % 2 === 0 ? 'bg-card' : 'bg-muted/30')
                       } ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
                         {/* Message Header */}
                         <CollapsibleTrigger asChild>
@@ -772,6 +792,11 @@ export default function Messages() {
                                     ? (comment.employee?.name || 'Unknown') 
                                     : (comment.employee_id === user?.id ? 'You' : (comment.employee?.name || 'Office'))}
                                 </span>
+                                {comment.is_portal_user && (
+                                  <Badge className="text-xs px-1.5 py-0 bg-amber-500 hover:bg-amber-500 text-white border-transparent">
+                                    Portal User
+                                  </Badge>
+                                )}
                                 {comment.recipient && (
                                   <span className="text-xs text-muted-foreground">
                                     → {comment.recipient_id === user?.id ? 'You' : comment.recipient.name}

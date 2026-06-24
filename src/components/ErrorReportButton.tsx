@@ -17,7 +17,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 
 export function ErrorReportButton() {
-  const { userProfile } = useAuth();
+  const { user, userProfile, isPortalUser } = useAuth();
   const [open, setOpen] = useState(false);
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [description, setDescription] = useState('');
@@ -50,7 +50,7 @@ export function ErrorReportButton() {
   }, []);
 
   const handleSubmit = async () => {
-    if (!userProfile || !description.trim()) return;
+    if (!user?.id || !description.trim()) return;
     setSubmitting(true);
 
     try {
@@ -59,7 +59,7 @@ export function ErrorReportButton() {
       // Upload screenshot to storage
       if (screenshot) {
         const blob = await (await fetch(screenshot)).blob();
-        const fileName = `${userProfile.id}/${Date.now()}-error-report.png`;
+        const fileName = `${user.id}/${Date.now()}-error-report.png`;
         const { error: uploadError } = await supabase.storage
           .from('error-reports')
           .upload(fileName, blob, { contentType: 'image/png' });
@@ -75,7 +75,7 @@ export function ErrorReportButton() {
       const { data: inserted, error: insertError } = await supabase
         .from('error_reports')
         .insert({
-          reported_by: userProfile.id,
+          reported_by: user.id,
           description: description.trim(),
           screenshot_url: screenshotUrl,
           page_url: window.location.pathname,
@@ -96,16 +96,28 @@ export function ErrorReportButton() {
           .catch((err) => console.error('Error report email failed:', err));
       }
 
-      // Log to activity logs
-      logAction('error_report', window.location.pathname, {
-        description: description.trim(),
-        screenshot_path: screenshotUrl,
-        viewport: `${window.innerWidth}x${window.innerHeight}`,
-        url: window.location.href,
-        user_name: userProfile.name,
-        user_email: userProfile.email,
-        user_role: userProfile.role,
-      });
+      // Log to activity logs (internal users only — portal users have no users row)
+      if (userProfile) {
+        logAction('error_report', window.location.pathname, {
+          description: description.trim(),
+          screenshot_path: screenshotUrl,
+          viewport: `${window.innerWidth}x${window.innerHeight}`,
+          url: window.location.href,
+          user_name: userProfile.name,
+          user_email: userProfile.email,
+          user_role: userProfile.role,
+          source: 'internal',
+        });
+      } else if (isPortalUser) {
+        logAction('error_report', window.location.pathname, {
+          description: description.trim(),
+          screenshot_path: screenshotUrl,
+          viewport: `${window.innerWidth}x${window.innerHeight}`,
+          url: window.location.href,
+          user_email: user.email,
+          source: 'portal',
+        });
+      }
 
       toast({
         title: 'Error report submitted',
@@ -204,7 +216,7 @@ export function ErrorReportButton() {
 
             <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
               <p><strong>Page:</strong> {window.location.pathname}</p>
-              <p><strong>User:</strong> {userProfile?.name} ({userProfile?.email})</p>
+              <p><strong>User:</strong> {userProfile?.name || user?.email || 'Portal user'} {userProfile?.email ? `(${userProfile.email})` : ''}</p>
               <p><strong>Time:</strong> {new Date().toLocaleString()}</p>
             </div>
           </div>
