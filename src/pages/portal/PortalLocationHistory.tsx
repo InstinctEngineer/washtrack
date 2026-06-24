@@ -85,6 +85,15 @@ export default function PortalLocationHistory() {
     );
   }, [rows, search]);
 
+  const totalCount = useMemo(() => {
+    if (businessType === 'dealership') {
+      return dealershipRows.reduce((s, r) => s + Number(r.vehicle_count || 0), 0);
+    }
+    return filteredRows.reduce((s, r) => s + Number(r.quantity || 0), 0);
+  }, [businessType, dealershipRows, filteredRows]);
+
+  const totalLabel = businessType === 'dealership' ? 'Vehicles Washed' : 'Total Washes';
+
   const exportCsv = () => {
     if (businessType === 'dealership') {
       const header = 'date,vehicle_count\n';
@@ -136,6 +145,16 @@ export default function PortalLocationHistory() {
           </div>
 
           {error && <div className="text-destructive text-sm">{error}</div>}
+
+          <div className="rounded-md border bg-muted/40 px-4 py-3 flex items-baseline justify-between">
+            <div className="text-sm text-muted-foreground">
+              {totalLabel} from <span className="font-medium text-foreground">{start}</span> to{' '}
+              <span className="font-medium text-foreground">{end}</span>
+            </div>
+            <div className="text-2xl font-semibold tabular-nums">
+              {totalCount.toLocaleString()}
+            </div>
+          </div>
 
           {businessType !== 'dealership' && (
             <Input
