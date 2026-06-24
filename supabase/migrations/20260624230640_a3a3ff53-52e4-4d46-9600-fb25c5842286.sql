@@ -1,0 +1,1 @@
+ALTER TABLE public.employee_comments DROP CONSTRAINT IF EXISTS employee_comments_employee_id_fkey;
