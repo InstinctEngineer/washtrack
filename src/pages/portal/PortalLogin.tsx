@@ -11,6 +11,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { lovable } from '@/integrations/lovable';
+import esAndDLogo from '@/assets/es-d-logo.png';
+
 
 export default function PortalLogin() {
   const [email, setEmail] = useState('');
