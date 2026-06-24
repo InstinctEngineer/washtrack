@@ -37,6 +37,7 @@ import PortalSignup from "./pages/portal/PortalSignup";
 import PortalDashboard from "./pages/portal/PortalDashboard";
 import PortalRequestAccess from "./pages/portal/PortalRequestAccess";
 import PortalLocationHistory from "./pages/portal/PortalLocationHistory";
+import PortalAuthCallback from "./pages/portal/PortalAuthCallback";
 import PortalRequests from "./pages/admin/PortalRequests";
 import PortalUsers from "./pages/admin/PortalUsers";
 import { PortalProtectedRoute } from "@/components/PortalProtectedRoute";
@@ -59,6 +60,7 @@ const App = () => (
             {/* Client Portal (public auth) */}
             <Route path="/portal/login" element={<PortalLogin />} />
             <Route path="/portal/signup" element={<PortalSignup />} />
+            <Route path="/portal/auth/callback" element={<PortalAuthCallback />} />
 
             {/* Client Portal (authed) */}
             <Route path="/portal/dashboard" element={

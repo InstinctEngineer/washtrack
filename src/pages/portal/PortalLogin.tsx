@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { lovable } from '@/integrations/lovable';
 
 export default function PortalLogin() {
   const [email, setEmail] = useState('');
@@ -17,6 +18,7 @@ export default function PortalLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [disabledPhone, setDisabledPhone] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const { user, isPortalUser, userRole, loading: authLoading } = useAuth();
 
@@ -64,6 +66,27 @@ export default function PortalLogin() {
     }
   };
 
+  const handleGoogle = async () => {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: window.location.origin + '/portal/auth/callback',
+      });
+      if (result.error) {
+        setError(result.error.message || 'Google sign-in failed');
+        return;
+      }
+      if (result.redirected) return;
+      // Popup flow returned tokens — go to callback to finish portal handshake
+      navigate('/portal/auth/callback', { replace: true });
+    } catch (e: any) {
+      setError(e?.message || 'Google sign-in failed');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1e3a5f] via-[#2d5a87] to-[#2d8cc4] p-4">
       <Card className="w-full max-w-md shadow-2xl border-0">
@@ -72,7 +95,23 @@ export default function PortalLogin() {
           <CardDescription>Sign in to view your wash history</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleGoogle}
+              disabled={googleLoading || loading}
+            >
+              {googleLoading ? 'Opening Google…' : 'Continue with Google'}
+            </Button>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex-1 border-t" />
+              <span>or</span>
+              <div className="flex-1 border-t" />
+            </div>
+          </div>
+          <form onSubmit={handleLogin} className="space-y-4 mt-4">
             {error && (
               <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
             )}
