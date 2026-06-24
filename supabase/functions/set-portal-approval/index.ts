@@ -48,7 +48,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { portal_user_id, action } = schema.parse(body);
+    const { portal_user_id, action, note } = schema.parse(body);
 
     const update: Record<string, unknown> =
       action === 'approve'
@@ -58,6 +58,7 @@ serve(async (req) => {
             approved_at: new Date().toISOString(),
             is_active: true,
             disabled_reason: null,
+            denial_note: null,
           }
         : {
             approval_status: 'denied',
@@ -65,6 +66,7 @@ serve(async (req) => {
             approved_at: new Date().toISOString(),
             is_active: false,
             disabled_reason: 'denied',
+            denial_note: note ?? null,
           };
 
     const { data: target } = await admin
@@ -83,9 +85,12 @@ serve(async (req) => {
       });
     }
 
-    // If denying, revoke sessions
-    if (action === 'deny' && target?.auth_user_id) {
-      try { await admin.auth.admin.signOut(target.auth_user_id); } catch (_) { /* ignore */ }
+    // If denying, revoke location access + sessions
+    if (action === 'deny') {
+      await admin.from('client_portal_location_access').delete().eq('portal_user_id', portal_user_id);
+      if (target?.auth_user_id) {
+        try { await admin.auth.admin.signOut(target.auth_user_id); } catch (_) { /* ignore */ }
+      }
     }
 
     return new Response(JSON.stringify({ status: 'ok' }), {
