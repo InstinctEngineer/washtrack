@@ -38,6 +38,8 @@ import PortalDashboard from "./pages/portal/PortalDashboard";
 import PortalRequestAccess from "./pages/portal/PortalRequestAccess";
 import PortalLocationHistory from "./pages/portal/PortalLocationHistory";
 import PortalAuthCallback from "./pages/portal/PortalAuthCallback";
+import PortalOnboarding from "./pages/portal/PortalOnboarding";
+import PortalPending from "./pages/portal/PortalPending";
 import PortalRequests from "./pages/admin/PortalRequests";
 import PortalUsers from "./pages/admin/PortalUsers";
 import { PortalProtectedRoute } from "@/components/PortalProtectedRoute";
@@ -61,6 +63,14 @@ const App = () => (
             <Route path="/portal/login" element={<PortalLogin />} />
             <Route path="/portal/signup" element={<PortalSignup />} />
             <Route path="/portal/auth/callback" element={<PortalAuthCallback />} />
+
+            {/* Portal onboarding + pending status — allow any portal account status */}
+            <Route path="/portal/onboarding" element={
+              <PortalProtectedRoute allowAnyStatus><PortalOnboarding /></PortalProtectedRoute>
+            } />
+            <Route path="/portal/pending" element={
+              <PortalProtectedRoute allowAnyStatus><PortalPending /></PortalProtectedRoute>
+            } />
 
             {/* Client Portal (authed) */}
             <Route path="/portal/dashboard" element={
