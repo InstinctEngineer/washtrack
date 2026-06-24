@@ -152,7 +152,7 @@ export const Layout = ({ children }: LayoutProps) => {
         { label: 'Dealership Requests', icon: Car, path: '/admin/dealership-requests', section: 'Administration' }
       );
       navItems.push(
-        { label: 'Portal Requests', icon: UserCircle, path: '/admin/portal-requests', section: 'Client Portal' },
+        { label: 'Portal Requests', icon: UserCircle, path: '/admin/portal-requests', section: 'Client Portal', badge: pendingCount > 0 ? pendingCount : undefined },
       );
     }
 
