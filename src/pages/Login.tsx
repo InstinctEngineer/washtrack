@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { logAuthEvent } from '@/lib/activityLogger';
 import { Button } from '@/components/ui/button';
@@ -147,6 +147,10 @@ export default function Login() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
+            <div className="text-center text-sm text-muted-foreground pt-2">
+              External Client?{' '}
+              <Link to="/portal/login" className="text-primary underline">Sign in to the client portal</Link>
+            </div>
           </form>
         </CardContent>
       </Card>
