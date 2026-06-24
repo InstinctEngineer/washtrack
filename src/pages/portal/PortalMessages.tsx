@@ -51,6 +51,8 @@ export default function PortalMessages() {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [sendingReplyFor, setSendingReplyFor] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -149,6 +151,29 @@ export default function PortalMessages() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+
+  const handleSendReply = async (commentId: string) => {
+    if (!user?.id) return;
+    const text = (replyDrafts[commentId] || '').trim();
+    if (!text) return;
+    setSendingReplyFor(commentId);
+    try {
+      const { error } = await supabase.from('message_replies').insert({
+        comment_id: commentId,
+        user_id: user.id,
+        reply_text: text,
+      });
+      if (error) throw error;
+      setReplyDrafts(prev => ({ ...prev, [commentId]: '' }));
+      toast.success('Reply sent');
+      fetchMessages();
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Failed to send reply');
+    } finally {
+      setSendingReplyFor(null);
+    }
+  };
 
   return (
     <PortalShell title="Messages">
@@ -263,10 +288,19 @@ export default function PortalMessages() {
                               <div className="space-y-2">
                                 <p className="text-xs font-medium text-muted-foreground">Replies from Office:</p>
                                 {replies.map(r => (
-                                  <div key={r.id} className="bg-primary/5 border-l-2 border-primary rounded-lg p-3">
+                                  <div
+                                    key={r.id}
+                                    className={`rounded-lg p-3 border-l-2 ${
+                                      r.user_id === user?.id
+                                        ? 'bg-muted/40 border-muted-foreground/40'
+                                        : 'bg-primary/5 border-primary'
+                                    }`}
+                                  >
                                     <div className="flex items-center gap-2 mb-1">
                                       <Reply className="h-3 w-3 text-primary" />
-                                      <span className="text-xs font-medium text-primary">{r.user_name}</span>
+                                      <span className="text-xs font-medium text-primary">
+                                        {r.user_id === user?.id ? 'You' : r.user_name}
+                                      </span>
                                       <span className="text-xs text-muted-foreground">
                                         {format(new Date(r.created_at), 'MMM d, h:mm a')}
                                       </span>
@@ -278,6 +312,30 @@ export default function PortalMessages() {
                             ) : (
                               <p className="text-sm text-muted-foreground italic">No reply yet</p>
                             )}
+
+                            {/* Reply composer */}
+                            <div className="pt-2 border-t flex items-end gap-2">
+                              <Textarea
+                                placeholder="Write a reply…"
+                                value={replyDrafts[m.id] || ''}
+                                onChange={e =>
+                                  setReplyDrafts(prev => ({ ...prev, [m.id]: e.target.value }))
+                                }
+                                rows={2}
+                                className="resize-none text-sm"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => handleSendReply(m.id)}
+                                disabled={
+                                  sendingReplyFor === m.id || !(replyDrafts[m.id] || '').trim()
+                                }
+                                className="gap-1.5"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                {sendingReplyFor === m.id ? 'Sending…' : 'Reply'}
+                              </Button>
+                            </div>
                           </div>
                         </CollapsibleContent>
                       </div>
