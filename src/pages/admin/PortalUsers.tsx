@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Edit, Power, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface PortalUserRow {
   id: string;
@@ -33,13 +34,24 @@ interface PortalUserRow {
   last_login_at: string | null;
   created_at: string;
   locations: string[];
+  location_ids: string[];
+}
+
+interface LocationOption {
+  id: string;
+  name: string;
+  client_name: string;
 }
 
 export default function PortalUsers() {
   const [users, setUsers] = useState<PortalUserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<PortalUserRow | null>(null);
-  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', work_location: '' });
+  const [editForm, setEditForm] = useState({
+    first_name: '', last_name: '', work_location: '',
+    location_ids: [] as string[],
+  });
+  const [allLocations, setAllLocations] = useState<LocationOption[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<PortalUserRow | null>(null);
   const [confirmToggle, setConfirmToggle] = useState<PortalUserRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -63,12 +75,25 @@ export default function PortalUsers() {
       denial_note: u.denial_note ?? null,
       created_at: u.created_at,
       locations: (u.client_portal_location_access || []).map((a: any) => a.locations?.name).filter(Boolean),
+      location_ids: (u.client_portal_location_access || []).map((a: any) => a.location_id).filter(Boolean),
     }));
     setUsers(rows);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadLocations = async () => {
+    const { data } = await supabase
+      .from('locations')
+      .select('id, name, clients(name)')
+      .order('name');
+    setAllLocations(
+      (data || []).map((l: any) => ({
+        id: l.id, name: l.name, client_name: l.clients?.name ?? '',
+      })),
+    );
+  };
+
+  useEffect(() => { load(); loadLocations(); }, []);
 
   const openEdit = (u: PortalUserRow) => {
     setEditing(u);
@@ -76,6 +101,7 @@ export default function PortalUsers() {
       first_name: u.first_name ?? '',
       last_name: u.last_name ?? '',
       work_location: u.work_location ?? '',
+      location_ids: [...u.location_ids],
     });
   };
 
@@ -90,8 +116,34 @@ export default function PortalUsers() {
         work_location: editForm.work_location.trim() || null,
       })
       .eq('id', editing.id);
+    if (error) { setBusyId(null); toast.error(error.message); return; }
+
+    const current = new Set(editing.location_ids);
+    const next = new Set(editForm.location_ids);
+    const toAdd = [...next].filter((id) => !current.has(id));
+    const toRemove = [...current].filter((id) => !next.has(id));
+
+    if (toRemove.length > 0) {
+      const { error: rmErr } = await supabase
+        .from('client_portal_location_access')
+        .delete()
+        .eq('portal_user_id', editing.id)
+        .in('location_id', toRemove);
+      if (rmErr) { setBusyId(null); toast.error(rmErr.message); return; }
+    }
+    if (toAdd.length > 0) {
+      const { data: auth } = await supabase.auth.getUser();
+      const { error: addErr } = await supabase
+        .from('client_portal_location_access')
+        .insert(toAdd.map((location_id) => ({
+          portal_user_id: editing.id,
+          location_id,
+          granted_by: auth.user?.id ?? null,
+        })));
+      if (addErr) { setBusyId(null); toast.error(addErr.message); return; }
+    }
+
     setBusyId(null);
-    if (error) { toast.error(error.message); return; }
     toast.success('Portal user updated');
     setEditing(null);
     load();
