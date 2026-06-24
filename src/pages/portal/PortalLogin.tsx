@@ -58,6 +58,15 @@ export default function PortalLogin() {
         setError('This account is not a client portal account.');
         return;
       }
+      const onboarded = (result as any)?.onboarding_completed === true;
+      const approval = (result as any)?.approval_status as 'pending' | 'approved' | 'denied' | undefined;
+      if (!onboarded) { navigate('/portal/onboarding', { replace: true }); return; }
+      if (approval === 'denied') {
+        await supabase.auth.signOut();
+        setError('Your account was not approved. Please contact our office.');
+        return;
+      }
+      if (approval === 'pending') { navigate('/portal/pending', { replace: true }); return; }
       navigate('/portal/dashboard', { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to sign in.');

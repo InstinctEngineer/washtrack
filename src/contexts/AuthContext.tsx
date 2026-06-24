@@ -12,9 +12,17 @@ interface AuthContextType {
   userRole: UserRole | null;
   userLocations: string[];
   isPortalUser: boolean;
+  portalStatus: PortalStatus | null;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
+}
+
+export interface PortalStatus {
+  approval_status: 'pending' | 'approved' | 'denied';
+  is_active: boolean;
+  onboarding_completed: boolean;
+  disabled_reason: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +34,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [userLocations, setUserLocations] = useState<string[]>([]);
   const [isPortalUser, setIsPortalUser] = useState(false);
+  const [portalStatus, setPortalStatus] = useState<PortalStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   // We'll handle navigation separately to avoid hook context issues
@@ -52,11 +61,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Not an internal employee — check portal users
         const { data: portal } = await supabase
           .from('client_portal_users')
-          .select('id')
+          .select('id, approval_status, is_active, onboarding_completed, disabled_reason')
           .eq('auth_user_id', userId)
           .maybeSingle();
         if (portal) {
           setIsPortalUser(true);
+          setPortalStatus({
+            approval_status: (portal as any).approval_status ?? 'pending',
+            is_active: !!(portal as any).is_active,
+            onboarding_completed: !!(portal as any).onboarding_completed,
+            disabled_reason: (portal as any).disabled_reason ?? null,
+          });
           setUserProfile(null);
           setUserRole(null);
           setUserLocations([]);
@@ -66,6 +81,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       setIsPortalUser(false);
+      setPortalStatus(null);
       setUserProfile(data as User);
 
       // Fetch highest role from user_roles table
@@ -105,6 +121,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserRole(null);
       setUserLocations([]);
       setIsPortalUser(false);
+      setPortalStatus(null);
     } finally {
       // Set loading to false only after profile fetch completes
       setLoading(false);
@@ -173,10 +190,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUserRole(null);
     setUserLocations([]);
     setIsPortalUser(false);
+    setPortalStatus(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, userProfile, userRole, userLocations, isPortalUser, loading, signOut, refreshUserProfile }}>
+    <AuthContext.Provider value={{ user, session, userProfile, userRole, userLocations, isPortalUser, portalStatus, loading, signOut, refreshUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

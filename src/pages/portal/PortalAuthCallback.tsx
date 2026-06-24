@@ -68,7 +68,29 @@ export default function PortalAuthCallback() {
         return;
       }
 
-      // Route based on whether they have any approved locations yet
+      const onboarded = (rec as any)?.onboarding_completed === true;
+      const approval = (rec as any)?.approval_status as 'pending' | 'approved' | 'denied' | undefined;
+
+      if (!onboarded) {
+        navigate('/portal/onboarding', { replace: true });
+        return;
+      }
+      if (approval === 'denied') {
+        await supabase.auth.signOut();
+        toast({
+          title: 'Account not approved',
+          description: 'Please contact our office for assistance.',
+          variant: 'destructive',
+        });
+        navigate('/portal/login', { replace: true });
+        return;
+      }
+      if (approval === 'pending') {
+        navigate('/portal/pending', { replace: true });
+        return;
+      }
+
+      // Approved — route based on whether they have any granted locations yet
       const { data: locs } = await supabase.rpc('get_portal_my_locations');
       if (cancelled) return;
       if (!locs || (locs as any[]).length === 0) {

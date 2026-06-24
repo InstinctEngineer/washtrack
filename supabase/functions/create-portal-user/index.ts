@@ -10,8 +10,6 @@ const corsHeaders = {
 const schema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(8).max(128),
-  display_name: z.string().min(1).max(120).trim(),
-  company_name: z.string().max(160).optional().nullable(),
 });
 
 serve(async (req) => {
@@ -25,7 +23,7 @@ serve(async (req) => {
     );
 
     const body = await req.json();
-    const { email, password, display_name, company_name } = schema.parse(body);
+    const { email, password } = schema.parse(body);
 
     // Refuse if email already belongs to an internal employee
     const { data: internalUser } = await admin
@@ -63,7 +61,7 @@ serve(async (req) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { portal_user: true, display_name, company_name: company_name ?? null },
+      user_metadata: { portal_user: true },
     });
     if (createErr || !created.user) {
       return new Response(
@@ -75,9 +73,10 @@ serve(async (req) => {
     const { error: insertErr } = await admin.from('client_portal_users').insert({
       auth_user_id: created.user.id,
       email,
-      display_name,
-      company_name: company_name ?? null,
+      display_name: email.split('@')[0],
       is_active: true,
+      onboarding_completed: false,
+      approval_status: 'pending',
       last_login_at: new Date().toISOString(),
     });
     if (insertErr) {
