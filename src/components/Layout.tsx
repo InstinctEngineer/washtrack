@@ -37,6 +37,7 @@ import { hasRoleOrHigher } from '@/lib/roleUtils';
 import esAndDLogo from '@/assets/es-d-logo.png';
 import { UserRole } from '@/types/database';
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
+import { usePendingPortalRequestCount } from '@/hooks/usePendingPortalRequestCount';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { ErrorReportButton } from '@/components/ErrorReportButton';
 import { usePayrollMode } from '@/hooks/usePayrollMode';
