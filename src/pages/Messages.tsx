@@ -248,12 +248,29 @@ export default function Messages() {
 
       const usersMap = new Map((usersData || []).map(u => [u.id, u]));
 
+      // Resolve portal users (they are not in the public.users table)
+      const missingUserIds = allUserIds.filter(id => !usersMap.has(id));
+      const portalUserIds = new Set<string>();
+      if (missingUserIds.length > 0) {
+        const { data: portalUsers } = await supabase
+          .from('client_portal_users')
+          .select('auth_user_id, first_name, last_name, email')
+          .in('auth_user_id', missingUserIds);
+        (portalUsers || []).forEach((p: any) => {
+          if (!p.auth_user_id) return;
+          portalUserIds.add(p.auth_user_id);
+          const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || p.email || 'Portal User';
+          usersMap.set(p.auth_user_id, { id: p.auth_user_id, name } as any);
+        });
+      }
+
       // Attach employee, recipient, and location data to comments
       const commentsWithData: EmployeeComment[] = rawComments.map(comment => ({
         ...comment,
         employee: usersMap.get(comment.employee_id) || undefined,
         location: comment.location_id ? locationsMap.get(comment.location_id) : undefined,
         recipient: comment.recipient_id ? usersMap.get(comment.recipient_id) : undefined,
+        is_portal_user: portalUserIds.has(comment.employee_id),
       }));
       setComments(commentsWithData);
 
