@@ -62,7 +62,7 @@ const App = () => (
             {/* Client Portal (public auth) */}
             <Route path="/portal/login" element={<PortalLogin />} />
             <Route path="/portal/signup" element={<PortalSignup />} />
-            <Route path="/portal/auth/callback" element={<PortalAuthCallback />} />
+            <Route path="/portal" element={<Navigate to="/portal/login" replace />} />
 
             {/* Portal onboarding + pending status — allow any portal account status */}
             <Route path="/portal/onboarding" element={
