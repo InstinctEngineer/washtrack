@@ -147,7 +147,7 @@ export default function PortalUsers() {
                   <TableHead>Last Login</TableHead>
                   <TableHead>Approval</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
