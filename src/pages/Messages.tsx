@@ -49,6 +49,7 @@ interface EmployeeComment {
     name: string;
     email?: string;
   };
+  is_portal_user?: boolean;
 }
 
 interface MessageRead {
