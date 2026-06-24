@@ -54,17 +54,22 @@ serve(async (req) => {
 
     if (!existing) {
       const meta = (u.user_metadata ?? {}) as Record<string, any>;
+      const first_name = meta.given_name ?? null;
+      const last_name = meta.family_name ?? null;
       const display_name =
         meta.display_name || meta.name || meta.full_name ||
-        [meta.given_name, meta.family_name].filter(Boolean).join(' ') ||
+        [first_name, last_name].filter(Boolean).join(' ') ||
         email.split('@')[0];
 
       const { error: insertErr } = await admin.from('client_portal_users').insert({
         auth_user_id: u.id,
         email,
         display_name,
-        company_name: meta.company_name ?? null,
+        first_name,
+        last_name,
         is_active: true,
+        onboarding_completed: false,
+        approval_status: 'pending',
         last_login_at: new Date().toISOString(),
       });
       if (insertErr) {
