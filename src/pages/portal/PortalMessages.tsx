@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { format, startOfWeek } from 'date-fns';
 import { MapPin, MessageSquare, Send, ChevronDown, Calendar, Reply, RefreshCw } from 'lucide-react';
 import { MyErrorReports } from '@/components/MyErrorReports';
+import { usePortalUnreadCount } from '@/hooks/usePortalUnreadCount';
 
 interface PortalLocation {
   location_id: string;
@@ -41,6 +42,7 @@ interface ReplyRow {
 
 export default function PortalMessages() {
   const { user } = useAuth();
+  const { markAsRead } = usePortalUnreadCount();
   const [locations, setLocations] = useState<PortalLocation[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -112,6 +114,12 @@ export default function PortalMessages() {
     if (user?.id && locations.length >= 0) fetchMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, locations.length]);
+
+  // Clear unread marker when portal user opens the messages page
+  useEffect(() => {
+    if (user?.id) markAsRead();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const handleSend = async () => {
     if (!user?.id || !newMessage.trim() || !selectedLocationId) return;

@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { LogOut, MapPin, User as UserIcon, MessageSquare } from 'lucide-react';
 import esAndDLogo from '@/assets/es-d-logo.png';
 import { ErrorReportButton } from '@/components/ErrorReportButton';
+import { usePortalUnreadCount } from '@/hooks/usePortalUnreadCount';
 
 interface Props { title?: string; children: React.ReactNode; }
 
 export const PortalShell = ({ title, children }: Props) => {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const { unreadCount } = usePortalUnreadCount();
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card sticky top-0 z-40">
@@ -33,7 +35,14 @@ export const PortalShell = ({ title, children }: Props) => {
               <Link to="/portal/dashboard"><MapPin className="h-4 w-4 mr-1" /> Locations</Link>
             </Button>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/portal/messages"><MessageSquare className="h-4 w-4 mr-1" /> Messages</Link>
+              <Link to="/portal/messages" className="relative">
+                <MessageSquare className="h-4 w-4 mr-1" /> Messages
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Link>
             </Button>
             <Button variant="ghost" size="sm" asChild>
               <Link to="/portal/request-access"><UserIcon className="h-4 w-4 mr-1" /> Request Access</Link>
