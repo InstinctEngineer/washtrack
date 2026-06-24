@@ -95,6 +95,138 @@ export type Database = {
           },
         ]
       }
+      client_portal_access_requests: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string
+          note: string | null
+          portal_user_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id: string
+          note?: string | null
+          portal_user_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string
+          note?: string | null
+          portal_user_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_access_requests_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_access_requests_portal_user_id_fkey"
+            columns: ["portal_user_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_location_access: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          id: string
+          location_id: string
+          portal_user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          location_id: string
+          portal_user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          location_id?: string
+          portal_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_location_access_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_location_access_portal_user_id_fkey"
+            columns: ["portal_user_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_users: {
+        Row: {
+          auth_user_id: string
+          company_name: string | null
+          created_at: string
+          disabled_reason: string | null
+          display_name: string | null
+          email: string
+          id: string
+          is_active: boolean
+          last_login_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          auth_user_id: string
+          company_name?: string | null
+          created_at?: string
+          disabled_reason?: string | null
+          display_name?: string | null
+          email: string
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auth_user_id?: string
+          company_name?: string | null
+          created_at?: string
+          disabled_reason?: string | null
+          display_name?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           billing_address: string | null
@@ -1359,6 +1491,7 @@ export type Database = {
     }
     Functions: {
       auto_update_cutoff_date: { Args: never; Returns: undefined }
+      disable_inactive_portal_users: { Args: never; Returns: number }
       get_applicable_rate: {
         Args: {
           p_client_id?: string
@@ -1397,6 +1530,33 @@ export type Database = {
       }
       get_last_monday: { Args: never; Returns: string }
       get_next_sunday: { Args: never; Returns: string }
+      get_portal_dealership_history: {
+        Args: { p_end: string; p_location_id: string; p_start: string }
+        Returns: {
+          vehicle_count: number
+          work_date: string
+        }[]
+      }
+      get_portal_my_locations: {
+        Args: never
+        Returns: {
+          business_type: string
+          client_name: string
+          location_id: string
+          location_name: string
+        }[]
+      }
+      get_portal_user_id: { Args: { _user_id: string }; Returns: string }
+      get_portal_work_history: {
+        Args: { p_end: string; p_location_id: string; p_start: string }
+        Returns: {
+          identifier: string
+          notes: string
+          quantity: number
+          work_date: string
+          work_type_name: string
+        }[]
+      }
       get_report_data: {
         Args: {
           p_client_ids?: string[]
@@ -1482,7 +1642,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_portal_user: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      portal_has_location: {
+        Args: { _location_id: string; _user_id: string }
+        Returns: boolean
+      }
       purge_old_activity_logs: {
         Args: { retention_days?: number }
         Returns: number
