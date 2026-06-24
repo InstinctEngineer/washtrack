@@ -13,6 +13,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 interface PortalUserRow {
   id: string;
@@ -25,15 +31,30 @@ interface PortalUserRow {
   onboarding_completed: boolean;
   is_active: boolean;
   disabled_reason: string | null;
+  denial_note: string | null;
   last_login_at: string | null;
   created_at: string;
   locations: string[];
 }
 
+interface LocationOption { id: string; name: string; client_name: string }
+
 export default function PortalUsers() {
   const { userRole } = useAuth();
   const [users, setUsers] = useState<PortalUserRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [locations, setLocations] = useState<LocationOption[]>([]);
+
+  // Approve dialog
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveUser, setApproveUser] = useState<PortalUserRow | null>(null);
+  const [selectedLocs, setSelectedLocs] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+
+  // Deny dialog
+  const [denyOpen, setDenyOpen] = useState(false);
+  const [denyUser, setDenyUser] = useState<PortalUserRow | null>(null);
+  const [denyNote, setDenyNote] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -41,7 +62,7 @@ export default function PortalUsers() {
       .from('client_portal_users')
       .select(`
         id, email, display_name, first_name, last_name, work_location,
-        approval_status, onboarding_completed,
+        approval_status, onboarding_completed, denial_note,
         is_active, disabled_reason, last_login_at, created_at,
         client_portal_location_access(location_id, locations(name))
       `)
@@ -51,6 +72,7 @@ export default function PortalUsers() {
       first_name: u.first_name, last_name: u.last_name, work_location: u.work_location,
       approval_status: u.approval_status, onboarding_completed: !!u.onboarding_completed,
       is_active: u.is_active, disabled_reason: u.disabled_reason, last_login_at: u.last_login_at,
+      denial_note: u.denial_note ?? null,
       created_at: u.created_at,
       locations: (u.client_portal_location_access || []).map((a: any) => a.locations?.name).filter(Boolean),
     }));
@@ -58,7 +80,17 @@ export default function PortalUsers() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadLocations = async () => {
+    const { data } = await supabase
+      .from('locations')
+      .select('id, name, clients(name)')
+      .order('name');
+    setLocations((data || []).map((l: any) => ({
+      id: l.id, name: l.name, client_name: l.clients?.name || '',
+    })));
+  };
+
+  useEffect(() => { load(); loadLocations(); }, []);
 
   const reEnable = async (id: string) => {
     const { error } = await supabase
@@ -80,12 +112,63 @@ export default function PortalUsers() {
 
   const canManage = userRole && hasRoleOrHigher(userRole, 'finance');
 
-  const setApproval = async (id: string, action: 'approve' | 'deny') => {
+  const openApprove = (u: PortalUserRow) => {
+    setApproveUser(u);
+    setSelectedLocs(new Set());
+    setApproveOpen(true);
+  };
+
+  const openDeny = (u: PortalUserRow) => {
+    setDenyUser(u);
+    setDenyNote('');
+    setDenyOpen(true);
+  };
+
+  const confirmApprove = async () => {
+    if (!approveUser) return;
+    if (selectedLocs.size === 0) {
+      toast({ title: 'Pick at least one location', variant: 'destructive' });
+      return;
+    }
+    setSubmitting(true);
+    // Grant locations first
+    const rows = Array.from(selectedLocs).map((location_id) => ({
+      portal_user_id: approveUser.id,
+      location_id,
+    }));
+    const { error: accessErr } = await supabase
+      .from('client_portal_location_access')
+      .upsert(rows, { onConflict: 'portal_user_id,location_id', ignoreDuplicates: true });
+    if (accessErr) {
+      setSubmitting(false);
+      toast({ title: 'Failed to assign locations', description: accessErr.message, variant: 'destructive' });
+      return;
+    }
     const { error } = await supabase.functions.invoke('set-portal-approval', {
-      body: { portal_user_id: id, action },
+      body: { portal_user_id: approveUser.id, action: 'approve' },
     });
+    setSubmitting(false);
     if (error) toast({ title: 'Failed', description: error.message, variant: 'destructive' });
-    else { toast({ title: action === 'approve' ? 'Account approved' : 'Account denied' }); load(); }
+    else {
+      toast({ title: 'Account approved' });
+      setApproveOpen(false);
+      load();
+    }
+  };
+
+  const confirmDeny = async () => {
+    if (!denyUser) return;
+    setSubmitting(true);
+    const { error } = await supabase.functions.invoke('set-portal-approval', {
+      body: { portal_user_id: denyUser.id, action: 'deny', note: denyNote.trim() || null },
+    });
+    setSubmitting(false);
+    if (error) toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+    else {
+      toast({ title: 'Account denied' });
+      setDenyOpen(false);
+      load();
+    }
   };
 
   const deleteUser = async (id: string) => {
@@ -117,7 +200,7 @@ export default function PortalUsers() {
     </AlertDialog>
   );
 
-  const pending = users.filter((u) => u.approval_status === 'pending' && u.onboarding_completed);
+  const pending = users.filter((u) => u.approval_status === 'pending');
 
   return (
     <Layout>
@@ -143,6 +226,9 @@ export default function PortalUsers() {
                     <TableRow key={u.id}>
                       <TableCell className="font-medium">
                         {[u.first_name, u.last_name].filter(Boolean).join(' ') || u.display_name || '-'}
+                        {!u.onboarding_completed && (
+                          <Badge variant="outline" className="ml-2 text-xs">onboarding incomplete</Badge>
+                        )}
                       </TableCell>
                       <TableCell>{u.email}</TableCell>
                       <TableCell className="text-sm">{u.work_location || '-'}</TableCell>
@@ -150,8 +236,8 @@ export default function PortalUsers() {
                       <TableCell>
                         {canManage && (
                           <div className="flex gap-2">
-                            <Button size="sm" onClick={() => setApproval(u.id, 'approve')}>Approve</Button>
-                            <Button size="sm" variant="destructive" onClick={() => setApproval(u.id, 'deny')}>Deny</Button>
+                            <Button size="sm" onClick={() => openApprove(u)}>Approve</Button>
+                            <Button size="sm" variant="destructive" onClick={() => openDeny(u)}>Deny</Button>
                             <DeleteButton user={u} />
                           </div>
                         )}
@@ -203,7 +289,12 @@ export default function PortalUsers() {
                     <TableCell>
                       {u.approval_status === 'approved' && <Badge variant="default">Approved</Badge>}
                       {u.approval_status === 'pending' && <Badge variant="secondary">{u.onboarding_completed ? 'Pending' : 'Onboarding'}</Badge>}
-                      {u.approval_status === 'denied' && <Badge variant="destructive">Denied</Badge>}
+                      {u.approval_status === 'denied' && (
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="destructive" className="w-fit">Denied</Badge>
+                          {u.denial_note && <span className="text-xs text-muted-foreground italic">"{u.denial_note}"</span>}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       {u.is_active
@@ -215,14 +306,14 @@ export default function PortalUsers() {
                     <TableCell>
                       {canManage && (
                         <div className="flex flex-wrap gap-2">
-                          {u.approval_status === 'pending' && u.onboarding_completed && (
+                          {u.approval_status === 'pending' && (
                             <>
-                              <Button size="sm" onClick={() => setApproval(u.id, 'approve')}>Approve</Button>
-                              <Button size="sm" variant="destructive" onClick={() => setApproval(u.id, 'deny')}>Deny</Button>
+                              <Button size="sm" onClick={() => openApprove(u)}>Approve</Button>
+                              <Button size="sm" variant="destructive" onClick={() => openDeny(u)}>Deny</Button>
                             </>
                           )}
                           {u.approval_status === 'denied' && (
-                            <Button size="sm" onClick={() => setApproval(u.id, 'approve')}>Approve</Button>
+                            <Button size="sm" onClick={() => openApprove(u)}>Approve</Button>
                           )}
                           {u.approval_status === 'approved' && (
                             u.is_active
@@ -240,6 +331,76 @@ export default function PortalUsers() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Approve dialog */}
+      <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Approve {approveUser?.email}</DialogTitle>
+            <DialogDescription>
+              Select the locations this portal user should be able to view work history for.
+              {approveUser?.work_location && (
+                <> They listed their work location as <strong>{approveUser.work_location}</strong>.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 border rounded-md p-3 max-h-[50vh] overflow-y-auto">
+            {locations.length === 0 && <p className="text-sm text-muted-foreground">No locations available.</p>}
+            {locations.map((l) => {
+              const checked = selectedLocs.has(l.id);
+              return (
+                <label key={l.id} className="flex items-start gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(v) => {
+                      const next = new Set(selectedLocs);
+                      if (v) next.add(l.id); else next.delete(l.id);
+                      setSelectedLocs(next);
+                    }}
+                  />
+                  <span className="text-sm">
+                    <span className="font-medium">{l.name}</span>
+                    {l.client_name && <span className="text-muted-foreground"> — {l.client_name}</span>}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApproveOpen(false)} disabled={submitting}>Cancel</Button>
+            <Button onClick={confirmApprove} disabled={submitting || selectedLocs.size === 0}>
+              Approve & grant access
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deny dialog */}
+      <Dialog open={denyOpen} onOpenChange={setDenyOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deny {denyUser?.email}?</DialogTitle>
+            <DialogDescription>
+              The account will be disabled, any location access revoked, and the session signed out.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="denyNote">Reason (optional)</Label>
+            <Textarea
+              id="denyNote"
+              value={denyNote}
+              onChange={(e) => setDenyNote(e.target.value)}
+              placeholder="Internal note for why this account was denied"
+              maxLength={500}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDenyOpen(false)} disabled={submitting}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDeny} disabled={submitting}>Deny account</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
