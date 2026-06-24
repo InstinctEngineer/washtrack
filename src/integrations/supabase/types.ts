@@ -196,6 +196,7 @@ export type Database = {
           auth_user_id: string
           company_name: string | null
           created_at: string
+          denial_note: string | null
           disabled_reason: string | null
           display_name: string | null
           email: string
@@ -215,6 +216,7 @@ export type Database = {
           auth_user_id: string
           company_name?: string | null
           created_at?: string
+          denial_note?: string | null
           disabled_reason?: string | null
           display_name?: string | null
           email: string
@@ -234,6 +236,7 @@ export type Database = {
           auth_user_id?: string
           company_name?: string | null
           created_at?: string
+          denial_note?: string | null
           disabled_reason?: string | null
           display_name?: string | null
           email?: string
