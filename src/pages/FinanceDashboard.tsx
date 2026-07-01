@@ -284,7 +284,27 @@ export default function FinanceDashboard() {
       const invoiceNumber = String(currentInvoiceNumber);
       currentInvoiceNumber++;
 
-      groupRows.forEach((row, rowIndex) => {
+      // Aggregate rows within this invoice by item identity so multiple
+      // work-date entries for the same work type collapse into one line.
+      const mergedMap = new Map<string, ReportDataRow>();
+      for (const row of groupRows) {
+        const mergeKey = [
+          row.work_type_id ?? row.work_type_name ?? '',
+          row.rate ?? '',
+          row.frequency ?? '',
+          row.work_type_rate_type ?? '',
+        ].join('|');
+        const existing = mergedMap.get(mergeKey);
+        if (existing) {
+          existing.total_quantity =
+            Number(existing.total_quantity || 0) + Number(row.total_quantity || 0);
+        } else {
+          mergedMap.set(mergeKey, { ...row });
+        }
+      }
+      const mergedRows = Array.from(mergedMap.values());
+
+      mergedRows.forEach((row, rowIndex) => {
         const isFirstRow = rowIndex === 0;
         const csvRow = columns.map((col) => {
           // If field is marked "first row only" and this isn't the first row, return empty
