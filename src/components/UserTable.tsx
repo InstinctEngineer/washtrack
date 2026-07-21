@@ -102,10 +102,19 @@ export const UserTable = ({
       if (data && data.success === false) {
         throw new Error(data.error || "Failed to delete user");
       }
-      toast({
-        title: "User deleted",
-        description: `${deleteTarget.name} has been permanently removed.`,
-      });
+      const cleanupErrors: string[] = Array.isArray(data?.errors) ? data.errors : [];
+      if (cleanupErrors.length > 0) {
+        toast({
+          title: "Login disabled, cleanup incomplete",
+          description: `${deleteTarget.name}'s auth account was removed, but ${cleanupErrors.length} cleanup step(s) failed. Check function logs.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "User deleted",
+          description: `${deleteTarget.name} has been permanently removed.`,
+        });
+      }
       setDeleteTarget(null);
       onRefresh();
     } catch (err: any) {
