@@ -427,22 +427,6 @@ export default function FinanceDashboard() {
               onStartDateChange={setStartDate}
               onEndDateChange={setEndDate}
             />
-            <div className="grid gap-2 sm:max-w-xs">
-              <Label htmlFor="aggregationMode">Report Output</Label>
-              <Select
-                value={aggregationMode}
-                onValueChange={(value) => setAggregationMode(value as ReportAggregationMode)}
-              >
-                <SelectTrigger id="aggregationMode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly_item_totals">Weekly item totals</SelectItem>
-                  <SelectItem value="daily_detail">Daily detail</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Separator />
             <ReportFilters
               selectedClients={selectedClients}
               selectedLocations={selectedLocations}
@@ -514,6 +498,8 @@ export default function FinanceDashboard() {
         onOpenChange={setConfigModalOpen}
         columns={columns}
         onColumnsChange={setColumns}
+        aggregationMode={aggregationMode}
+        onAggregationModeChange={setAggregationMode}
       />
 
       <CSVPreviewModal
