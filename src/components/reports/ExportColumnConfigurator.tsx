@@ -22,7 +22,11 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+
+export type ReportAggregationMode = 'weekly_item_totals' | 'daily_detail';
 
 export interface ExportColumn {
   id: string;
@@ -131,6 +135,8 @@ interface ExportColumnConfiguratorProps {
   onOpenChange: (open: boolean) => void;
   columns: ExportColumn[];
   onColumnsChange: (columns: ExportColumn[]) => void;
+  aggregationMode: ReportAggregationMode;
+  onAggregationModeChange: (mode: ReportAggregationMode) => void;
 }
 
 export function ExportColumnConfigurator({
@@ -138,6 +144,8 @@ export function ExportColumnConfigurator({
   onOpenChange,
   columns,
   onColumnsChange,
+  aggregationMode,
+  onAggregationModeChange,
 }: ExportColumnConfiguratorProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -210,6 +218,25 @@ export function ExportColumnConfigurator({
         <DialogHeader>
           <DialogTitle>Configure Export Columns</DialogTitle>
         </DialogHeader>
+
+        <div className="grid gap-2 sm:max-w-sm">
+          <Label htmlFor="aggregationMode">Report Output</Label>
+          <Select
+            value={aggregationMode}
+            onValueChange={(value) => onAggregationModeChange(value as ReportAggregationMode)}
+          >
+            <SelectTrigger id="aggregationMode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="weekly_item_totals">Weekly item totals</SelectItem>
+              <SelectItem value="daily_detail">Daily detail</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Weekly totals collapse same-item rows per location/week. Daily detail keeps one row per day.
+          </p>
+        </div>
 
         <div className="flex gap-4 h-[60vh]">
           {/* Available Fields */}
