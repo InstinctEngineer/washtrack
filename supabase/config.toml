@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.delete-portal-user]
 verify_jwt = true
+
+[functions.send-portal-password-reset]
+verify_jwt = true
