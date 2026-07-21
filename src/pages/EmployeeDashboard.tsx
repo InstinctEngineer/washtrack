@@ -274,6 +274,31 @@ export default function EmployeeDashboard() {
     fetchCompletedItems();
   }, [fetchCompletedItems]);
 
+  // Fetch client wash requests for the current week at the selected location
+  const fetchRequestedItems = useCallback(async () => {
+    if (!selectedLocationId) {
+      setRequestedWorkItemIds(new Set());
+      return;
+    }
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMon = (day + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMon);
+    const weekStart = format(monday, 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('wash_requests' as any)
+      .select('work_item_id')
+      .eq('location_id', selectedLocationId)
+      .eq('requested_for_week', weekStart)
+      .is('fulfilled_at', null);
+    setRequestedWorkItemIds(new Set(((data as any[]) || []).map((r) => r.work_item_id)));
+  }, [selectedLocationId]);
+
+  useEffect(() => {
+    fetchRequestedItems();
+  }, [fetchRequestedItems]);
+
   // Fetch existing Cars Washed log for this user/location/date
   const fetchSavedCarsWashed = useCallback(async () => {
     if (!user?.id || !carsWashedConfig) {
