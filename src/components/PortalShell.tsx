@@ -15,22 +15,22 @@ export const PortalShell = ({ title, children }: Props) => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card sticky top-0 z-40">
-        <div className="flex h-16 items-center justify-between px-4 lg:px-8">
-          <Link to="/portal/dashboard" className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#1e3a5f] to-[#2d8cc4] flex items-center justify-center text-white text-sm shadow-md transition-transform hover:scale-110">
+        <div className="flex min-h-16 flex-wrap items-center justify-between gap-2 px-4 py-2 lg:px-8">
+          <Link to="/portal/dashboard" className="flex items-center gap-2 min-w-0 shrink">
+            <div className="h-9 w-9 shrink-0 rounded-lg bg-gradient-to-br from-[#1e3a5f] to-[#2d8cc4] flex items-center justify-center text-white text-sm shadow-md transition-transform hover:scale-110">
               WT
             </div>
-            <span className="hidden sm:inline font-bold text-lg bg-gradient-to-r from-[#1e3a5f] to-[#2d8cc4] bg-clip-text text-transparent">
+            <span className="hidden lg:inline font-bold text-lg bg-gradient-to-r from-[#1e3a5f] to-[#2d8cc4] bg-clip-text text-transparent">
               WashTrack
             </span>
-            <span className="hidden sm:inline text-sm text-muted-foreground">for</span>
+            <span className="hidden lg:inline text-sm text-muted-foreground">for</span>
             <img
               src={esAndDLogo}
               alt="ES&D Services Inc."
-              className="hidden sm:block h-10 w-auto object-contain transition-transform hover:scale-110"
+              className="hidden lg:block h-10 w-auto object-contain transition-transform hover:scale-110"
             />
           </Link>
-          <nav className="flex items-center gap-2">
+          <nav className="flex flex-wrap items-center justify-end gap-2 shrink-0">
             <Button variant="ghost" size="sm" asChild>
               <Link to="/portal/dashboard"><MapPin className="h-4 w-4 mr-1" /> Locations</Link>
             </Button>
