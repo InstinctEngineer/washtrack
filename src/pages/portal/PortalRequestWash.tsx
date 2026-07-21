@@ -121,9 +121,8 @@ export default function PortalRequestWash() {
       const { error: msgErr } = await supabase.from('employee_comments').insert({
         employee_id: user.id,
         location_id: id,
-        comment: body,
-        priority: 'high',
-        comment_type: 'wash_request',
+        comment_text: body,
+        week_start_date: weekStart,
       } as any);
       if (msgErr) console.warn('message insert failed', msgErr);
 
