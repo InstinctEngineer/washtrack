@@ -161,7 +161,7 @@ export default function PortalLocationHistory() {
             <Button variant="outline" onClick={() => shiftWeek(-1)}>Last Week</Button>
             <Button variant="outline" onClick={() => shiftMonth(0)}>This Month</Button>
             <Button variant="outline" onClick={() => shiftMonth(-1)}>Last Month</Button>
-            <Button variant="outline" onClick={exportCsv}>Export CSV</Button>
+            <Button variant="outline" onClick={exportCsv} className="ml-auto">Export CSV</Button>
           </div>
 
           {businessType !== 'dealership' && (
