@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { sendWelcomeEmail } from "../_shared/welcome-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,7 +16,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -43,7 +43,7 @@ serve(async (req) => {
     // Look up the portal user's auth account
     const { data: portalUser, error: puErr } = await admin
       .from("client_portal_users")
-      .select("auth_user_id, email")
+      .select("auth_user_id, email, first_name, last_name")
       .eq("id", portal_user_id)
       .maybeSingle();
     if (puErr || !portalUser) throw new Error("Portal user not found");
@@ -63,16 +63,17 @@ serve(async (req) => {
       );
     }
 
-    // Trigger the standard recovery email flow (uses auth-email-hook template)
-    const publicClient = createClient(supabaseUrl, anonKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
+    // Send via Resend using the same helper the internal reset uses
+    const fullName = [portalUser.first_name, portalUser.last_name]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || undefined;
+    const result = await sendWelcomeEmail(admin, {
+      email: portalUser.email,
+      name: fullName,
+      mode: "reset",
     });
-    const appUrl = Deno.env.get("APP_URL") || "https://washtracking.com";
-    const { error: resetErr } = await publicClient.auth.resetPasswordForEmail(
-      portalUser.email,
-      { redirectTo: `${appUrl}/change-password` },
-    );
-    if (resetErr) throw resetErr;
+    if (!result.sent) throw new Error(result.error || "Failed to send email");
 
     return new Response(
       JSON.stringify({ success: true, email: portalUser.email }),
