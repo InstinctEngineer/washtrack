@@ -10,6 +10,16 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Loader2, Star, ArrowLeft } from 'lucide-react';
 
@@ -42,6 +52,8 @@ export default function PortalRequestWash() {
   const [note, setNote] = useState('');
   const [locName, setLocName] = useState('');
   const [clientName, setClientName] = useState('');
+  const [cancelTarget, setCancelTarget] = useState<WorkItemRow | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const weekStart = useMemo(() => currentWeekStart(), []);
 
@@ -73,12 +85,56 @@ export default function PortalRequestWash() {
   }, [items, search]);
 
   const toggle = (workItemId: string, disabled: boolean) => {
-    if (disabled) return;
+    if (disabled) {
+      const row = items.find((i) => i.work_item_id === workItemId);
+      if (row) setCancelTarget(row);
+      return;
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(workItemId)) next.delete(workItemId); else next.add(workItemId);
       return next;
     });
+  };
+
+  const confirmCancel = async () => {
+    if (!user || !id || !cancelTarget) return;
+    setCancelling(true);
+    try {
+      const { data: pu, error: puErr } = await supabase
+        .from('client_portal_users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+      if (puErr || !pu?.id) throw new Error('Portal account not found');
+
+      const { error: delErr } = await supabase
+        .from('wash_requests' as any)
+        .delete()
+        .eq('work_item_id', cancelTarget.work_item_id)
+        .eq('requested_for_week', weekStart)
+        .eq('portal_user_id', pu.id)
+        .is('fulfilled_at', null);
+      if (delErr) throw delErr;
+
+      const body =
+        `Wash request cancelled by ${clientName} (${locName}) for the week of ${weekStart}:\n\n` +
+        `• ${cancelTarget.work_type_name} — ${cancelTarget.identifier}`;
+      await supabase.from('employee_comments').insert({
+        employee_id: user.id,
+        location_id: id,
+        comment_text: body,
+        week_start_date: weekStart,
+      } as any);
+
+      toast.success('Wash request removed');
+      setCancelTarget(null);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to cancel request');
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const submit = async () => {
@@ -180,15 +236,15 @@ export default function PortalRequestWash() {
                           key={r.work_item_id}
                           type="button"
                           onClick={() => toggle(r.work_item_id, already)}
+                          title={already ? 'Click to cancel this request' : undefined}
                           className={
                             'relative flex items-center gap-2 rounded-md border-2 px-3 py-3 text-left transition ' +
                             (already
-                              ? 'border-amber-400/70 bg-amber-50 dark:bg-amber-500/10 cursor-not-allowed opacity-90'
+                              ? 'border-amber-400/70 bg-amber-50 dark:bg-amber-500/10 hover:border-amber-500 cursor-pointer'
                               : isSel
                                 ? 'border-primary bg-primary/5'
                                 : 'border-border hover:border-primary/60')
                           }
-                          disabled={already}
                         >
                           {already ? (
                             <Star className="h-4 w-4 fill-amber-400 text-amber-500 shrink-0" />
@@ -233,6 +289,25 @@ export default function PortalRequestWash() {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && !cancelling && setCancelTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove wash request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelTarget
+                ? `Cancel the wash request for ${cancelTarget.work_type_name} — ${cancelTarget.identifier} for the week of ${weekStart}?`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Keep request</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmCancel(); }} disabled={cancelling}>
+              {cancelling ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Removing…</> : 'Remove request'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PortalShell>
   );
 }
