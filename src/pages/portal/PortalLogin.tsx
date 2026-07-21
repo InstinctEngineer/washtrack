@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -100,6 +101,14 @@ export default function PortalLogin() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1e3a5f] via-[#2d5a87] to-[#2d8cc4] p-4">
+      <Helmet>
+        <title>Client Portal Sign In — WashTrack</title>
+        <meta name="description" content="Client portal for ES&D Services customers. Sign in to view your facility's wash history and request weekly washes." />
+        <link rel="canonical" href="https://washtracking.com/portal/login" />
+        <meta property="og:title" content="Client Portal Sign In — WashTrack" />
+        <meta property="og:description" content="View your facility's wash history and designate weekly washes." />
+        <meta property="og:url" content="https://washtracking.com/portal/login" />
+      </Helmet>
       <Card className="w-full max-w-md shadow-2xl border-0">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-3">
