@@ -60,6 +60,10 @@ export function usePortalUnreadCount() {
           { onConflict: 'user_id' },
         );
       setUnreadCount(0);
+      // Notify other hook instances (e.g. PortalShell badge) to clear too
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('portal-unread:cleared'));
+      }
     } catch (e) {
       console.error('portal markAsRead error', e);
     }
@@ -85,8 +89,11 @@ export function usePortalUnreadCount() {
         () => fetchCount(),
       )
       .subscribe();
+    const onCleared = () => setUnreadCount(0);
+    window.addEventListener('portal-unread:cleared', onCleared);
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('portal-unread:cleared', onCleared);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isPortalUser]);

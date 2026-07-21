@@ -37,6 +37,7 @@ import PortalSignup from "./pages/portal/PortalSignup";
 import PortalDashboard from "./pages/portal/PortalDashboard";
 import PortalRequestAccess from "./pages/portal/PortalRequestAccess";
 import PortalLocationHistory from "./pages/portal/PortalLocationHistory";
+import PortalRequestWash from "./pages/portal/PortalRequestWash";
 import PortalMessages from "./pages/portal/PortalMessages";
 import PortalAuthCallback from "./pages/portal/PortalAuthCallback";
 import PortalOnboarding from "./pages/portal/PortalOnboarding";
@@ -86,6 +87,9 @@ const App = () => (
             } />
             <Route path="/portal/locations/:id" element={
               <PortalProtectedRoute><PortalLocationHistory /></PortalProtectedRoute>
+            } />
+            <Route path="/portal/locations/:id/request-wash" element={
+              <PortalProtectedRoute><PortalRequestWash /></PortalProtectedRoute>
             } />
 
             {/* Internal admin: portal management */}

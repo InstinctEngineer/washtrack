@@ -1257,6 +1257,71 @@ export type Database = {
           },
         ]
       }
+      wash_requests: {
+        Row: {
+          created_at: string
+          fulfilled_at: string | null
+          fulfilled_work_log_id: string | null
+          id: string
+          location_id: string
+          portal_user_id: string
+          requested_at: string
+          requested_for_week: string
+          work_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          fulfilled_at?: string | null
+          fulfilled_work_log_id?: string | null
+          id?: string
+          location_id: string
+          portal_user_id: string
+          requested_at?: string
+          requested_for_week: string
+          work_item_id: string
+        }
+        Update: {
+          created_at?: string
+          fulfilled_at?: string | null
+          fulfilled_work_log_id?: string | null
+          id?: string
+          location_id?: string
+          portal_user_id?: string
+          requested_at?: string
+          requested_for_week?: string
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wash_requests_fulfilled_work_log_id_fkey"
+            columns: ["fulfilled_work_log_id"]
+            isOneToOne: false
+            referencedRelation: "work_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_requests_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_requests_portal_user_id_fkey"
+            columns: ["portal_user_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_requests_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_items: {
         Row: {
           created_at: string
@@ -1557,6 +1622,16 @@ export type Database = {
         Returns: {
           vehicle_count: number
           work_date: string
+        }[]
+      }
+      get_portal_location_work_items: {
+        Args: { p_location_id: string }
+        Returns: {
+          identifier: string
+          is_requested: boolean
+          requested_at: string
+          work_item_id: string
+          work_type_name: string
         }[]
       }
       get_portal_my_locations: {
