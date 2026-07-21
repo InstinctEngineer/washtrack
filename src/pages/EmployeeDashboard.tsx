@@ -1034,9 +1034,6 @@ export default function EmployeeDashboard() {
 
         {/* Hourly services are now merged into WorkItemGrid's Services section */}
 
-        {/* Dealership wash entry (only renders if user has dealership locations assigned) */}
-        <DealershipWashCard />
-
         {/* Message/Note Field - Always visible */}
         <Card className="border-muted">
           <CardContent className="p-4 space-y-3">
