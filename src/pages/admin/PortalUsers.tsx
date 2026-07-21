@@ -16,7 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Edit, Power, Trash2 } from 'lucide-react';
+import { Edit, Power, Trash2, KeyRound } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 interface PortalUserRow {
@@ -35,6 +35,7 @@ interface PortalUserRow {
   created_at: string;
   locations: string[];
   location_ids: string[];
+  has_email_provider: boolean;
 }
 
 interface LocationOption {
@@ -54,11 +55,13 @@ export default function PortalUsers() {
   const [allLocations, setAllLocations] = useState<LocationOption[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<PortalUserRow | null>(null);
   const [confirmToggle, setConfirmToggle] = useState<PortalUserRow | null>(null);
+  const [confirmReset, setConfirmReset] = useState<PortalUserRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const [{ data }, { data: providers }] = await Promise.all([
+      supabase
       .from('client_portal_users')
       .select(`
         id, email, display_name, first_name, last_name, work_location,
@@ -66,7 +69,12 @@ export default function PortalUsers() {
         is_active, disabled_reason, last_login_at, created_at,
         client_portal_location_access(location_id, locations(name))
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }),
+      supabase.rpc('get_portal_users_email_auth'),
+    ]);
+    const providerMap = new Map<string, boolean>(
+      ((providers as any[]) || []).map((p) => [p.portal_user_id, !!p.has_email_provider]),
+    );
     const rows: PortalUserRow[] = (data || []).map((u: any) => ({
       id: u.id, email: u.email, display_name: u.display_name,
       first_name: u.first_name, last_name: u.last_name, work_location: u.work_location,
@@ -76,6 +84,7 @@ export default function PortalUsers() {
       created_at: u.created_at,
       locations: (u.client_portal_location_access || []).map((a: any) => a.locations?.name).filter(Boolean),
       location_ids: (u.client_portal_location_access || []).map((a: any) => a.location_id).filter(Boolean),
+      has_email_provider: providerMap.get(u.id) ?? false,
     }));
     setUsers(rows);
     setLoading(false);
@@ -177,6 +186,20 @@ export default function PortalUsers() {
     load();
   };
 
+  const sendPasswordReset = async (u: PortalUserRow) => {
+    setBusyId(u.id);
+    const { data, error } = await supabase.functions.invoke('send-portal-password-reset', {
+      body: { portal_user_id: u.id },
+    });
+    setBusyId(null);
+    setConfirmReset(null);
+    if (error || (data as any)?.error) {
+      toast.error(((data as any)?.error) || error?.message || 'Failed to send reset email');
+      return;
+    }
+    toast.success(`Password reset email sent to ${u.email}`);
+  };
+
   return (
     <Layout>
       <Card>
@@ -243,6 +266,17 @@ export default function PortalUsers() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
+                        {u.has_email_provider && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfirmReset(u)}
+                            disabled={busyId === u.id}
+                            title="Send password reset email"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -356,6 +390,23 @@ export default function PortalUsers() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => confirmToggle && toggleActive(confirmToggle)}>
               {confirmToggle?.is_active ? 'Deactivate' : 'Reactivate'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmReset} onOpenChange={(o) => !o && setConfirmReset(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send password reset to {confirmReset?.email}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This emails the user a secure link to set a new password. Only available for portal accounts created with email/password (not Google sign-in).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => confirmReset && sendPasswordReset(confirmReset)}>
+              Send reset email
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
