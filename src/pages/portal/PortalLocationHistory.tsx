@@ -162,14 +162,17 @@ export default function PortalLocationHistory() {
             <Button variant="outline" onClick={() => shiftMonth(0)}>This Month</Button>
             <Button variant="outline" onClick={() => shiftMonth(-1)}>Last Month</Button>
             <Button variant="outline" onClick={exportCsv}>Export CSV</Button>
-            {businessType !== 'dealership' && (
-              <Button asChild variant="default" className="ml-auto gap-1.5">
+          </div>
+
+          {businessType !== 'dealership' && (
+            <div className="flex justify-end">
+              <Button asChild variant="default" className="gap-1.5">
                 <Link to={`/portal/locations/${id}/request-wash`}>
-                  <Star className="h-4 w-4" /> Request Washes
+                  <Star className="h-4 w-4" /> Designate Weekly Washes
                 </Link>
               </Button>
-            )}
-          </div>
+            </div>
+          )}
 
           {error && <div className="text-destructive text-sm">{error}</div>}
 
