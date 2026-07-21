@@ -69,8 +69,45 @@ serve(async (req) => {
 
     console.log(`Super admin ${user.id} deleting user ${user_id}`);
 
-    // Clean dependent rows. Ignore errors on tables that may not have rows.
-    const tables: Array<{ table: string; col: string }> = [
+    const errors: string[] = [];
+
+    // STEP 1: kill auth FIRST so the account can never log in again,
+    // even if a later cleanup step fails.
+    const { error: authDelErr } = await supabaseAdmin.auth.admin.deleteUser(user_id);
+    if (authDelErr) {
+      console.error("Failed to delete auth user:", authDelErr);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Failed to delete auth account: ${authDelErr.message}`,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // STEP 2: null out historical references so those rows survive
+    // (audit trails, work history, system settings).
+    const nullify: Array<{ table: string; col: string }> = [
+      { table: "audit_log", col: "changed_by" },
+      { table: "system_settings", col: "updated_by" },
+      { table: "system_settings_audit", col: "changed_by" },
+      { table: "users", col: "manager_id" },
+    ];
+    for (const n of nullify) {
+      const { error } = await supabaseAdmin
+        .from(n.table)
+        .update({ [n.col]: null })
+        .eq(n.col, user_id);
+      if (error) {
+        const msg = `nullify ${n.table}.${n.col} failed: ${error.message}`;
+        console.error(msg);
+        errors.push(msg);
+      }
+    }
+
+    // STEP 3: delete dependent rows tied to this user.
+    const deletions: Array<{ table: string; col: string }> = [
+      { table: "work_logs", col: "employee_id" },
       { table: "user_roles", col: "user_id" },
       { table: "user_locations", col: "user_id" },
       { table: "message_reads", col: "user_id" },
@@ -79,44 +116,37 @@ serve(async (req) => {
       { table: "error_report_replies", col: "user_id" },
       { table: "error_reports", col: "reported_by" },
       { table: "activity_logs", col: "user_id" },
+      { table: "employee_comments", col: "employee_id" },
+      { table: "employee_comments", col: "recipient_id" },
     ];
-
-    for (const t of tables) {
-      const { error } = await supabaseAdmin.from(t.table).delete().eq(t.col, user_id);
-      if (error) console.error(`delete from ${t.table} failed:`, error.message);
+    for (const d of deletions) {
+      const { error } = await supabaseAdmin.from(d.table).delete().eq(d.col, user_id);
+      if (error) {
+        const msg = `delete from ${d.table} (${d.col}) failed: ${error.message}`;
+        console.error(msg);
+        errors.push(msg);
+      }
     }
 
-    // Employee comments (either party)
-    await supabaseAdmin.from("employee_comments").delete().eq("employee_id", user_id);
-    await supabaseAdmin.from("employee_comments").delete().eq("recipient_id", user_id);
-
-    // Remove from public.users
+    // STEP 4: remove the public.users row last.
     const { error: userDelErr } = await supabaseAdmin
       .from("users")
       .delete()
       .eq("id", user_id);
     if (userDelErr) {
-      console.error("Failed to delete from users table:", userDelErr);
-      return new Response(
-        JSON.stringify({ error: `Failed to delete user record: ${userDelErr.message}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      const msg = `delete from public.users failed: ${userDelErr.message}`;
+      console.error(msg);
+      errors.push(msg);
     }
 
-    // Delete auth user
-    const { error: authDelErr } = await supabaseAdmin.auth.admin.deleteUser(user_id);
-    if (authDelErr) {
-      console.error("Failed to delete auth user:", authDelErr);
-      return new Response(
-        JSON.stringify({ error: `Failed to delete auth account: ${authDelErr.message}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        auth_deleted: true,
+        errors,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (e) {
     console.error("delete-user error:", e);
     const msg = e instanceof Error ? e.message : "Unknown error";
