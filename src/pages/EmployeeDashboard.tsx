@@ -104,6 +104,9 @@ export default function EmployeeDashboard() {
   
   // Completed items (already logged today at this location by anyone)
   const [completedWorkItemIds, setCompletedWorkItemIds] = useState<Set<string>>(new Set());
+
+  // Client-requested items for this week at this location
+  const [requestedWorkItemIds, setRequestedWorkItemIds] = useState<Set<string>>(new Set());
   
   // Modal state (for hourly)
   const [selectedRateConfig, setSelectedRateConfig] = useState<RateConfigWithDetails | null>(null);
@@ -908,6 +911,7 @@ export default function EmployeeDashboard() {
                 locationId={selectedLocationId}
                 selectedIds={selectedWorkItemIds}
                 completedIds={completedWorkItemIds}
+                requestedIds={requestedWorkItemIds}
                 onToggle={handleWorkItemToggle}
                 onAddVehicle={handleAddVehicle}
                 refreshKey={vehicleRefreshKey}
