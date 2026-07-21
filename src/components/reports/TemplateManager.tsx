@@ -15,6 +15,7 @@ export interface ReportTemplateConfig {
   defaultClass?: string;
   invoiceDateMode?: 'export_date' | 'end_date';
   invoiceStartNumber?: number;
+  aggregationMode?: 'weekly_item_totals' | 'daily_detail';
 }
 
 interface Template {
