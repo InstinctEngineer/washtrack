@@ -97,7 +97,7 @@ const App = () => (
               <ProtectedRoute allowedRoles={['finance', 'admin']}><PortalRequests /></ProtectedRoute>
             } />
             <Route path="/admin/portal-users" element={
-              <ProtectedRoute allowedRoles={['admin']}><PortalUsers /></ProtectedRoute>
+              <ProtectedRoute allowedRoles={['finance', 'admin']}><PortalUsers /></ProtectedRoute>
             } />
 
             {/* Protected Routes - Smart root redirect */}
