@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -14,8 +14,11 @@ export function usePortalUnreadCount() {
   const { user, isPortalUser } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const fetchSequenceRef = useRef(0);
+  const clearedAtRef = useRef<string | null>(null);
 
   const fetchCount = async () => {
+    const fetchSequence = ++fetchSequenceRef.current;
     if (!user?.id || !isPortalUser) {
       setUnreadCount(0);
       setLoading(false);
@@ -27,7 +30,7 @@ export function usePortalUnreadCount() {
         .select('last_viewed_at')
         .eq('user_id', user.id)
         .maybeSingle();
-      const lastViewed = view?.last_viewed_at || '1970-01-01T00:00:00Z';
+      const lastViewed = clearedAtRef.current || view?.last_viewed_at || '1970-01-01T00:00:00Z';
 
       const [msgRes, errRes] = await Promise.all([
         supabase
@@ -41,7 +44,9 @@ export function usePortalUnreadCount() {
           .gt('created_at', lastViewed)
           .neq('user_id', user.id),
       ]);
-      setUnreadCount((msgRes.count || 0) + (errRes.count || 0));
+      if (fetchSequence === fetchSequenceRef.current) {
+        setUnreadCount((msgRes.count || 0) + (errRes.count || 0));
+      }
     } catch (e) {
       console.error('portal unread count error', e);
       setUnreadCount(0);
@@ -53,10 +58,13 @@ export function usePortalUnreadCount() {
   const markAsRead = async () => {
     if (!user?.id) return;
     try {
+      const clearedAt = new Date().toISOString();
+      clearedAtRef.current = clearedAt;
+      fetchSequenceRef.current += 1;
       await supabase
         .from('user_message_views')
         .upsert(
-          { user_id: user.id, last_viewed_at: new Date().toISOString() },
+          { user_id: user.id, last_viewed_at: clearedAt },
           { onConflict: 'user_id' },
         );
       setUnreadCount(0);
@@ -89,7 +97,12 @@ export function usePortalUnreadCount() {
         () => fetchCount(),
       )
       .subscribe();
-    const onCleared = () => setUnreadCount(0);
+    const onCleared = (event: Event) => {
+      const clearedAt = (event as CustomEvent<string>).detail || new Date().toISOString();
+      clearedAtRef.current = clearedAt;
+      fetchSequenceRef.current += 1;
+      setUnreadCount(0);
+    };
     window.addEventListener('portal-unread:cleared', onCleared);
     return () => {
       supabase.removeChannel(channel);
