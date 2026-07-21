@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,6 +36,10 @@ const DEFAULT_COLUMNS: ExportColumn[] = [
   { id: 'qb-13', fieldKey: 'taxable', headerName: 'Taxable', firstRowOnly: false },
   { id: 'qb-14', fieldKey: 'tax_jurisdiction', headerName: 'TaxRate', firstRowOnly: false },
 ];
+
+type ReportAggregationMode = 'weekly_item_totals' | 'daily_detail';
+
+const DEFAULT_AGGREGATION_MODE: ReportAggregationMode = 'weekly_item_totals';
 
 // Helper: Convert frequency to QuickBooks format with exact spacing
 const convertFrequencyToQBFormat = (frequency: string | null, workTypeName: string): string => {
@@ -148,6 +153,7 @@ export default function FinanceDashboard() {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvRows, setCsvRows] = useState<string[][]>([]);
   const [invoiceStartNumber, setInvoiceStartNumber] = useState<number>(1001);
+  const [aggregationMode, setAggregationMode] = useState<ReportAggregationMode>(DEFAULT_AGGREGATION_MODE);
 
   // Fetch report data when filters change
   useEffect(() => {
@@ -186,6 +192,7 @@ export default function FinanceDashboard() {
     if (config.invoiceStartNumber) {
       setInvoiceStartNumber(config.invoiceStartNumber);
     }
+    setAggregationMode(config.aggregationMode || DEFAULT_AGGREGATION_MODE);
   };
 
   const calculateDueDate = (invoiceDate: Date, terms: string): string => {
@@ -249,6 +256,48 @@ export default function FinanceDashboard() {
     }
   };
 
+  const getInvoiceFridayKey = (row: ReportDataRow): string => {
+    const workDate = row.work_date ? parseLocalDate(row.work_date) : (endDate || new Date());
+    return format(getFridayOfWeek(workDate), 'yyyy-MM-dd');
+  };
+
+  const getWeeklyItemMergeKey = (row: ReportDataRow): string => [
+    row.client_id,
+    row.location_id,
+    getInvoiceFridayKey(row),
+    row.work_type_id ?? row.work_type_name ?? '',
+    row.rate ?? '',
+    row.frequency ?? '',
+    row.work_type_rate_type ?? '',
+  ].join('|');
+
+  const aggregateWeeklyItemRows = (rowsToAggregate: ReportDataRow[]): ReportDataRow[] => {
+    const mergedMap = new Map<string, ReportDataRow>();
+
+    for (const row of rowsToAggregate) {
+      const mergeKey = getWeeklyItemMergeKey(row);
+      const existing = mergedMap.get(mergeKey);
+
+      if (existing) {
+        existing.total_quantity =
+          Number(existing.total_quantity || 0) + Number(row.total_quantity || 0);
+      } else {
+        const invoiceFriday = getInvoiceFridayKey(row);
+        mergedMap.set(mergeKey, { ...row, work_date: invoiceFriday });
+      }
+    }
+
+    return Array.from(mergedMap.values());
+  };
+
+  const getDisplayReportData = (): ReportDataRow[] => {
+    if (aggregationMode === 'daily_detail') {
+      return reportData;
+    }
+
+    return aggregateWeeklyItemRows(reportData);
+  };
+
   const generateCSVData = () => {
     if (reportData.length === 0 || columns.length === 0) {
       toast.error('No data or columns configured');
@@ -258,10 +307,12 @@ export default function FinanceDashboard() {
     const headers = columns.map((col) => col.headerName);
     const rows: string[][] = [];
 
+    const exportData = getDisplayReportData();
+
     // Group data by client + location + week (Friday of that week)
     // Each unique combination = one invoice
     const grouped = new Map<string, ReportDataRow[]>();
-    for (const row of reportData) {
+    for (const row of exportData) {
       // Parse the work date and get the Friday of that week
       const workDate = row.work_date ? parseLocalDate(row.work_date) : (endDate || new Date());
       const friday = getFridayOfWeek(workDate);
@@ -284,25 +335,7 @@ export default function FinanceDashboard() {
       const invoiceNumber = String(currentInvoiceNumber);
       currentInvoiceNumber++;
 
-      // Aggregate rows within this invoice by item identity so multiple
-      // work-date entries for the same work type collapse into one line.
-      const mergedMap = new Map<string, ReportDataRow>();
-      for (const row of groupRows) {
-        const mergeKey = [
-          row.work_type_id ?? row.work_type_name ?? '',
-          row.rate ?? '',
-          row.frequency ?? '',
-          row.work_type_rate_type ?? '',
-        ].join('|');
-        const existing = mergedMap.get(mergeKey);
-        if (existing) {
-          existing.total_quantity =
-            Number(existing.total_quantity || 0) + Number(row.total_quantity || 0);
-        } else {
-          mergedMap.set(mergeKey, { ...row });
-        }
-      }
-      const mergedRows = Array.from(mergedMap.values());
+      const mergedRows = groupRows;
 
       mergedRows.forEach((row, rowIndex) => {
         const isFirstRow = rowIndex === 0;
@@ -375,7 +408,7 @@ export default function FinanceDashboard() {
             </p>
           </div>
           <TemplateManager
-            currentConfig={{ columns, invoiceStartNumber }}
+            currentConfig={{ columns, invoiceStartNumber, aggregationMode }}
             onLoadTemplate={handleLoadTemplate}
           />
         </div>
@@ -394,6 +427,21 @@ export default function FinanceDashboard() {
               onStartDateChange={setStartDate}
               onEndDateChange={setEndDate}
             />
+            <div className="grid gap-2 sm:max-w-xs">
+              <Label htmlFor="aggregationMode">Report Output</Label>
+              <Select
+                value={aggregationMode}
+                onValueChange={(value) => setAggregationMode(value as ReportAggregationMode)}
+              >
+                <SelectTrigger id="aggregationMode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly_item_totals">Weekly item totals</SelectItem>
+                  <SelectItem value="daily_detail">Daily detail</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Separator />
             <ReportFilters
               selectedClients={selectedClients}
@@ -413,7 +461,7 @@ export default function FinanceDashboard() {
               <CardTitle className="text-lg">
                 Preview
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  {reportData.length} items
+                  {getDisplayReportData().length} items
                   {startDate && endDate && (
                     <> • {format(startDate, 'MMM d')} – {format(endDate, 'MMM d, yyyy')}</>
                   )}
@@ -426,7 +474,7 @@ export default function FinanceDashboard() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            <ReportPreviewTable data={reportData} loading={loading} columns={columns} />
+            <ReportPreviewTable data={getDisplayReportData()} loading={loading} columns={columns} />
             
             <Separator />
             
