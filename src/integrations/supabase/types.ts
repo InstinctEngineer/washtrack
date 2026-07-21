@@ -1644,6 +1644,13 @@ export type Database = {
         }[]
       }
       get_portal_user_id: { Args: { _user_id: string }; Returns: string }
+      get_portal_users_email_auth: {
+        Args: never
+        Returns: {
+          has_email_provider: boolean
+          portal_user_id: string
+        }[]
+      }
       get_portal_work_history: {
         Args: { p_end: string; p_location_id: string; p_start: string }
         Returns: {
