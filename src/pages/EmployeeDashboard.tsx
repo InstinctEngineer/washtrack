@@ -9,7 +9,6 @@ import { LogWorkModal, RateConfigWithDetails } from '@/components/LogWorkModal';
 import { CarsWashedWheelCard } from '@/components/CarsWashedWheelCard';
 import { GuidedDemo } from '@/components/GuidedDemo';
 import { AddVehicleModal } from '@/components/AddVehicleModal';
-import { DealershipWashCard } from '@/components/dealership/DealershipWashCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -1034,9 +1033,6 @@ export default function EmployeeDashboard() {
         )}
 
         {/* Hourly services are now merged into WorkItemGrid's Services section */}
-
-        {/* Dealership wash entry (only renders if user has dealership locations assigned) */}
-        <DealershipWashCard />
 
         {/* Message/Note Field - Always visible */}
         <Card className="border-muted">
