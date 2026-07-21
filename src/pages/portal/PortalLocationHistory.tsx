@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { PortalShell } from '@/components/PortalShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Star } from 'lucide-react';
 
 interface Row { work_date: string; work_type_name: string; identifier: string | null; quantity: number; notes: string | null; }
 interface DealershipRow { work_date: string; vehicle_count: number; }
@@ -19,6 +20,19 @@ function weekRange(offset = 0) {
   const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
   const fmt = (d: Date) => d.toISOString().slice(0,10);
   return { start: fmt(monday), end: fmt(sunday) };
+}
+
+function monthRange(offset = 0) {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+  const fmt = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  };
+  return { start: fmt(first), end: fmt(last) };
 }
 
 export default function PortalLocationHistory() {
@@ -121,6 +135,10 @@ export default function PortalLocationHistory() {
     const r = weekRange(offset);
     setStart(r.start); setEnd(r.end);
   };
+  const shiftMonth = (offset: number) => {
+    const r = monthRange(offset);
+    setStart(r.start); setEnd(r.end);
+  };
 
   return (
     <PortalShell title={`${locName || 'Location'} — Wash History`}>
@@ -141,7 +159,16 @@ export default function PortalLocationHistory() {
             <Button onClick={load} disabled={loading}>{loading ? 'Loading…' : 'Search'}</Button>
             <Button variant="outline" onClick={() => shiftWeek(0)}>This Week</Button>
             <Button variant="outline" onClick={() => shiftWeek(-1)}>Last Week</Button>
+            <Button variant="outline" onClick={() => shiftMonth(0)}>This Month</Button>
+            <Button variant="outline" onClick={() => shiftMonth(-1)}>Last Month</Button>
             <Button variant="outline" onClick={exportCsv}>Export CSV</Button>
+            {businessType !== 'dealership' && (
+              <Button asChild variant="default" className="ml-auto gap-1.5">
+                <Link to={`/portal/locations/${id}/request-wash`}>
+                  <Star className="h-4 w-4" /> Request Washes
+                </Link>
+              </Button>
+            )}
           </div>
 
           {error && <div className="text-destructive text-sm">{error}</div>}
