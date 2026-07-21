@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { logAuthEvent } from '@/lib/activityLogger';
 import { Button } from '@/components/ui/button';
@@ -89,6 +90,14 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1e3a5f] via-[#2d5a87] to-[#2d8cc4] p-4">
+      <Helmet>
+        <title>Employee Sign In — WashTrack</title>
+        <meta name="description" content="Sign in to WashTrack to manage vehicle wash tracking, billing reports, and daily operations." />
+        <link rel="canonical" href="https://washtracking.com/login" />
+        <meta property="og:title" content="Employee Sign In — WashTrack" />
+        <meta property="og:description" content="Sign in to WashTrack to manage vehicle wash tracking, billing reports, and daily operations." />
+        <meta property="og:url" content="https://washtracking.com/login" />
+      </Helmet>
       <Card className="w-full max-w-md shadow-2xl border-0">
         <CardHeader className="space-y-4 text-center pb-2">
           <div className="flex flex-col items-center gap-4">
