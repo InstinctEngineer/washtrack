@@ -147,32 +147,34 @@ export default function PortalLocationHistory() {
           <CardTitle className="text-lg">{clientName}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2 items-end">
-            <div className="space-y-1">
-              <Label>Start date</Label>
-              <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+          <div className="w-fit max-w-full space-y-2">
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="space-y-1">
+                <Label>Start date</Label>
+                <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>End date</Label>
+                <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+              </div>
+              <Button onClick={load} disabled={loading}>{loading ? 'Loading…' : 'Search'}</Button>
+              <Button variant="outline" onClick={() => shiftWeek(0)}>This Week</Button>
+              <Button variant="outline" onClick={() => shiftWeek(-1)}>Last Week</Button>
+              <Button variant="outline" onClick={() => shiftMonth(0)}>This Month</Button>
+              <Button variant="outline" onClick={() => shiftMonth(-1)}>Last Month</Button>
+              <Button variant="outline" onClick={exportCsv}>Export CSV</Button>
             </div>
-            <div className="space-y-1">
-              <Label>End date</Label>
-              <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
-            </div>
-            <Button onClick={load} disabled={loading}>{loading ? 'Loading…' : 'Search'}</Button>
-            <Button variant="outline" onClick={() => shiftWeek(0)}>This Week</Button>
-            <Button variant="outline" onClick={() => shiftWeek(-1)}>Last Week</Button>
-            <Button variant="outline" onClick={() => shiftMonth(0)}>This Month</Button>
-            <Button variant="outline" onClick={() => shiftMonth(-1)}>Last Month</Button>
-            <Button variant="outline" onClick={exportCsv}>Export CSV</Button>
-          </div>
 
-          {businessType !== 'dealership' && (
-            <div className="flex justify-end">
-              <Button asChild variant="default" className="gap-1.5">
-                <Link to={`/portal/locations/${id}/request-wash`}>
-                  <Star className="h-4 w-4" /> Designate Weekly Washes
-                </Link>
-              </Button>
-            </div>
-          )}
+            {businessType !== 'dealership' && (
+              <div className="flex justify-end">
+                <Button asChild variant="default" className="gap-1.5">
+                  <Link to={`/portal/locations/${id}/request-wash`}>
+                    <Star className="h-4 w-4" /> Designate Weekly Washes
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </div>
 
           {error && <div className="text-destructive text-sm">{error}</div>}
 
