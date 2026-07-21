@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, ChevronRight, ChevronDown, Check, Plus } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Check, Plus, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { RateConfigWithDetails } from '@/components/LogWorkModal';
@@ -27,6 +27,7 @@ interface WorkItemGridProps {
   locationId: string;
   selectedIds?: Set<string>;
   completedIds?: Set<string>;
+  requestedIds?: Set<string>;
   onToggle?: (workItem: WorkItemWithDetails) => void;
   onSelect?: (workItem: WorkItemWithDetails) => void;
   onAddVehicle?: (typeName: string) => void;
@@ -35,7 +36,7 @@ interface WorkItemGridProps {
   onSelectHourly?: (config: RateConfigWithDetails) => void;
 }
 
-export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, onSelect, onAddVehicle, refreshKey, hourlyConfigs, onSelectHourly }: WorkItemGridProps) {
+export function WorkItemGrid({ locationId, selectedIds, completedIds, requestedIds, onToggle, onSelect, onAddVehicle, refreshKey, hourlyConfigs, onSelectHourly }: WorkItemGridProps) {
   const [workItems, setWorkItems] = useState<WorkItemWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -320,6 +321,7 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                         const workItem = item as WorkItemWithDetails;
                         const isSelected = isToggleMode && selectedIds.has(workItem.id);
                         const isCompleted = completedIds?.has(workItem.id);
+                        const isRequested = requestedIds?.has(workItem.id);
                         
                         return (
                           <button
@@ -337,6 +339,14 @@ export function WorkItemGrid({ locationId, selectedIds, completedIds, onToggle, 
                               !isCompleted && "active:scale-95"
                             )}
                           >
+                            {isRequested && !isCompleted && (
+                              <div
+                                className="absolute top-1 left-1"
+                                title="Requested by client this week"
+                              >
+                                <Star className="h-4 w-4 fill-amber-400 text-amber-500 drop-shadow" />
+                              </div>
+                            )}
                             {isCompleted && (
                               <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-muted-foreground/20 text-muted-foreground text-[10px] font-medium uppercase">
                                 Done
