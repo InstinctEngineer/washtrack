@@ -19,9 +19,9 @@ export default function Privacy() {
       <div className="mx-auto max-w-3xl">
         <Card className="shadow-2xl border-0">
           <CardHeader>
-            <CardTitle asChild className="text-2xl md:text-3xl">
-              <h1>Privacy Policy — WashTrack (ES&amp;D Services Inc.)</h1>
-            </CardTitle>
+            <h1 className="text-2xl md:text-3xl font-semibold leading-none tracking-tight">
+              Privacy Policy — WashTrack (ES&amp;D Services Inc.)
+            </h1>
             <p className="text-sm text-muted-foreground">Last updated: July 2026</p>
           </CardHeader>
           <CardContent className="space-y-6 text-foreground/90">
