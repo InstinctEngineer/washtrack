@@ -145,6 +145,9 @@ export default function PortalLogin() {
               Employee?{' '}
               <Link to="/login" className="underline">Internal sign in</Link>
             </div>
+            <div className="text-center text-xs text-muted-foreground">
+              <Link to="/privacy" className="underline hover:text-primary">Privacy Policy</Link>
+            </div>
           </form>
         </CardContent>
       </Card>

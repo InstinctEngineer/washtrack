@@ -160,6 +160,9 @@ export default function Login() {
               External Client?{' '}
               <Link to="/portal/login" className="text-primary underline">Sign in to the client portal</Link>
             </div>
+            <div className="text-center text-xs text-muted-foreground">
+              <Link to="/privacy" className="underline hover:text-primary">Privacy Policy</Link>
+            </div>
           </form>
         </CardContent>
       </Card>
