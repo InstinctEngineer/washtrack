@@ -37,12 +37,15 @@ export const EditLocationModal = ({
   onSuccess,
 }: EditLocationModalProps) => {
   const [loading, setLoading] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [formData, setFormData] = useState({
     name: location.name,
     address: location.address || '',
     client_id: location.client_id,
     is_active: location.is_active,
+    latitude: location.latitude != null ? String(location.latitude) : '',
+    longitude: location.longitude != null ? String(location.longitude) : '',
   });
 
   useEffect(() => {
@@ -67,6 +70,8 @@ export const EditLocationModal = ({
         address: location.address || '',
         client_id: location.client_id,
         is_active: location.is_active,
+        latitude: location.latitude != null ? String(location.latitude) : '',
+        longitude: location.longitude != null ? String(location.longitude) : '',
       });
       fetchClients();
     }
@@ -126,6 +131,8 @@ export const EditLocationModal = ({
           address: formData.address.trim() || null,
           client_id: formData.client_id,
           is_active: formData.is_active,
+          latitude: formData.latitude.trim() === '' ? null : Number(formData.latitude),
+          longitude: formData.longitude.trim() === '' ? null : Number(formData.longitude),
         })
         .eq('id', location.id);
 
@@ -147,6 +154,35 @@ export const EditLocationModal = ({
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGeocode = async () => {
+    const address = formData.address.trim();
+    if (!address) {
+      toast({
+        title: 'Address required',
+        description: 'Enter an address to look up.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setGeocoding(true);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`Lookup failed (${res.status})`);
+      const results = await res.json();
+      if (!Array.isArray(results) || results.length === 0) {
+        toast({ title: 'No match', description: 'No coordinates found for that address.', variant: 'destructive' });
+        return;
+      }
+      setFormData((f) => ({ ...f, latitude: results[0].lat, longitude: results[0].lon }));
+      toast({ title: 'Coordinates filled', description: 'Review and adjust if needed.' });
+    } catch (err: any) {
+      toast({ title: 'Lookup failed', description: err.message || 'Try again.', variant: 'destructive' });
+    } finally {
+      setGeocoding(false);
     }
   };
 
