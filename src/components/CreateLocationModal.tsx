@@ -248,6 +248,46 @@ export const CreateLocationModal = ({
               />
             </div>
 
+            <div className="space-y-2">
+              <div className="flex items-end gap-2">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="latitude">Latitude</Label>
+                  <Input
+                    id="latitude"
+                    type="number"
+                    step="any"
+                    inputMode="decimal"
+                    value={formData.latitude}
+                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                    placeholder="34.052235"
+                  />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="longitude">Longitude</Label>
+                  <Input
+                    id="longitude"
+                    type="number"
+                    step="any"
+                    inputMode="decimal"
+                    value={formData.longitude}
+                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                    placeholder="-118.243683"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGeocode}
+                  disabled={geocoding || !formData.address.trim()}
+                >
+                  {geocoding ? 'Looking up…' : 'Look up from address'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Optional. Used by the mobile app to verify employees are near the site.
+              </p>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="active"
