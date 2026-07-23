@@ -263,6 +263,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_taxable: boolean | null
+          is_test: boolean
           name: string
           parent_company: string | null
           tax_jurisdiction: string | null
@@ -279,6 +280,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_taxable?: boolean | null
+          is_test?: boolean
           name: string
           parent_company?: string | null
           tax_jurisdiction?: string | null
@@ -295,6 +297,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_taxable?: boolean | null
+          is_test?: boolean
           name?: string
           parent_company?: string | null
           tax_jurisdiction?: string | null
@@ -627,6 +630,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_test: boolean
           latitude: number | null
           longitude: number | null
           name: string
@@ -637,6 +641,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_test?: boolean
           latitude?: number | null
           longitude?: number | null
           name: string
@@ -647,6 +652,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_test?: boolean
           latitude?: number | null
           longitude?: number | null
           name?: string
