@@ -92,8 +92,8 @@ export default function FinanceThisWeek() {
     const fetchFilters = async () => {
       const [employeesRes, clientsRes, locationsRes, workTypesRes] = await Promise.all([
         supabase.from('users').select('id, name').eq('is_active', true).order('name'),
-        supabase.from('clients').select('id, name').eq('is_active', true).order('name'),
-        supabase.from('locations').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('clients').select('id, name').eq('is_active', true).eq('is_test', false).order('name'),
+        supabase.from('locations').select('id, name').eq('is_active', true).eq('is_test', false).order('name'),
         supabase.from('work_types').select('id, name').eq('is_active', true).order('name'),
       ]);
 

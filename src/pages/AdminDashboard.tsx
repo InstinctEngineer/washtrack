@@ -143,7 +143,7 @@ export default function AdminDashboard() {
         const [usersRes, clientsRes, locationsRes, cutoff] = await Promise.all([
           supabase.from('users').select('id, is_active', { count: 'exact' }),
           supabase.from('clients').select('id', { count: 'exact' }).eq('is_active', true),
-          supabase.from('locations').select('id', { count: 'exact' }).eq('is_active', true),
+          supabase.from('locations').select('id', { count: 'exact' }).eq('is_active', true).eq('is_test', false),
           getCurrentCutoff(),
         ]);
 
