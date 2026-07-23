@@ -42,6 +42,8 @@ export interface Location {
   address: string | null;
   is_active: boolean;
   created_at: string;
+  latitude?: number | null;
+  longitude?: number | null;
   // Joined data
   client?: Client;
 }
