@@ -1,38 +1,35 @@
-## What I found
+## Goal
+Add optional GPS coordinates to facility locations so the mobile app can perform its own 50-mile geofence check. No enforcement in the web app.
 
-`employee@test.com` still exists in **both** `auth.users` and `public.users` (created Oct 2025, last successful login 2026-07-21 05:19:51). It was never actually deleted. So there are really two things to fix:
+## 1. Database migration
+Add two nullable columns to `public.locations`:
+- `latitude` — `double precision`, nullable
+- `longitude` — `double precision`, nullable
 
-1. Clean up this specific lingering account so testing can continue.
-2. Fix the in-app delete flow so a future "Delete" click can't leave a login-capable account behind.
+Existing rows remain valid (NULL). No changes to RLS — current policies already return all columns to authenticated readers, so the mobile app will receive `latitude`/`longitude` automatically. No grants change.
 
-### Why the in-app delete can silently leave auth alive
-`supabase/functions/delete-user/index.ts` today does, in order:
-1. Delete rows from ~8 dependent tables — errors are only `console.error`'d, execution continues.
-2. Delete from `public.users` — on failure, returns an error to the UI and **never reaches auth deletion**.
-3. Delete from `auth.users`.
+## 2. Create Location modal (`src/components/CreateLocationModal.tsx`)
+Add two decimal number inputs under the Address field:
+- "Latitude" — `type="number"`, `step="any"`, optional
+- "Longitude" — `type="number"`, `step="any"`, optional
+- "Look up from address" button next to them (see §4)
 
-If step 2 fails for any FK we didn't foresee (or any RLS/permission hiccup), the auth row survives and the user can keep logging in. The UI shows "Failed to delete user record", the admin retries, same failure, account keeps working.
+Save values (or `null` when blank) alongside the existing insert payload.
 
-## Plan
+## 3. Edit Location modal (`src/components/EditLocationModal.tsx`)
+Same two inputs + lookup button, pre-populated from the row. Include them in the update payload.
 
-### 1. Force-clean the stuck account (via migration)
-Delete `employee@test.com` from every dependent table, then `public.users`, then `auth.users`, in one migration so it's gone before we redeploy anything.
+## 4. "Look up from address" button (OpenStreetMap Nominatim)
+Client-side fetch to `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=<address>`.
+- Disabled unless the Address field has text.
+- Sends a `User-Agent`-style identifier via the required `Referer` (browser sets automatically) and includes an `email` query param placeholder for Nominatim usage policy compliance.
+- On success, fills Latitude/Longitude inputs (user can still tweak/clear before saving).
+- Toast on empty results or network error.
+- Note: Nominatim has a ~1 req/sec fair-use limit; fine for occasional single-location lookups.
 
-### 2. Rewrite `supabase/functions/delete-user/index.ts` — auth deletion first
-- After the super-admin check, **delete the `auth.users` row first**. Once auth is gone the account can never authenticate again, no matter what happens next.
-- Then run the public-schema cleanup (`user_roles`, `user_locations`, `message_reads`, `message_replies`, `user_message_views`, `error_report_replies`, `error_reports`, `activity_logs`, `employee_comments` both sides, `public.users`).
-- Collect per-step errors into an `errors[]` array; return `{ success: true, errors }` when auth was deleted but some cleanup failed, and `{ success: false, error }` only when auth deletion itself failed.
-- Log the caller's id and target id up top for auditability.
-
-### 3. UI feedback in `src/components/UserTable.tsx`
-- On response, treat `success: true` with a non-empty `errors[]` as a warning toast ("User login disabled — some cleanup failed, see logs"), not a green success.
-- Only show the plain "User deleted" toast when `errors[]` is empty.
-- Always call `onRefresh()` so the row disappears from the table.
-
-### 4. Verify
-- Delete a throwaway account through the UI.
-- Query `auth.users` and `public.users` by that email — both must return zero rows.
-- Attempt to log in with the old password — must be rejected with "Invalid credentials".
+## 5. Types
+`src/integrations/supabase/types.ts` regenerates after the migration is approved, so `Location` picks up the new fields. `src/types/database.ts` — extend the `Location` type with `latitude: number | null` and `longitude: number | null` after the migration lands.
 
 ## Out of scope
-Portal-user deletion (`delete-portal-user`) — same shape, same risk. Say the word if you want the identical hardening applied there in this pass.
+- No geofence enforcement in the web app (mobile app handles the 50-mile check; managers+ exempt per the note).
+- No changes to any other locations behavior, table structure, or unrelated screens.
