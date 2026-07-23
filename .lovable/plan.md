@@ -1,35 +1,19 @@
-## Goal
-Add optional GPS coordinates to facility locations so the mobile app can perform its own 50-mile geofence check. No enforcement in the web app.
+Add a public Privacy Policy page at `/privacy` and link to it from the login screen.
 
-## 1. Database migration
-Add two nullable columns to `public.locations`:
-- `latitude` — `double precision`, nullable
-- `longitude` — `double precision`, nullable
+What we'll build
+- A new public route `/privacy` that renders without any authentication guard.
+- A `src/pages/Privacy.tsx` page populated with the exact policy copy provided, styled with the existing Card/Typography system and responsive layout.
+- Route-specific `<Helmet>` metadata (title, description, canonical, OG/Twitter tags) for the privacy page.
+- A small "Privacy Policy" footer link on the employee login page (`/login`) and the client portal login page (`/portal/login`).
 
-Existing rows remain valid (NULL). No changes to RLS — current policies already return all columns to authenticated readers, so the mobile app will receive `latitude`/`longitude` automatically. No grants change.
+What we'll touch
+- `src/App.tsx` — add `<Route path="/privacy" element={<Privacy />} />` in the public-routes section.
+- `src/pages/Privacy.tsx` — new page component.
+- `src/pages/Login.tsx` — add a footer link to `/privacy`.
+- `src/pages/portal/PortalLogin.tsx` — add a footer link to `/privacy`.
 
-## 2. Create Location modal (`src/components/CreateLocationModal.tsx`)
-Add two decimal number inputs under the Address field:
-- "Latitude" — `type="number"`, `step="any"`, optional
-- "Longitude" — `type="number"`, `step="any"`, optional
-- "Look up from address" button next to them (see §4)
+What we will NOT change
+- No auth, route guards, database, or backend logic.
+- No other pages or components.
 
-Save values (or `null` when blank) alongside the existing insert payload.
-
-## 3. Edit Location modal (`src/components/EditLocationModal.tsx`)
-Same two inputs + lookup button, pre-populated from the row. Include them in the update payload.
-
-## 4. "Look up from address" button (OpenStreetMap Nominatim)
-Client-side fetch to `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=<address>`.
-- Disabled unless the Address field has text.
-- Sends a `User-Agent`-style identifier via the required `Referer` (browser sets automatically) and includes an `email` query param placeholder for Nominatim usage policy compliance.
-- On success, fills Latitude/Longitude inputs (user can still tweak/clear before saving).
-- Toast on empty results or network error.
-- Note: Nominatim has a ~1 req/sec fair-use limit; fine for occasional single-location lookups.
-
-## 5. Types
-`src/integrations/supabase/types.ts` regenerates after the migration is approved, so `Location` picks up the new fields. `src/types/database.ts` — extend the `Location` type with `latitude: number | null` and `longitude: number | null` after the migration lands.
-
-## Out of scope
-- No geofence enforcement in the web app (mobile app handles the 50-mile check; managers+ exempt per the note).
-- No changes to any other locations behavior, table structure, or unrelated screens.
+The policy text will be inserted exactly as supplied, broken into semantic sections for readability.
