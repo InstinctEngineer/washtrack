@@ -60,6 +60,7 @@ export function ReportFilters({
       .from('locations')
       .select('id, name, client_id')
       .eq('is_active', true)
+      .eq('is_test', false)
       .order('name');
 
     if (selectedClients.length > 0) {
