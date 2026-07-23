@@ -67,9 +67,7 @@ export default function PortalSignup() {
           <CardDescription>Create your client portal account</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-          </div>
-          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

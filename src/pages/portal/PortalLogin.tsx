@@ -122,9 +122,7 @@ export default function PortalLogin() {
           <CardDescription>Sign in to view your wash history</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-          </div>
-          <form onSubmit={handleLogin} className="space-y-4 mt-4">
+          <form onSubmit={handleLogin} className="space-y-4">
             {error && (
               <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
             )}
