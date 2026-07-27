@@ -38,6 +38,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface UserTableProps {
   users: (User & {
@@ -89,7 +98,100 @@ export const UserTable = ({
   const [resettingFor, setResettingFor] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [manualResetTarget, setManualResetTarget] = useState<User | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [manualResetComplete, setManualResetComplete] = useState(false);
+  const [isSettingTemporaryPassword, setIsSettingTemporaryPassword] = useState(false);
   const isSuperAdmin = currentUserRole === "super_admin";
+
+  const generateTemporaryPassword = () => {
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const lower = "abcdefghijkmnopqrstuvwxyz";
+    const numbers = "23456789";
+    const special = "!@#$%";
+    const all = upper + lower + numbers + special;
+
+    let password =
+      upper[Math.floor(Math.random() * upper.length)] +
+      lower[Math.floor(Math.random() * lower.length)] +
+      numbers[Math.floor(Math.random() * numbers.length)] +
+      special[Math.floor(Math.random() * special.length)];
+
+    for (let i = password.length; i < 12; i += 1) {
+      password += all[Math.floor(Math.random() * all.length)];
+    }
+
+    return password.split("").sort(() => Math.random() - 0.5).join("");
+  };
+
+  const openManualResetDialog = (user: User) => {
+    setManualResetTarget(user);
+    setTemporaryPassword(generateTemporaryPassword());
+    setManualResetComplete(false);
+  };
+
+  const closeManualResetDialog = () => {
+    if (isSettingTemporaryPassword) return;
+    setManualResetTarget(null);
+    setTemporaryPassword("");
+    setManualResetComplete(false);
+  };
+
+  const copyTemporaryPassword = async () => {
+    if (!temporaryPassword) return;
+    await navigator.clipboard.writeText(temporaryPassword);
+    toast({ title: "Temporary password copied" });
+  };
+
+  const handleManualPasswordReset = async () => {
+    if (!manualResetTarget) return;
+
+    if (temporaryPassword.length < 8) {
+      toast({
+        title: "Password too short",
+        description: "Temporary password must be at least 8 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/.test(temporaryPassword)) {
+      toast({
+        title: "Password needs more complexity",
+        description: "Use uppercase, lowercase, and a number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSettingTemporaryPassword(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-user-password", {
+        body: { userId: manualResetTarget.id, newPassword: temporaryPassword },
+      });
+
+      if (error) throw error;
+      if (data && data.success === false) {
+        throw new Error(data.error || "Failed to set temporary password");
+      }
+
+      setManualResetComplete(true);
+      toast({
+        title: "Temporary password set",
+        description: `${manualResetTarget.name} must change it on next login.`,
+      });
+      onRefresh();
+    } catch (err: any) {
+      console.error("reset-user-password error:", err);
+      toast({
+        title: "Failed to set temporary password",
+        description: err.message || "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSettingTemporaryPassword(false);
+    }
+  };
 
   const handleDeleteUser = async () => {
     if (!deleteTarget) return;
@@ -338,6 +440,14 @@ export const UserTable = ({
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => openManualResetDialog(user)}
+                          title="Set temporary password"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => sendAccountEmail(user, "reset")}
                           disabled={resettingFor === user.id}
                           title="Send password reset email"
@@ -345,7 +455,7 @@ export const UserTable = ({
                           {resettingFor === user.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <KeyRound className="h-4 w-4" />
+                            <Mail className="h-4 w-4" />
                           )}
                         </Button>
                         {isSuperAdmin && (
@@ -381,6 +491,65 @@ export const UserTable = ({
           }}
         />
       )}
+
+      <Dialog open={!!manualResetTarget} onOpenChange={(open) => !open && closeManualResetDialog()}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Set temporary password</DialogTitle>
+            <DialogDescription>
+              {manualResetTarget?.name} will use this password once, then must create a new password on login.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="temporary-password">Temporary password</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="temporary-password"
+                  value={temporaryPassword}
+                  onChange={(e) => setTemporaryPassword(e.target.value)}
+                  disabled={isSettingTemporaryPassword || manualResetComplete}
+                  autoComplete="new-password"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setTemporaryPassword(generateTemporaryPassword())}
+                  disabled={isSettingTemporaryPassword || manualResetComplete}
+                >
+                  Generate
+                </Button>
+              </div>
+            </div>
+            {manualResetComplete && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                Password is set. Copy it now; this dialog is the only place it will be shown.
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={closeManualResetDialog} disabled={isSettingTemporaryPassword}>
+              {manualResetComplete ? "Done" : "Cancel"}
+            </Button>
+            {manualResetComplete ? (
+              <Button type="button" onClick={copyTemporaryPassword}>
+                Copy password
+              </Button>
+            ) : (
+              <Button type="button" onClick={handleManualPasswordReset} disabled={isSettingTemporaryPassword}>
+                {isSettingTemporaryPassword ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Setting...
+                  </>
+                ) : (
+                  "Set password"
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && !isDeleting && setDeleteTarget(null)}>
         <AlertDialogContent>
