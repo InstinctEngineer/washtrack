@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,21 +6,59 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Shield } from "lucide-react";
+import { Shield, Loader2 } from "lucide-react";
 import { logAuthEvent } from "@/lib/activityLogger";
+
+type VerifyState = "idle" | "verifying" | "ready" | "invalid";
 
 export const ChangePassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verifyState, setVerifyState] = useState<VerifyState>("idle");
   const [formData, setFormData] = useState({
     newPassword: "",
     confirmPassword: "",
   });
 
+  // If the URL carries a recovery token_hash (from the emailed reset link),
+  // exchange it for a session via verifyOtp. This flow survives email
+  // link-scanners — a passive GET does not consume it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get("token_hash");
+    const type = params.get("type");
+
+    if (!tokenHash) {
+      setVerifyState("ready");
+      return;
+    }
+
+    setVerifyState("verifying");
+    (async () => {
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: (type as any) || "recovery",
+      });
+      if (error) {
+        console.error("verifyOtp error:", error);
+        setVerifyState("invalid");
+        toast({
+          title: "Reset link invalid or expired",
+          description: "Please request a new password reset email.",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Strip the token from the URL so it isn't retried or bookmarked.
+      window.history.replaceState({}, "", window.location.pathname);
+      setVerifyState("ready");
+    })();
+  }, [toast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (formData.newPassword !== formData.confirmPassword) {
       toast({
         title: "Passwords don't match",
@@ -42,11 +80,6 @@ export const ChangePassword = () => {
     setIsSubmitting(true);
 
     try {
-      // IMPORTANT: clear must_change_password in the users table BEFORE
-      // calling auth.updateUser. auth.updateUser fires a USER_UPDATED auth
-      // event, which causes AuthContext to refetch the profile. If the flag
-      // is still true at that moment, AuthContext hard-redirects back to
-      // /change-password and the user appears stuck on this page.
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (currentUser) {
         const { error: flagUpdateError } = await supabase
@@ -73,8 +106,6 @@ export const ChangePassword = () => {
         description: "Your password has been successfully changed",
       });
 
-      // Send through root redirect so the user lands on the correct
-      // dashboard for their role without us duplicating that logic here.
       navigate("/", { replace: true });
     } catch (error: any) {
       console.error("Error changing password:", error);
@@ -89,6 +120,8 @@ export const ChangePassword = () => {
     }
   };
 
+  const formDisabled = verifyState !== "ready" || isSubmitting;
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -98,52 +131,58 @@ export const ChangePassword = () => {
           </div>
           <CardTitle className="text-2xl text-center">Change Your Password</CardTitle>
           <CardDescription className="text-center">
-            Your password was reset by an administrator. Please set a new password to continue.
+            {verifyState === "verifying"
+              ? "Verifying your reset link…"
+              : verifyState === "invalid"
+              ? "This reset link is invalid or has expired. Please request a new one."
+              : "Set a new password to continue."}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={formData.newPassword}
-                onChange={(e) =>
-                  setFormData({ ...formData, newPassword: e.target.value })
-                }
-                placeholder="Enter your new password"
-                required
-                minLength={6}
-              />
-              <p className="text-xs text-muted-foreground">
-                Minimum 6 characters
-              </p>
+          {verifyState === "verifying" ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={formData.newPassword}
+                  onChange={(e) =>
+                    setFormData({ ...formData, newPassword: e.target.value })
+                  }
+                  placeholder="Enter your new password"
+                  required
+                  minLength={6}
+                  disabled={formDisabled}
+                />
+                <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm New Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={(e) =>
-                  setFormData({ ...formData, confirmPassword: e.target.value })
-                }
-                placeholder="Confirm your new password"
-                required
-                minLength={6}
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={(e) =>
+                    setFormData({ ...formData, confirmPassword: e.target.value })
+                  }
+                  placeholder="Confirm your new password"
+                  required
+                  minLength={6}
+                  disabled={formDisabled}
+                />
+              </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Updating..." : "Update Password"}
-            </Button>
-          </form>
+              <Button type="submit" className="w-full" disabled={formDisabled}>
+                {isSubmitting ? "Updating..." : "Update Password"}
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

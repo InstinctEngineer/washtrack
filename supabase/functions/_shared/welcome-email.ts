@@ -72,8 +72,20 @@ export async function sendWelcomeEmail(
       return { sent: false, error: error.message ?? "Failed to generate link" };
     }
 
-    const actionLink: string | undefined =
-      data?.properties?.action_link ?? data?.action_link;
+    // Prefer the OTP token_hash flow over Supabase's verify-redirect action_link:
+    // action_link is a GET endpoint that consumes the single-use token, which
+    // gets burned by email scanners (Outlook Safe Links, corporate proxies)
+    // before the user clicks. token_hash + verifyOtp on the page is only
+    // consumed by the POST verifyOtp call, so passive scanners can't kill it.
+    const hashedToken: string | undefined =
+      data?.properties?.hashed_token ?? (data as any)?.hashed_token;
+    const fallbackLink: string | undefined =
+      data?.properties?.action_link ?? (data as any)?.action_link;
+
+    const actionLink = hashedToken
+      ? `${appUrl}/change-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`
+      : fallbackLink;
+
     if (!actionLink) {
       return { sent: false, error: "No action link returned" };
     }
