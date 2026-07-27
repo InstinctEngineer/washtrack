@@ -61,6 +61,8 @@ export default function Login() {
         throw signInError;
       }
 
+      const needsPasswordChange = data.user.user_metadata?.password_reset_required === true;
+
       // Fetch user's highest role from user_roles table
       const highestRole = await getUserHighestRole(data.user.id);
 
@@ -78,6 +80,11 @@ export default function Login() {
         email, 
         role: highestRole,
       });
+
+      if (needsPasswordChange) {
+        navigate('/change-password', { replace: true });
+        return;
+      }
 
       // Redirect to dashboard based on highest role
       navigate(getDashboardPath(highestRole));

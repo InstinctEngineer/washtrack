@@ -90,12 +90,21 @@ serve(async (req) => {
       throw new Error("Only Super Admins can reset Super Admin passwords");
     }
 
+    const { data: targetAuthUser, error: targetAuthError } =
+      await supabaseAdmin.auth.admin.getUserById(userId);
+
+    if (targetAuthError || !targetAuthUser?.user) {
+      throw new Error("User login account was not found");
+    }
+
     // Update user password and set metadata to require password change
-    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+    const existingMetadata = targetAuthUser.user.user_metadata ?? {};
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
       { 
         password: newPassword,
         user_metadata: {
+          ...existingMetadata,
           password_reset_required: true
         }
       }
@@ -106,7 +115,24 @@ serve(async (req) => {
       throw error;
     }
 
-    console.log("Password reset successfully for user:", userId);
+    const { error: profileError } = await supabaseAdmin
+      .from("users")
+      .update({
+        must_change_password: true,
+        failed_login_attempts: 0,
+        account_locked_until: null,
+      })
+      .eq("id", userId);
+
+    if (profileError) {
+      console.error("Error updating password reset flags:", profileError);
+      throw new Error("Password was set, but failed to mark account for password change");
+    }
+
+    console.log("Temporary password set successfully", {
+      target_user_id: userId,
+      reset_by: user.id,
+    });
 
     return new Response(
       JSON.stringify({
