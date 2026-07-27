@@ -9,51 +9,131 @@ import { useToast } from "@/hooks/use-toast";
 import { Shield, Loader2 } from "lucide-react";
 import { logAuthEvent } from "@/lib/activityLogger";
 
-type VerifyState = "idle" | "verifying" | "ready" | "invalid";
+type VerifyState = "checking" | "verifying" | "ready" | "invalid" | "signed_out";
+
+const getRecoveryParams = () => {
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const error = searchParams.get("error") || hashParams.get("error");
+  const errorCode = searchParams.get("error_code") || hashParams.get("error_code");
+  const errorDescription = searchParams.get("error_description") || hashParams.get("error_description");
+  const tokenHash = searchParams.get("token_hash") || hashParams.get("token_hash");
+  const accessToken = hashParams.get("access_token");
+  const refreshToken = hashParams.get("refresh_token");
+  const type = searchParams.get("type") || hashParams.get("type") || "recovery";
+
+  return {
+    error,
+    errorCode,
+    errorDescription,
+    tokenHash,
+    accessToken,
+    refreshToken,
+    type,
+    hasRecoveryLink: Boolean(tokenHash || (accessToken && refreshToken) || error || errorCode),
+  };
+};
 
 export const ChangePassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [verifyState, setVerifyState] = useState<VerifyState>("idle");
+  const [verifyState, setVerifyState] = useState<VerifyState>("checking");
   const [formData, setFormData] = useState({
     newPassword: "",
     confirmPassword: "",
   });
 
-  // If the URL carries a recovery token_hash (from the emailed reset link),
-  // exchange it for a session via verifyOtp. This flow survives email
-  // link-scanners — a passive GET does not consume it.
+  // Establish a trusted session before allowing password updates. Supports both
+  // the token_hash reset links we now send and older hash-token recovery links.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tokenHash = params.get("token_hash");
-    const type = params.get("type");
+    let isMounted = true;
+    const recoveryParams = getRecoveryParams();
 
-    if (!tokenHash) {
-      setVerifyState("ready");
-      return;
-    }
+    const setSafeVerifyState = (state: VerifyState) => {
+      if (isMounted) setVerifyState(state);
+    };
 
-    setVerifyState("verifying");
-    (async () => {
-      const { error } = await supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: (type as any) || "recovery",
+    const showInvalidLinkToast = (description = "Please request a new password reset email.") => {
+      toast({
+        title: "Reset link invalid or expired",
+        description,
+        variant: "destructive",
       });
-      if (error) {
-        console.error("verifyOtp error:", error);
-        setVerifyState("invalid");
-        toast({
-          title: "Reset link invalid or expired",
-          description: "Please request a new password reset email.",
-          variant: "destructive",
+    };
+
+    console.info("Password reset link state", {
+      hasTokenHash: Boolean(recoveryParams.tokenHash),
+      hasHashSession: Boolean(recoveryParams.accessToken && recoveryParams.refreshToken),
+      hasError: Boolean(recoveryParams.error || recoveryParams.errorCode),
+      type: recoveryParams.type,
+    });
+
+    (async () => {
+      if (recoveryParams.error || recoveryParams.errorCode) {
+        console.warn("Password reset link returned an error", {
+          error: recoveryParams.error,
+          errorCode: recoveryParams.errorCode,
+          errorDescription: recoveryParams.errorDescription,
         });
+        setSafeVerifyState("invalid");
+        showInvalidLinkToast(recoveryParams.errorDescription || undefined);
         return;
       }
-      // Strip the token from the URL so it isn't retried or bookmarked.
-      window.history.replaceState({}, "", window.location.pathname);
-      setVerifyState("ready");
+
+      if (recoveryParams.tokenHash) {
+        setSafeVerifyState("verifying");
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: recoveryParams.tokenHash,
+          type: "recovery",
+        });
+
+        if (error) {
+          console.error("Password reset verifyOtp error:", error.message);
+          setSafeVerifyState("invalid");
+          showInvalidLinkToast();
+          return;
+        }
+
+        console.info("Password reset token_hash verified");
+        window.history.replaceState({}, "", window.location.pathname);
+        setSafeVerifyState("ready");
+        return;
+      }
+
+      if (recoveryParams.accessToken && recoveryParams.refreshToken) {
+        setSafeVerifyState("verifying");
+        const { error } = await supabase.auth.setSession({
+          access_token: recoveryParams.accessToken,
+          refresh_token: recoveryParams.refreshToken,
+        });
+
+        if (error) {
+          console.error("Password reset setSession error:", error.message);
+          setSafeVerifyState("invalid");
+          showInvalidLinkToast();
+          return;
+        }
+
+        console.info("Password reset hash session established");
+        window.history.replaceState({}, "", window.location.pathname);
+        setSafeVerifyState("ready");
+        return;
+      }
+
+      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      if (error || !currentUser) {
+        console.warn("Password change opened without a recovery link or signed-in user");
+        setSafeVerifyState("signed_out");
+        return;
+      }
+
+      setSafeVerifyState("ready");
     })();
+
+    return () => {
+      isMounted = false;
+    };
   }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,15 +161,8 @@ export const ChangePassword = () => {
 
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (currentUser) {
-        const { error: flagUpdateError } = await supabase
-          .from('users')
-          .update({ must_change_password: false })
-          .eq('id', currentUser.id);
-
-        if (flagUpdateError) {
-          console.error('Error updating must_change_password flag:', flagUpdateError);
-        }
+      if (!currentUser) {
+        throw new Error("Reset session missing. Please request a new password reset email.");
       }
 
       const { error: updateError } = await supabase.auth.updateUser({
@@ -98,6 +171,15 @@ export const ChangePassword = () => {
       });
 
       if (updateError) throw updateError;
+
+      const { error: flagUpdateError } = await supabase
+        .from('users')
+        .update({ must_change_password: false })
+        .eq('id', currentUser.id);
+
+      if (flagUpdateError) {
+        console.error('Error updating must_change_password flag:', flagUpdateError);
+      }
 
       logAuthEvent('auth_password_change', { user_id: currentUser?.id, email: currentUser?.email });
 
@@ -122,6 +204,14 @@ export const ChangePassword = () => {
 
   const formDisabled = verifyState !== "ready" || isSubmitting;
 
+  const description = (() => {
+    if (verifyState === "checking") return "Checking your password reset session…";
+    if (verifyState === "verifying") return "Verifying your reset link…";
+    if (verifyState === "invalid") return "This reset link is invalid or has expired. Please request a new one.";
+    if (verifyState === "signed_out") return "Please use the link from your password reset email to continue.";
+    return "Set a new password to continue.";
+  })();
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -131,15 +221,11 @@ export const ChangePassword = () => {
           </div>
           <CardTitle className="text-2xl text-center">Change Your Password</CardTitle>
           <CardDescription className="text-center">
-            {verifyState === "verifying"
-              ? "Verifying your reset link…"
-              : verifyState === "invalid"
-              ? "This reset link is invalid or has expired. Please request a new one."
-              : "Set a new password to continue."}
+            {description}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {verifyState === "verifying" ? (
+          {verifyState === "checking" || verifyState === "verifying" ? (
             <div className="flex justify-center py-6">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
