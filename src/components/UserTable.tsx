@@ -112,17 +112,33 @@ export const UserTable = ({
     const special = "!@#$%";
     const all = upper + lower + numbers + special;
 
+    const pick = (chars: string) => {
+      const values = new Uint32Array(1);
+      window.crypto.getRandomValues(values);
+      return chars[values[0] % chars.length];
+    };
+
     let password =
-      upper[Math.floor(Math.random() * upper.length)] +
-      lower[Math.floor(Math.random() * lower.length)] +
-      numbers[Math.floor(Math.random() * numbers.length)] +
-      special[Math.floor(Math.random() * special.length)];
+      pick(upper) +
+      pick(lower) +
+      pick(numbers) +
+      pick(special);
 
     for (let i = password.length; i < 12; i += 1) {
-      password += all[Math.floor(Math.random() * all.length)];
+      password += pick(all);
     }
 
-    return password.split("").sort(() => Math.random() - 0.5).join("");
+    const chars = password.split("");
+    for (let i = chars.length - 1; i > 0; i -= 1) {
+      const values = new Uint32Array(1);
+      window.crypto.getRandomValues(values);
+      const j = values[0] % (i + 1);
+      const current = chars[i];
+      chars[i] = chars[j];
+      chars[j] = current;
+    }
+
+    return chars.join("");
   };
 
   const openManualResetDialog = (user: User) => {
