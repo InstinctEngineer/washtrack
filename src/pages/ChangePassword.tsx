@@ -185,10 +185,12 @@ export const ChangePassword = () => {
 
       toast({
         title: "Password Updated",
-        description: "Your password has been successfully changed",
+        description: "Please sign in with your new password",
       });
 
-      navigate("/", { replace: true });
+      const redirectPath = window.location.pathname.startsWith("/portal") ? "/portal/login" : "/login";
+      await supabase.auth.signOut();
+      navigate(redirectPath, { replace: true });
     } catch (error: any) {
       console.error("Error changing password:", error);
       logAuthEvent('auth_error', { error: error.message, context: 'password_change' });
