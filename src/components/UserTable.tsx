@@ -103,6 +103,7 @@ export const UserTable = ({
   const [manualResetComplete, setManualResetComplete] = useState(false);
   const [isSettingTemporaryPassword, setIsSettingTemporaryPassword] = useState(false);
   const isSuperAdmin = currentUserRole === "super_admin";
+  const canSetTemporaryPassword = currentUserRole === "admin" || currentUserRole === "super_admin";
 
   const generateTemporaryPassword = () => {
     const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -437,14 +438,16 @@ export const UserTable = ({
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openManualResetDialog(user)}
-                          title="Set temporary password"
-                        >
-                          <KeyRound className="h-4 w-4" />
-                        </Button>
+                        {canSetTemporaryPassword && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openManualResetDialog(user)}
+                            title="Set temporary password"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
