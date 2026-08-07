@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logAuthEvent } from '@/lib/activityLogger';
 import { Button } from '@/components/ui/button';
