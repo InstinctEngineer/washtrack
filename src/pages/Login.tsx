@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logAuthEvent } from '@/lib/activityLogger';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ const loginSchema = z.object({
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -150,14 +152,30 @@ export default function Login() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                  onMouseDown={() => setShowPassword(true)}
+                  onMouseUp={() => setShowPassword(false)}
+                  onMouseLeave={() => setShowPassword(false)}
+                  onTouchStart={() => setShowPassword(true)}
+                  onTouchEnd={() => setShowPassword(false)}
+                  disabled={loading}
+                >
+                  <Eye size={20} />
+                </button>
+              </div>
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
