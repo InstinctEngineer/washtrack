@@ -19,6 +19,7 @@ import esAndDLogo from '@/assets/es-d-logo.png';
 export default function PortalLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [disabledPhone, setDisabledPhone] = useState<string | null>(null);
