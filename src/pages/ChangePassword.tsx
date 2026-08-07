@@ -165,6 +165,15 @@ export const ChangePassword = () => {
         throw new Error("Reset session missing. Please request a new password reset email.");
       }
 
+      // Detect whether this account is a client-portal user so we can send them
+      // back to the portal login instead of the employee login.
+      let isPortalUser = new URLSearchParams(window.location.search).get("portal") === "1"
+        || window.location.pathname.startsWith("/portal");
+      if (!isPortalUser) {
+        const { data: portalStatus } = await supabase.rpc("get_portal_account_status");
+        isPortalUser = Array.isArray(portalStatus) ? portalStatus.length > 0 : Boolean(portalStatus);
+      }
+
       const { error: updateError } = await supabase.auth.updateUser({
         password: formData.newPassword,
         data: { password_reset_required: false }
@@ -188,7 +197,7 @@ export const ChangePassword = () => {
         description: "Please sign in with your new password",
       });
 
-      const redirectPath = window.location.pathname.startsWith("/portal") ? "/portal/login" : "/login";
+      const redirectPath = isPortalUser ? "/portal/login" : "/login";
       await supabase.auth.signOut();
       navigate(redirectPath, { replace: true });
     } catch (error: any) {
