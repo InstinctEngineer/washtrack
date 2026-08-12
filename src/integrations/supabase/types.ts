@@ -1563,6 +1563,10 @@ export type Database = {
     }
     Functions: {
       auto_update_cutoff_date: { Args: never; Returns: undefined }
+      can_delete_report_template: {
+        Args: { _creator: string }
+        Returns: boolean
+      }
       disable_inactive_portal_users: { Args: never; Returns: number }
       get_applicable_rate: {
         Args: {
