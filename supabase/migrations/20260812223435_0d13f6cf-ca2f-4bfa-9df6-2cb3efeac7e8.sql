@@ -1,0 +1,2 @@
+ALTER TABLE public.report_templates DROP CONSTRAINT IF EXISTS report_templates_report_type_check;
+ALTER TABLE public.report_templates ADD CONSTRAINT report_templates_report_type_check CHECK (length(btrim(report_type)) > 0);
