@@ -33,7 +33,7 @@ interface TemplateManagerProps {
 }
 
 export function TemplateManager({ currentConfig, onLoadTemplate }: TemplateManagerProps) {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -113,14 +113,20 @@ export function TemplateManager({ currentConfig, onLoadTemplate }: TemplateManag
 
     if (!confirm(`Delete template "${template.template_name}"?`)) return;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('report_templates')
       .delete()
-      .eq('id', templateId);
+      .eq('id', templateId)
+      .select('id');
 
     if (error) {
       console.error('Error deleting template:', error);
       toast.error('Failed to delete template');
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      toast.error("You don't have permission to delete this template");
       return;
     }
 
@@ -130,6 +136,13 @@ export function TemplateManager({ currentConfig, onLoadTemplate }: TemplateManag
     }
     fetchTemplates();
   };
+
+  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+  const canDeleteSelected =
+    !!selectedTemplate &&
+    (selectedTemplate.created_by === user?.id ||
+      userRole === 'admin' ||
+      userRole === 'super_admin');
 
   return (
     <div className="flex items-center gap-2">
@@ -152,7 +165,7 @@ export function TemplateManager({ currentConfig, onLoadTemplate }: TemplateManag
         </SelectContent>
       </Select>
 
-      {selectedTemplateId && (
+      {selectedTemplateId && canDeleteSelected && (
         <Button
           variant="ghost"
           size="icon"
