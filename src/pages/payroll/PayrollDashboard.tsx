@@ -302,6 +302,34 @@ const PayrollDashboard = () => {
           </CardContent>
         </Card>}
 
+        {activeTab === 'codes' && <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Work Type Codes</CardTitle>
+            <CardDescription>Each work type gets one Future Systems E code, everywhere it is used. {unmappedCount > 0 ? `${unmappedCount} work types still need a code.` : 'Every work type has a code.'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-auto">
+              <Table className="min-w-[640px]">
+                <TableHeader><TableRow><TableHead>Work Type</TableHead><TableHead>E Code</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {workTypes.map(type => (
+                    <TableRow key={type.id}>
+                      <TableCell>{type.name}</TableCell>
+                      <TableCell>
+                        <select className="h-10 w-56 rounded-md border bg-background px-3 text-sm" value={workTypeCodes[type.id] || ''} onChange={event => void setWorkTypeCode(type.id, event.target.value)}>
+                          <option value="">Not assigned</option>
+                          {payCodes.map(code => <option key={code.id} value={code.id}>{code.code} · {code.description || code.department}</option>)}
+                        </select>
+                      </TableCell>
+                      <TableCell>{workTypeCodes[type.id] ? <span className="text-sm text-muted-foreground">Mapped</span> : <span className="rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">Needs a code</span>}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>}
+
         {activeTab === 'hours' && <Card>
           <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Upload className="h-5 w-5" />Import Hours</CardTitle><CardDescription>Upload the weekly CSV or Excel file from the outside timekeeping system. The final step will map its columns into hours and overtime.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="rounded-md border border-dashed p-8 text-center"><Input type="file" accept=".csv,.xlsx,.xls" onChange={event => setHoursFile(event.target.files?.[0] || null)} /><p className="mt-2 text-sm text-muted-foreground">{hoursFile ? hoursFile.name : 'Choose a CSV or Excel file'}</p></div><Button onClick={() => void importHours()} disabled={!hoursFile || !period}><Upload className="mr-2 h-4 w-4" />Upload Hours for {period ? `${period.period_start} – ${period.period_end}` : 'selected week'}</Button><p className="text-sm text-muted-foreground">Required mapping: employee name or employee number, regular hours, and optional E02 overtime hours.</p></CardContent></Card>}
       </div>
