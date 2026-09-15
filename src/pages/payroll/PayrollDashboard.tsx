@@ -32,6 +32,7 @@ type PayLine = {
   pay_code?: PayCode;
 };
 type Period = { id: string; period_start: string; period_end: string; check_date: string | null; status: string };
+type WorkType = { id: string; name: string };
 type RunLine = PayrollExportLine & { id: string; period_id: string };
 
 const payTypeOptions = ['Unit', 'Hourly', 'Salary'];
