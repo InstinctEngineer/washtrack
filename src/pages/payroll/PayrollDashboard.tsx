@@ -84,7 +84,7 @@ const PayrollDashboard = () => {
   const loadSetup = useCallback(async () => {
     setLoading(true);
     const [codesResult, employeesResult, linesResult, periodsResult, workTypesResult, mapsResult] = await Promise.all([
-      supabase.from('payroll_pay_codes').select('id, code, department, default_pay_type').eq('is_active', true).order('code'),
+      supabase.from('payroll_pay_codes').select('id, code, department, default_pay_type, description').eq('is_active', true).order('code'),
       supabase.from('users_safe_view').select('id, name, employee_id').eq('is_active', true).order('name'),
       supabase.from('payroll_employee_lines').select('*, pay_code:payroll_pay_codes(id, code, department, default_pay_type)').eq('is_active', true).order('display_name').order('sort_order'),
       supabase.from('payroll_periods').select('id, period_start, period_end, check_date, status').order('period_start', { ascending: false }).limit(20),
