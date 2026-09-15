@@ -135,19 +135,17 @@ const PayrollDashboard = () => {
     setWorking(true);
     const activeLines = payLines.filter(line => line.is_active && line.effective_date <= period.period_end && (!line.end_date || line.end_date >= period.period_start));
     const [workLogsResult, mapsResult, hoursResult] = await Promise.all([
-      supabase.from('work_logs').select('employee_id, quantity, work_item:work_items(rate_config:rate_configs(work_type_id, location_id))').gte('work_date', period.period_start).lte('work_date', period.period_end),
-      supabase.from('payroll_work_type_map').select('work_type_id, location_id, pay_code_id, task_label'),
+      supabase.from('work_logs').select('employee_id, quantity, work_item:work_items(rate_config:rate_configs(work_type_id))').gte('work_date', period.period_start).lte('work_date', period.period_end),
+      supabase.from('payroll_work_type_map').select('work_type_id, pay_code_id').is('location_id', null),
       supabase.from('payroll_hours_imports').select('employee_id, employee_line_id, provider_employee_number, raw_name, hours, ot_hours').eq('period_id', period.id),
     ]);
     if (workLogsResult.error || mapsResult.error || hoursResult.error) { setWorking(false); toast.error('Could not read payroll source data'); return; }
 
-    const maps = (mapsResult.data || []) as Array<{ work_type_id: string; location_id: string | null; pay_code_id: string; task_label: string | null }>;
+    const codeByWorkType = new Map(((mapsResult.data || []) as Array<{ work_type_id: string; pay_code_id: string }>).map(item => [item.work_type_id, item.pay_code_id]));
     const unitTotals = new Map<string, number>();
     (workLogsResult.data || []).forEach((log: any) => {
-      const workTypeId = log.work_item?.rate_config?.work_type_id;
-      const locationId = log.work_item?.rate_config?.location_id;
-      const mapping = maps.find(item => item.work_type_id === workTypeId && (!item.location_id || item.location_id === locationId));
-      if (mapping) unitTotals.set(`${log.employee_id}|${mapping.pay_code_id}`, (unitTotals.get(`${log.employee_id}|${mapping.pay_code_id}`) || 0) + Number(log.quantity || 0));
+      const payCodeId = codeByWorkType.get(log.work_item?.rate_config?.work_type_id);
+      if (payCodeId) unitTotals.set(`${log.employee_id}|${payCodeId}`, (unitTotals.get(`${log.employee_id}|${payCodeId}`) || 0) + Number(log.quantity || 0));
     });
     const importedHours = (hoursResult.data || []) as Array<{ employee_id: string | null; employee_line_id: string | null; provider_employee_number: string | null; raw_name: string; hours: number; ot_hours: number }>;
     const rows = activeLines.map(line => {
