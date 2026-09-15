@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { buildPayrollWorkbook, downloadPayrollWorkbook, PayrollExportLine } from '@/lib/payrollExport';
 
-type PayCode = { id: string; code: string; department: string; default_pay_type: string };
+type PayCode = { id: string; code: string; department: string; default_pay_type: string; description?: string | null };
 type Employee = { id: string; name: string; employee_id: string | null };
 type PayLine = {
   id: string;
@@ -32,6 +32,7 @@ type PayLine = {
   pay_code?: PayCode;
 };
 type Period = { id: string; period_start: string; period_end: string; check_date: string | null; status: string };
+type WorkType = { id: string; name: string };
 type RunLine = PayrollExportLine & { id: string; period_id: string };
 
 const payTypeOptions = ['Unit', 'Hourly', 'Salary'];
@@ -59,7 +60,9 @@ const parseHoursFile = async (file: File) => {
 };
 
 const PayrollDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'run' | 'lines' | 'hours'>('run');
+  const [activeTab, setActiveTab] = useState<'run' | 'lines' | 'codes' | 'hours'>('run');
+  const [workTypes, setWorkTypes] = useState<WorkType[]>([]);
+  const [workTypeCodes, setWorkTypeCodes] = useState<Record<string, string>>({});
   const [periodStart, setPeriodStart] = useState(asDateInput(mondayOf(new Date())));
   const [period, setPeriod] = useState<Period | null>(null);
   const [periods, setPeriods] = useState<Period[]>([]);
@@ -80,18 +83,22 @@ const PayrollDashboard = () => {
 
   const loadSetup = useCallback(async () => {
     setLoading(true);
-    const [codesResult, employeesResult, linesResult, periodsResult] = await Promise.all([
-      supabase.from('payroll_pay_codes').select('id, code, department, default_pay_type').eq('is_active', true).order('code'),
+    const [codesResult, employeesResult, linesResult, periodsResult, workTypesResult, mapsResult] = await Promise.all([
+      supabase.from('payroll_pay_codes').select('id, code, department, default_pay_type, description').eq('is_active', true).order('code'),
       supabase.from('users_safe_view').select('id, name, employee_id').eq('is_active', true).order('name'),
       supabase.from('payroll_employee_lines').select('*, pay_code:payroll_pay_codes(id, code, department, default_pay_type)').eq('is_active', true).order('display_name').order('sort_order'),
       supabase.from('payroll_periods').select('id, period_start, period_end, check_date, status').order('period_start', { ascending: false }).limit(20),
+      supabase.from('work_types').select('id, name').eq('is_active', true).order('name'),
+      supabase.from('payroll_work_type_map').select('work_type_id, pay_code_id').is('location_id', null),
     ]);
-    const firstError = [codesResult.error, employeesResult.error, linesResult.error, periodsResult.error].find(Boolean);
+    const firstError = [codesResult.error, employeesResult.error, linesResult.error, periodsResult.error, workTypesResult.error, mapsResult.error].find(Boolean);
     if (firstError) toast.error('Could not load payroll setup');
     setPayCodes((codesResult.data || []) as PayCode[]);
     setEmployees((employeesResult.data || []) as Employee[]);
     setPayLines((linesResult.data || []) as PayLine[]);
     setPeriods((periodsResult.data || []) as Period[]);
+    setWorkTypes((workTypesResult.data || []) as WorkType[]);
+    setWorkTypeCodes(Object.fromEntries(((mapsResult.data || []) as Array<{ work_type_id: string; pay_code_id: string }>).map(item => [item.work_type_id, item.pay_code_id])));
     setLoading(false);
   }, []);
 
@@ -128,19 +135,17 @@ const PayrollDashboard = () => {
     setWorking(true);
     const activeLines = payLines.filter(line => line.is_active && line.effective_date <= period.period_end && (!line.end_date || line.end_date >= period.period_start));
     const [workLogsResult, mapsResult, hoursResult] = await Promise.all([
-      supabase.from('work_logs').select('employee_id, quantity, work_item:work_items(rate_config:rate_configs(work_type_id, location_id))').gte('work_date', period.period_start).lte('work_date', period.period_end),
-      supabase.from('payroll_work_type_map').select('work_type_id, location_id, pay_code_id, task_label'),
+      supabase.from('work_logs').select('employee_id, quantity, work_item:work_items(rate_config:rate_configs(work_type_id))').gte('work_date', period.period_start).lte('work_date', period.period_end),
+      supabase.from('payroll_work_type_map').select('work_type_id, pay_code_id').is('location_id', null),
       supabase.from('payroll_hours_imports').select('employee_id, employee_line_id, provider_employee_number, raw_name, hours, ot_hours').eq('period_id', period.id),
     ]);
     if (workLogsResult.error || mapsResult.error || hoursResult.error) { setWorking(false); toast.error('Could not read payroll source data'); return; }
 
-    const maps = (mapsResult.data || []) as Array<{ work_type_id: string; location_id: string | null; pay_code_id: string; task_label: string | null }>;
+    const codeByWorkType = new Map(((mapsResult.data || []) as Array<{ work_type_id: string; pay_code_id: string }>).map(item => [item.work_type_id, item.pay_code_id]));
     const unitTotals = new Map<string, number>();
     (workLogsResult.data || []).forEach((log: any) => {
-      const workTypeId = log.work_item?.rate_config?.work_type_id;
-      const locationId = log.work_item?.rate_config?.location_id;
-      const mapping = maps.find(item => item.work_type_id === workTypeId && (!item.location_id || item.location_id === locationId));
-      if (mapping) unitTotals.set(`${log.employee_id}|${mapping.pay_code_id}`, (unitTotals.get(`${log.employee_id}|${mapping.pay_code_id}`) || 0) + Number(log.quantity || 0));
+      const payCodeId = codeByWorkType.get(log.work_item?.rate_config?.work_type_id);
+      if (payCodeId) unitTotals.set(`${log.employee_id}|${payCodeId}`, (unitTotals.get(`${log.employee_id}|${payCodeId}`) || 0) + Number(log.quantity || 0));
     });
     const importedHours = (hoursResult.data || []) as Array<{ employee_id: string | null; employee_line_id: string | null; provider_employee_number: string | null; raw_name: string; hours: number; ot_hours: number }>;
     const rows = activeLines.map(line => {
@@ -225,6 +230,18 @@ const PayrollDashboard = () => {
     setNewPayCode(emptyPayCode); setShowPayCodeForm(false); await loadSetup(); toast.success('Pay code added');
   };
 
+  const setWorkTypeCode = async (workTypeId: string, payCodeId: string) => {
+    const previous = workTypeCodes[workTypeId] || '';
+    setWorkTypeCodes(current => ({ ...current, [workTypeId]: payCodeId }));
+    const { error: deleteError } = await supabase.from('payroll_work_type_map').delete().eq('work_type_id', workTypeId).is('location_id', null);
+    if (deleteError) { setWorkTypeCodes(current => ({ ...current, [workTypeId]: previous })); toast.error('Could not save the code'); return; }
+    if (!payCodeId) return;
+    const { error } = await supabase.from('payroll_work_type_map').insert({ work_type_id: workTypeId, location_id: null, pay_code_id: payCodeId });
+    if (error) { setWorkTypeCodes(current => ({ ...current, [workTypeId]: previous })); toast.error('Could not save the code'); }
+  };
+
+  const unmappedCount = useMemo(() => workTypes.filter(type => !workTypeCodes[type.id]).length, [workTypes, workTypeCodes]);
+
   const exportWorkbook = async () => {
     if (!period || runLines.length === 0) { toast.error('Generate a payroll run before exporting'); return; }
     setWorking(true);
@@ -250,7 +267,7 @@ const PayrollDashboard = () => {
         </div>
 
         <div className="flex flex-wrap gap-2 border-b pb-2">
-          {([['run', 'Weekly Run'], ['lines', 'Pay Lines'], ['hours', 'Import Hours']] as const).map(([value, label]) => (
+          {([['run', 'Weekly Run'], ['lines', 'Pay Lines'], ['codes', 'Work Type Codes'], ['hours', 'Import Hours']] as const).map(([value, label]) => (
             <Button key={value} variant={activeTab === value ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab(value)}>{label}</Button>
           ))}
         </div>
@@ -282,6 +299,34 @@ const PayrollDashboard = () => {
             {showPayCodeForm && <div className="grid gap-3 rounded-md border p-4 md:grid-cols-4"><div className="space-y-1"><Label>Code</Label><Input value={newPayCode.code} onChange={event => setNewPayCode({ ...newPayCode, code: event.target.value })} /></div><div className="space-y-1"><Label>Department</Label><Input value={newPayCode.department} onChange={event => setNewPayCode({ ...newPayCode, department: event.target.value })} /></div><div className="space-y-1"><Label>Default type</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newPayCode.default_pay_type} onChange={event => setNewPayCode({ ...newPayCode, default_pay_type: event.target.value })}>{payTypeOptions.map(option => <option key={option}>{option}</option>)}</select></div><div className="flex items-end gap-2"><Button onClick={() => void addPayCode()}>Save Code</Button><Button variant="outline" onClick={() => setShowPayCodeForm(false)}>Cancel</Button></div></div>}
             {showPayLineForm && <div className="grid gap-3 rounded-md border p-4 md:grid-cols-4"><div className="space-y-1"><Label>Employee</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newLine.employee_id} onChange={event => setNewLine({ ...newLine, employee_id: event.target.value })}><option value="">Choose employee</option>{employees.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div><div className="space-y-1"><Label>Pay code</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newLine.pay_code_id} onChange={event => { const code = payCodes.find(item => item.id === event.target.value); setNewLine({ ...newLine, pay_code_id: event.target.value, department: code?.department || newLine.department, pay_type: code?.default_pay_type || newLine.pay_type }); }}><option value="">Choose code</option>{payCodes.map(code => <option key={code.id} value={code.id}>{code.code} · {code.department}</option>)}</select></div><div className="space-y-1"><Label>Department</Label><Input value={newLine.department} onChange={event => setNewLine({ ...newLine, department: event.target.value })} /></div><div className="space-y-1"><Label>Task / location label</Label><Input value={newLine.task_label} onChange={event => setNewLine({ ...newLine, task_label: event.target.value })} /></div><div className="space-y-1"><Label>Future Systems employee #</Label><Input value={newLine.provider_employee_number} onChange={event => setNewLine({ ...newLine, provider_employee_number: event.target.value })} /></div><div className="space-y-1"><Label>Rate</Label><Input type="number" min="0" step="0.01" value={newLine.rate} onChange={event => setNewLine({ ...newLine, rate: event.target.value })} /></div><div className="space-y-1"><Label>Type</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newLine.pay_type} onChange={event => setNewLine({ ...newLine, pay_type: event.target.value })}>{payTypeOptions.map(option => <option key={option}>{option}</option>)}</select></div><div className="space-y-1"><Label>Effective date</Label><Input type="date" value={newLine.effective_date} onChange={event => setNewLine({ ...newLine, effective_date: event.target.value })} /></div><div className="flex items-end gap-2 md:col-span-4"><Button onClick={() => void addPayLine()}>Save Pay Line</Button><Button variant="outline" onClick={() => setShowPayLineForm(false)}>Cancel</Button></div></div>}
             <div className="overflow-auto"><Table className="min-w-[1000px]"><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Employee #</TableHead><TableHead>Code</TableHead><TableHead>Department</TableHead><TableHead>Task / Location</TableHead><TableHead>Rate</TableHead><TableHead>Type</TableHead><TableHead>Effective</TableHead></TableRow></TableHeader><TableBody>{payLines.map(line => <TableRow key={line.id}><TableCell>{line.display_name}</TableCell><TableCell>{line.provider_employee_number || '—'}</TableCell><TableCell>{line.pay_code?.code || '—'}</TableCell><TableCell>{line.department}</TableCell><TableCell>{line.task_label}</TableCell><TableCell>${line.rate.toFixed(2)}</TableCell><TableCell>{line.pay_type}</TableCell><TableCell>{line.effective_date}</TableCell></TableRow>)}</TableBody></Table></div>
+          </CardContent>
+        </Card>}
+
+        {activeTab === 'codes' && <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Work Type Codes</CardTitle>
+            <CardDescription>Each work type gets one Future Systems E code, everywhere it is used. {unmappedCount > 0 ? `${unmappedCount} work types still need a code.` : 'Every work type has a code.'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-auto">
+              <Table className="min-w-[640px]">
+                <TableHeader><TableRow><TableHead>Work Type</TableHead><TableHead>E Code</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {workTypes.map(type => (
+                    <TableRow key={type.id}>
+                      <TableCell>{type.name}</TableCell>
+                      <TableCell>
+                        <select className="h-10 w-56 rounded-md border bg-background px-3 text-sm" value={workTypeCodes[type.id] || ''} onChange={event => void setWorkTypeCode(type.id, event.target.value)}>
+                          <option value="">Not assigned</option>
+                          {payCodes.map(code => <option key={code.id} value={code.id}>{code.code} · {code.description || code.department}</option>)}
+                        </select>
+                      </TableCell>
+                      <TableCell>{workTypeCodes[type.id] ? <span className="text-sm text-muted-foreground">Mapped</span> : <span className="rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">Needs a code</span>}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>}
 
