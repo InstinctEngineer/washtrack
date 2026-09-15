@@ -230,6 +230,18 @@ const PayrollDashboard = () => {
     setNewPayCode(emptyPayCode); setShowPayCodeForm(false); await loadSetup(); toast.success('Pay code added');
   };
 
+  const setWorkTypeCode = async (workTypeId: string, payCodeId: string) => {
+    const previous = workTypeCodes[workTypeId] || '';
+    setWorkTypeCodes(current => ({ ...current, [workTypeId]: payCodeId }));
+    const { error: deleteError } = await supabase.from('payroll_work_type_map').delete().eq('work_type_id', workTypeId).is('location_id', null);
+    if (deleteError) { setWorkTypeCodes(current => ({ ...current, [workTypeId]: previous })); toast.error('Could not save the code'); return; }
+    if (!payCodeId) return;
+    const { error } = await supabase.from('payroll_work_type_map').insert({ work_type_id: workTypeId, location_id: null, pay_code_id: payCodeId });
+    if (error) { setWorkTypeCodes(current => ({ ...current, [workTypeId]: previous })); toast.error('Could not save the code'); }
+  };
+
+  const unmappedCount = useMemo(() => workTypes.filter(type => !workTypeCodes[type.id]).length, [workTypes, workTypeCodes]);
+
   const exportWorkbook = async () => {
     if (!period || runLines.length === 0) { toast.error('Generate a payroll run before exporting'); return; }
     setWorking(true);
