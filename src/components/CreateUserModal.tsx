@@ -254,6 +254,7 @@ export const CreateUserModal = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            employee_id: employeeId,
             name: formData.name,
             email: formData.email,
             location_id: primaryLocation?.location_id || null,
