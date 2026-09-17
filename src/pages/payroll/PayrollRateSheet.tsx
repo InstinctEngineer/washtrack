@@ -83,21 +83,19 @@ const PayrollRateSheet = () => {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [sheetResult, codesResult, mapResult, linesResult] = await Promise.all([
+    const [sheetResult, mapResult, linesResult] = await Promise.all([
       supabase.rpc('get_payroll_rate_sheet', { p_start_date: startDate, p_end_date: endDate }),
-      supabase.from('payroll_pay_codes').select('id, code, department, default_pay_type').eq('is_active', true).order('code'),
       supabase.from('payroll_work_type_map').select('work_type_id, pay_code_id').is('location_id', null),
       supabase.from('payroll_employee_lines').select('*').order('effective_date', { ascending: false }),
     ]);
 
-    if (sheetResult.error || codesResult.error || mapResult.error || linesResult.error) {
+    if (sheetResult.error || mapResult.error || linesResult.error) {
       toast.error('Could not load pay rates');
       setLoading(false);
       return;
     }
 
     setSheet(((sheetResult.data || []) as SheetRow[]).map(row => ({ ...row, total_quantity: Number(row.total_quantity) || 0 })));
-    setPayCodes((codesResult.data || []) as PayCode[]);
     setMaps(Object.fromEntries(((mapResult.data || []) as Array<{ work_type_id: string; pay_code_id: string }>).map(item => [item.work_type_id, item.pay_code_id])));
     setPayLines(((linesResult.data || []) as PayLine[]).map(line => ({ ...line, rate: Number(line.rate) || 0 })));
     setLoading(false);
