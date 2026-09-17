@@ -277,7 +277,7 @@ const PayrollDashboard = () => {
 
         {activeTab === 'run' && <>
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CalendarRange className="h-5 w-5" />Pay period</CardTitle><CardDescription>Weeks run Monday through Sunday. Create a week, generate its lines, review, then lock it.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CalendarRange className="h-5 w-5" />Pay period</CardTitle><CardDescription>Weeks run Monday through Sunday. Create a week, generate its lines, then review it.</CardDescription></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2"><Label htmlFor="periodStart">Week starting</Label><Input id="periodStart" type="date" value={periodStart} onChange={event => setPeriodStart(asDateInput(mondayOf(new Date(`${event.target.value}T00:00:00`))))} /></div>
