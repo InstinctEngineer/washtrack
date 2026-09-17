@@ -102,8 +102,13 @@ serve(async (req) => {
     // Parse request body
     const requestBody = await req.json();
 
-    // Validate input using Zod (employee_id is now auto-generated, not required)
+    // Validate input using Zod (employee_id must be supplied by the caller)
     const createUserSchema = z.object({
+      employee_id: z.string()
+        .trim()
+        .min(1, 'Employee ID required')
+        .max(32, 'Employee ID too long')
+        .regex(/^[A-Za-z0-9_-]+$/, 'Employee ID can only contain letters, numbers, dashes and underscores'),
       name: z.string()
         .min(1, 'Name required')
         .max(100, 'Name too long')
