@@ -222,9 +222,45 @@ export const EditUserModal = ({
         role: data.role, // Keep in sync for backward compatibility
       };
 
-      // Only allow super_admin to update employee_id
-      if (currentUserRole === 'super_admin' && data.employee_id !== user.employee_id) {
-        updateData.employee_id = data.employee_id;
+      // Finance and above may change the Employee ID
+      const newEmployeeId = (data.employee_id || "").trim();
+      const employeeIdChanged = canEditEmployeeId && newEmployeeId !== user.employee_id;
+
+      if (canEditEmployeeId) {
+        if (!newEmployeeId) {
+          toast({
+            title: "Employee ID required",
+            description: "Employee ID cannot be blank.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (newEmployeeId.length > 32) {
+          toast({
+            title: "Employee ID too long",
+            description: "Employee ID must be 32 characters or fewer.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (employeeIdChanged) {
+          const { data: clash } = await supabase
+            .from("users")
+            .select("id, name")
+            .eq("employee_id", newEmployeeId)
+            .neq("id", user.id)
+            .maybeSingle();
+
+          if (clash) {
+            toast({
+              title: "Employee ID already in use",
+              description: `${clash.name} already has Employee ID ${newEmployeeId}.`,
+              variant: "destructive",
+            });
+            return;
+          }
+          updateData.employee_id = newEmployeeId;
+        }
       }
 
       const { error: userError } = await supabase
