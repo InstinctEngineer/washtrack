@@ -360,6 +360,22 @@ export const CreateUserModal = ({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="new_employee_id">Employee ID *</Label>
+              <Input
+                id="new_employee_id"
+                value={formData.employee_id}
+                onChange={(e) =>
+                  setFormData({ ...formData, employee_id: e.target.value })
+                }
+                maxLength={32}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter the Employee ID used in your payroll system. Must be unique.
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="name">Full Name *</Label>
               <Input
                 id="name"
