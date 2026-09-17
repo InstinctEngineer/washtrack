@@ -270,7 +270,7 @@ const PayrollDashboard = () => {
         </div>
 
         <div className="flex flex-wrap gap-2 border-b pb-2">
-          {([['run', 'Weekly Run'], ['lines', 'Pay Lines'], ['codes', 'Work Type Codes'], ['hours', 'Import Hours']] as const).map(([value, label]) => (
+          {([['run', 'Weekly Run'], ['production', 'Washer Production'], ['lines', 'Pay Lines'], ['codes', 'Work Type Codes'], ['hours', 'Import Hours']] as const).map(([value, label]) => (
             <Button key={value} variant={activeTab === value ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab(value)}>{label}</Button>
           ))}
         </div>
