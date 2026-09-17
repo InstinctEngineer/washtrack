@@ -133,7 +133,11 @@ export default function CreateUser() {
         role: 'employee'
       });
     } catch (err: any) {
-      setError(err.message || 'Failed to create user');
+      if (err?.code === '23505' && String(err?.message || '').includes('employee_id')) {
+        setError(`Employee ID ${formData.employee_id} is already in use. Please enter a different one.`);
+      } else {
+        setError(err.message || 'Failed to create user');
+      }
     } finally {
       setLoading(false);
     }
