@@ -8,47 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Generate employee ID in format YYMMXXX (e.g., 2512001)
-async function generateEmployeeId(supabaseAdmin: any): Promise<string> {
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2); // Last 2 digits of year
-  const month = (now.getMonth() + 1).toString().padStart(2, '0'); // Month with leading zero
-  const prefix = `${year}${month}`;
-  
-  console.log(`Generating employee ID with prefix: ${prefix}`);
-  
-  // Query for the highest existing employee ID with this prefix
-  const { data: existingUsers, error } = await supabaseAdmin
-    .from('users')
-    .select('employee_id')
-    .like('employee_id', `${prefix}%`)
-    .order('employee_id', { ascending: false })
-    .limit(1);
-  
-  if (error) {
-    console.error('Error querying existing employee IDs:', error);
-    throw new Error('Failed to generate employee ID');
-  }
-  
-  let nextNumber = 0;
-  
-  if (existingUsers && existingUsers.length > 0) {
-    const lastId = existingUsers[0].employee_id;
-    // Extract the last 3 digits and increment
-    const lastNumber = parseInt(lastId.slice(-3), 10);
-    nextNumber = lastNumber + 1;
-    
-    if (nextNumber > 999) {
-      throw new Error('Maximum employee IDs for this month reached (999)');
-    }
-  }
-  
-  const employeeId = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
-  console.log(`Generated employee ID: ${employeeId}`);
-  
-  return employeeId;
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
