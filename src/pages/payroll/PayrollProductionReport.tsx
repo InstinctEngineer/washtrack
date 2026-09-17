@@ -48,6 +48,7 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
   const [locationFilter, setLocationFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const { payCodeById } = usePayCodes();
 
   useEffect(() => { setWeekStart(periodStart); }, [periodStart]);
 
