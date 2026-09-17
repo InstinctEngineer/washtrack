@@ -2126,6 +2126,26 @@ export type Database = {
       }
       get_last_monday: { Args: never; Returns: string }
       get_next_sunday: { Args: never; Returns: string }
+      get_payroll_production_data: {
+        Args: {
+          p_employee_ids?: string[]
+          p_end_date: string
+          p_location_ids?: string[]
+          p_start_date: string
+        }
+        Returns: {
+          client_name: string
+          employee_id: string
+          employee_name: string
+          location_id: string
+          location_name: string
+          provider_employee_number: string
+          total_quantity: number
+          work_type_id: string
+          work_type_name: string
+          work_type_rate_type: string
+        }[]
+      }
       get_portal_account_status: {
         Args: never
         Returns: {

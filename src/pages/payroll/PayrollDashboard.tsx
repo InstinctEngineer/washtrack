@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { buildPayrollWorkbook, downloadPayrollWorkbook, PayrollExportLine } from '@/lib/payrollExport';
+import PayrollProductionReport from './PayrollProductionReport';
 
 type PayCode = { id: string; code: string; department: string; default_pay_type: string; description?: string | null };
 type Employee = { id: string; name: string; employee_id: string | null };
@@ -60,7 +61,7 @@ const parseHoursFile = async (file: File) => {
 };
 
 const PayrollDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'run' | 'lines' | 'codes' | 'hours'>('run');
+  const [activeTab, setActiveTab] = useState<'run' | 'production' | 'lines' | 'codes' | 'hours'>('run');
   const [workTypes, setWorkTypes] = useState<WorkType[]>([]);
   const [workTypeCodes, setWorkTypeCodes] = useState<Record<string, string>>({});
   const [periodStart, setPeriodStart] = useState(asDateInput(mondayOf(new Date())));
@@ -270,7 +271,7 @@ const PayrollDashboard = () => {
         </div>
 
         <div className="flex flex-wrap gap-2 border-b pb-2">
-          {([['run', 'Weekly Run'], ['lines', 'Pay Lines'], ['codes', 'Work Type Codes'], ['hours', 'Import Hours']] as const).map(([value, label]) => (
+          {([['run', 'Weekly Run'], ['production', 'Washer Production'], ['lines', 'Pay Lines'], ['codes', 'Work Type Codes'], ['hours', 'Import Hours']] as const).map(([value, label]) => (
             <Button key={value} variant={activeTab === value ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab(value)}>{label}</Button>
           ))}
         </div>
@@ -295,6 +296,8 @@ const PayrollDashboard = () => {
             </CardContent>
           </Card>
         </>}
+
+        {activeTab === 'production' && <PayrollProductionReport periodStart={periodStart} />}
 
         {activeTab === 'lines' && <Card>
           <CardHeader><CardTitle className="flex items-center justify-between text-lg">Recurring Pay Lines <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setShowPayCodeForm(value => !value)}><Plus className="mr-2 h-4 w-4" />Pay Code</Button><Button size="sm" onClick={() => setShowPayLineForm(value => !value)}><Plus className="mr-2 h-4 w-4" />Add Pay Line</Button></div></CardTitle><CardDescription>Set up the rows that should appear for each employee in the Future Systems worksheet.</CardDescription></CardHeader>
