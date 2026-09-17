@@ -42,7 +42,7 @@ const payTypeOptions = ['Unit', 'Hourly', 'Salary'];
 const asDateInput = (date: Date) => format(date, 'yyyy-MM-dd');
 const mondayOf = (date: Date) => startOfWeek(date, { weekStartsOn: 1 });
 const emptyLine = { employee_id: '', pay_code_id: '', department: '', task_label: '', provider_employee_number: '', rate: '0', pay_type: 'Unit', effective_date: asDateInput(new Date()) };
-const emptyPayCode = { code: '', department: '', default_pay_type: 'Unit', description: '' };
+
 
 const parseHoursFile = async (file: File) => {
   const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
