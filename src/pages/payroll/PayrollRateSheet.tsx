@@ -70,7 +70,7 @@ const PayrollRateSheet = () => {
   const [startDate, setStartDate] = useState(asDateInput(subDays(new Date(), 90)));
   const [endDate, setEndDate] = useState(today());
   const [sheet, setSheet] = useState<SheetRow[]>([]);
-  const [payCodes, setPayCodes] = useState<PayCode[]>([]);
+  const { payCodeById } = usePayCodes();
   const [maps, setMaps] = useState<Record<string, string>>({});
   const [payLines, setPayLines] = useState<PayLine[]>([]);
   const [loading, setLoading] = useState(false);
