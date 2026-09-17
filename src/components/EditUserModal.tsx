@@ -270,6 +270,14 @@ export const EditUserModal = ({
 
       if (userError) throw userError;
 
+      if (employeeIdChanged) {
+        logAction("employee_id_change", user.name, {
+          user_id: user.id,
+          old_employee_id: user.employee_id,
+          new_employee_id: newEmployeeId,
+        });
+      }
+
       // Delete existing location assignments
       const { error: deleteLocationError } = await supabase
         .from("user_locations")
