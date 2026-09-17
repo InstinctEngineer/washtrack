@@ -15,7 +15,8 @@ import { ArrowLeft } from 'lucide-react';
 const userSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
-  employee_id: z.string().min(1, 'Employee ID is required'),
+  employee_id: z.string().trim().min(1, 'Employee ID is required').max(32, 'Employee ID too long')
+    .regex(/^[A-Za-z0-9_-]+$/, 'Employee ID can only contain letters, numbers, dashes and underscores'),
   role: z.enum(['employee', 'manager', 'finance', 'admin'])
 });
 
@@ -132,7 +133,11 @@ export default function CreateUser() {
         role: 'employee'
       });
     } catch (err: any) {
-      setError(err.message || 'Failed to create user');
+      if (err?.code === '23505' && String(err?.message || '').includes('employee_id')) {
+        setError(`Employee ID ${formData.employee_id} is already in use. Please enter a different one.`);
+      } else {
+        setError(err.message || 'Failed to create user');
+      }
     } finally {
       setLoading(false);
     }

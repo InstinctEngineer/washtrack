@@ -8,47 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Generate employee ID in format YYMMXXX (e.g., 2512001)
-async function generateEmployeeId(supabaseAdmin: any): Promise<string> {
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2); // Last 2 digits of year
-  const month = (now.getMonth() + 1).toString().padStart(2, '0'); // Month with leading zero
-  const prefix = `${year}${month}`;
-  
-  console.log(`Generating employee ID with prefix: ${prefix}`);
-  
-  // Query for the highest existing employee ID with this prefix
-  const { data: existingUsers, error } = await supabaseAdmin
-    .from('users')
-    .select('employee_id')
-    .like('employee_id', `${prefix}%`)
-    .order('employee_id', { ascending: false })
-    .limit(1);
-  
-  if (error) {
-    console.error('Error querying existing employee IDs:', error);
-    throw new Error('Failed to generate employee ID');
-  }
-  
-  let nextNumber = 0;
-  
-  if (existingUsers && existingUsers.length > 0) {
-    const lastId = existingUsers[0].employee_id;
-    // Extract the last 3 digits and increment
-    const lastNumber = parseInt(lastId.slice(-3), 10);
-    nextNumber = lastNumber + 1;
-    
-    if (nextNumber > 999) {
-      throw new Error('Maximum employee IDs for this month reached (999)');
-    }
-  }
-  
-  const employeeId = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
-  console.log(`Generated employee ID: ${employeeId}`);
-  
-  return employeeId;
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -143,8 +102,13 @@ serve(async (req) => {
     // Parse request body
     const requestBody = await req.json();
 
-    // Validate input using Zod (employee_id is now auto-generated, not required)
+    // Validate input using Zod (employee_id must be supplied by the caller)
     const createUserSchema = z.object({
+      employee_id: z.string()
+        .trim()
+        .min(1, 'Employee ID required')
+        .max(32, 'Employee ID too long')
+        .regex(/^[A-Za-z0-9_-]+$/, 'Employee ID can only contain letters, numbers, dashes and underscores'),
       name: z.string()
         .min(1, 'Name required')
         .max(100, 'Name too long')
@@ -161,8 +125,14 @@ serve(async (req) => {
       manager_id: z.string().uuid().optional().nullable(),
     });
 
-    const validatedData = createUserSchema.parse(requestBody);
-    const { name, email, location_id, role, manager_id, password } = validatedData;
+    const parsed = createUserSchema.safeParse(requestBody);
+    if (!parsed.success) {
+      return new Response(
+        JSON.stringify({ error: parsed.error.errors[0]?.message || 'Invalid input' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { name, email, location_id, role, manager_id, password, employee_id } = parsed.data;
 
     // Validate that the requested role is not higher than caller's role
     const requestedRoleLevel = roleHierarchy[role] || 0;
@@ -174,10 +144,21 @@ serve(async (req) => {
       );
     }
 
-    // Generate employee ID
-    const employee_id = await generateEmployeeId(supabaseAdmin);
-
     console.log('Creating user with email:', email, 'and employee_id:', employee_id);
+
+    // Employee ID must be unique
+    const { data: idClash } = await supabaseAdmin
+      .from('users')
+      .select('id, name')
+      .eq('employee_id', employee_id)
+      .maybeSingle();
+
+    if (idClash) {
+      return new Response(
+        JSON.stringify({ error: `Employee ID ${employee_id} is already used by ${idClash.name}.` }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Check for existing auth user with this email and handle orphaned users
     const { data: { users: existingAuthUsers }, error: listError } = await supabaseAdmin.auth.admin.listUsers({
@@ -277,8 +258,9 @@ serve(async (req) => {
       console.error('Error inserting into users table:', userError);
       // Clean up auth user if users table insert fails
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      const duplicateId = userError.code === '23505' && String(userError.message || '').includes('employee_id');
       return new Response(
-        JSON.stringify({ error: userError.message }), 
+        JSON.stringify({ error: duplicateId ? `Employee ID ${employee_id} is already in use.` : userError.message }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

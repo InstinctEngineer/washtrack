@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { logAction } from "@/lib/activityLogger";
 
 interface EditUserModalProps {
   user: User;
@@ -66,6 +67,7 @@ export const EditUserModal = ({
   });
 
   const isEditingSelf = currentUser?.id === user.id;
+  const canEditEmployeeId = ["finance", "admin", "super_admin"].includes(currentUserRole || "");
   const isEditingSuperAdmin = userRole === 'super_admin';
   const canEditSuperAdmin = currentUserRole === 'super_admin';
   // Check if the current user can manage the target user based on role hierarchy
@@ -221,9 +223,45 @@ export const EditUserModal = ({
         role: data.role, // Keep in sync for backward compatibility
       };
 
-      // Only allow super_admin to update employee_id
-      if (currentUserRole === 'super_admin' && data.employee_id !== user.employee_id) {
-        updateData.employee_id = data.employee_id;
+      // Finance and above may change the Employee ID
+      const newEmployeeId = (data.employee_id || "").trim();
+      const employeeIdChanged = canEditEmployeeId && newEmployeeId !== user.employee_id;
+
+      if (canEditEmployeeId) {
+        if (!newEmployeeId) {
+          toast({
+            title: "Employee ID required",
+            description: "Employee ID cannot be blank.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (newEmployeeId.length > 32) {
+          toast({
+            title: "Employee ID too long",
+            description: "Employee ID must be 32 characters or fewer.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (employeeIdChanged) {
+          const { data: clash } = await supabase
+            .from("users")
+            .select("id, name")
+            .eq("employee_id", newEmployeeId)
+            .neq("id", user.id)
+            .maybeSingle();
+
+          if (clash) {
+            toast({
+              title: "Employee ID already in use",
+              description: `${clash.name} already has Employee ID ${newEmployeeId}.`,
+              variant: "destructive",
+            });
+            return;
+          }
+          updateData.employee_id = newEmployeeId;
+        }
       }
 
       const { error: userError } = await supabase
@@ -232,6 +270,14 @@ export const EditUserModal = ({
         .eq("id", user.id);
 
       if (userError) throw userError;
+
+      if (employeeIdChanged) {
+        logAction("employee_id_change", user.name, {
+          user_id: user.id,
+          old_employee_id: user.employee_id,
+          new_employee_id: newEmployeeId,
+        });
+      }
 
       // Delete existing location assignments
       const { error: deleteLocationError } = await supabase
@@ -280,9 +326,12 @@ export const EditUserModal = ({
       onSuccess();
     } catch (error: any) {
       console.error("Error updating user:", error);
+      const duplicateId = error?.code === "23505" && String(error?.message || "").includes("employee_id");
       toast({
-        title: "Error",
-        description: error.message || "Failed to update user",
+        title: duplicateId ? "Employee ID already in use" : "Error",
+        description: duplicateId
+          ? "Another user already has that Employee ID. Please enter a different one."
+          : error.message || "Failed to update user",
         variant: "destructive",
       });
     } finally {
@@ -323,20 +372,21 @@ export const EditUserModal = ({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="employee_id">Employee ID</Label>
+              <Label htmlFor="employee_id">Employee ID {canEditEmployeeId && "*"}</Label>
               <Input
                 id="employee_id"
                 value={formData.employee_id}
                 onChange={(e) =>
                   setFormData({ ...formData, employee_id: e.target.value })
                 }
-                disabled={currentUserRole !== 'super_admin'}
-                className={currentUserRole !== 'super_admin' ? "bg-muted" : ""}
+                maxLength={32}
+                disabled={!canEditEmployeeId}
+                className={!canEditEmployeeId ? "bg-muted" : ""}
               />
               <p className="text-xs text-muted-foreground">
-                {currentUserRole === 'super_admin' 
-                  ? "Only Super Admins can edit Employee ID"
-                  : "Employee ID cannot be changed (Super Admin only)"}
+                {canEditEmployeeId
+                  ? "Must be unique. Every change is recorded in the activity log."
+                  : "Employee ID can only be changed by Finance and above"}
               </p>
             </div>
 
