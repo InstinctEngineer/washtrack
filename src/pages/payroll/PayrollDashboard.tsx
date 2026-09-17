@@ -32,7 +32,7 @@ type PayLine = {
   end_date: string | null;
   is_active: boolean;
   sort_order: number;
-  pay_code?: PayCode;
+  pay_code?: { id: string; code: string; department: string; default_pay_type: string } | null;
 };
 type Period = { id: string; period_start: string; period_end: string; check_date: string | null; status: string };
 type WorkType = { id: string; name: string };
