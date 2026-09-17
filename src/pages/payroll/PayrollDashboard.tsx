@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays, format, startOfWeek } from 'date-fns';
-import { CalendarRange, Download, Loader2, Plus, RefreshCw, Upload, Wallet } from 'lucide-react';
+import { CalendarRange, Download, Loader2, Plus, RefreshCw, Search, Upload, Wallet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { Layout } from '@/components/Layout';
@@ -78,6 +78,8 @@ const PayrollDashboard = () => {
   const [newLine, setNewLine] = useState(emptyLine);
   const [hoursFile, setHoursFile] = useState<File | null>(null);
   const { payCodes, activePayCodes, payCodeById } = usePayCodes();
+  const [codeSearch, setCodeSearch] = useState('');
+  const [codeFilter, setCodeFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
 
   const periodEnd = useMemo(() => asDateInput(addDays(new Date(`${periodStart}T00:00:00`), 6)), [periodStart]);
   const totalGross = useMemo(() => runLines.reduce((sum, line) => sum + line.rate * line.quantity + line.ot_hours * line.rate * 1.5, 0), [runLines]);
@@ -306,12 +308,26 @@ const PayrollDashboard = () => {
             <CardTitle className="text-lg">Work Type Codes</CardTitle>
             <CardDescription>Each work type gets one Future Systems E code, everywhere it is used. {unmappedCount > 0 ? `${unmappedCount} work types still need a code.` : 'Every work type has a code.'}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[240px] flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input className="pl-9" placeholder="Search work type or E code" value={codeSearch} onChange={event => setCodeSearch(event.target.value)} />
+              </div>
+              <div className="flex gap-2">
+                {(['all', 'mapped', 'unmapped'] as const).map(option => (
+                  <Button key={option} size="sm" variant={codeFilter === option ? 'default' : 'outline'} onClick={() => setCodeFilter(option)}>
+                    {option === 'all' ? 'All' : option === 'mapped' ? 'Has a code' : 'Needs a code'}
+                  </Button>
+                ))}
+              </div>
+              <span className="text-sm text-muted-foreground">{visibleWorkTypes.length} of {workTypes.length}</span>
+            </div>
             <div className="overflow-auto">
               <Table className="min-w-[640px]">
                 <TableHeader><TableRow><TableHead>Work Type</TableHead><TableHead>E Code</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {workTypes.map(type => (
+                  {visibleWorkTypes.map(type => (
                     <TableRow key={type.id}>
                       <TableCell>{type.name}</TableCell>
                       <TableCell>
@@ -326,6 +342,7 @@ const PayrollDashboard = () => {
                   ))}
                 </TableBody>
               </Table>
+              {visibleWorkTypes.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No work types match your search.</p>}
             </div>
           </CardContent>
         </Card>}
