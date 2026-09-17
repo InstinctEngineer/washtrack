@@ -105,7 +105,7 @@ const PayrollRateSheet = () => {
 
   const rows = useMemo<Row[]>(() => {
     const now = today();
-    const codeById = Object.fromEntries(payCodes.map(code => [code.id, code]));
+    const codeById = payCodeById;
     const linesFor = (employeeId: string | null, payCodeId: string | null) =>
       payLines.filter(line => line.employee_id === employeeId && line.pay_code_id === payCodeId);
 
