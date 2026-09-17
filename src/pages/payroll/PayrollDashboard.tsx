@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { buildPayrollWorkbook, downloadPayrollWorkbook, PayrollExportLine } from '@/lib/payrollExport';
+import PayrollProductionReport from './PayrollProductionReport';
 
 type PayCode = { id: string; code: string; department: string; default_pay_type: string; description?: string | null };
 type Employee = { id: string; name: string; employee_id: string | null };
