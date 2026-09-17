@@ -297,6 +297,8 @@ const PayrollDashboard = () => {
           </Card>
         </>}
 
+        {activeTab === 'production' && <PayrollProductionReport periodStart={periodStart} />}
+
         {activeTab === 'lines' && <Card>
           <CardHeader><CardTitle className="flex items-center justify-between text-lg">Recurring Pay Lines <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setShowPayCodeForm(value => !value)}><Plus className="mr-2 h-4 w-4" />Pay Code</Button><Button size="sm" onClick={() => setShowPayLineForm(value => !value)}><Plus className="mr-2 h-4 w-4" />Add Pay Line</Button></div></CardTitle><CardDescription>Set up the rows that should appear for each employee in the Future Systems worksheet.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
