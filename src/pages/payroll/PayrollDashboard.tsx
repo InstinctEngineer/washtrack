@@ -15,7 +15,7 @@ import { buildPayrollWorkbook, downloadPayrollWorkbook, PayrollExportLine } from
 import PayrollProductionReport from './PayrollProductionReport';
 import PayrollRateSheet from './PayrollRateSheet';
 import PayrollPayCodes from './PayrollPayCodes';
-import { usePayCodes, payCodeLabel, type PayCode } from '@/hooks/usePayCodes';
+import { usePayCodes, payCodeLabel } from '@/hooks/usePayCodes';
 
 type Employee = { id: string; name: string; employee_id: string | null };
 type PayLine = {
