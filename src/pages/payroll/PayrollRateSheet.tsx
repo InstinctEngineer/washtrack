@@ -322,7 +322,7 @@ const PayrollRateSheet = () => {
                         {row.isManual && <Badge variant="secondary" className="ml-2">Manual</Badge>}
                         {row.line?.is_active === false && <Badge variant="outline" className="ml-2">Inactive</Badge>}
                       </TableCell>
-                      <TableCell>{row.payCode ? row.payCode.code : <span className="text-destructive">No code</span>}</TableCell>
+                      <TableCell>{row.payCode ? <span>{row.payCode.code}{!row.payCode.is_active && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">Retired</span>}</span> : <span className="text-destructive">No code</span>}</TableCell>
                       <TableCell className="text-right">{row.quantity ?? '—'}</TableCell>
                       <TableCell>
                         {row.line ? (
