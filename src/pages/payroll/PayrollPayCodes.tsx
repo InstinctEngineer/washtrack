@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Loader2, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
+import { usePayCodes } from '@/hooks/usePayCodes';
 
 type PayCode = {
   id: string;
@@ -21,8 +22,7 @@ const payTypeOptions = ['Unit', 'Hourly', 'Salary'];
 const emptyDraft = { code: '', department: '', default_pay_type: 'Unit', description: '' };
 
 const PayrollPayCodes = () => {
-  const [codes, setCodes] = useState<PayCode[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { payCodes: codes, loading, refreshPayCodes } = usePayCodes();
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
@@ -31,18 +31,7 @@ const PayrollPayCodes = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState(emptyDraft);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('payroll_pay_codes')
-      .select('id, code, department, default_pay_type, description, is_active')
-      .order('code');
-    if (error) toast.error('Could not load E codes');
-    setCodes((data || []) as PayCode[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { void load(); }, [load]);
+  const load = refreshPayCodes;
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -92,7 +81,7 @@ const PayrollPayCodes = () => {
   const toggleActive = async (item: PayCode) => {
     const { error } = await supabase.from('payroll_pay_codes').update({ is_active: !item.is_active }).eq('id', item.id);
     if (error) { toast.error('Could not change the code'); return; }
-    setCodes(current => current.map(row => (row.id === item.id ? { ...row, is_active: !row.is_active } : row)));
+    await refreshPayCodes();
   };
 
   return (
