@@ -258,8 +258,9 @@ serve(async (req) => {
       console.error('Error inserting into users table:', userError);
       // Clean up auth user if users table insert fails
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      const duplicateId = userError.code === '23505' && String(userError.message || '').includes('employee_id');
       return new Response(
-        JSON.stringify({ error: userError.message }), 
+        JSON.stringify({ error: duplicateId ? `Employee ID ${employee_id} is already in use.` : userError.message }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
