@@ -22,7 +22,6 @@ type SheetRow = {
   last_worked: string | null;
 };
 
-type PayCode = { id: string; code: string; department: string; default_pay_type: string };
 
 type PayLine = {
   id: string;
