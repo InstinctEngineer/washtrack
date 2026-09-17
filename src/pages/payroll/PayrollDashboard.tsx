@@ -191,15 +191,6 @@ const PayrollDashboard = () => {
     else setRunLines(current => current.map(item => item.id === line.id ? { ...item, ...update } : item));
   };
 
-  const lockPeriod = async () => {
-    if (!period || runLines.length === 0) { toast.error('Generate a payroll run before locking'); return; }
-    const { error } = await supabase.from('payroll_periods').update({ status: 'locked', locked_at: new Date().toISOString() }).eq('id', period.id).eq('status', 'draft');
-    if (error) { toast.error('Could not lock payroll period'); return; }
-    const updated = { ...period, status: 'locked' };
-    setPeriod(updated);
-    setPeriods(current => current.map(item => item.id === updated.id ? updated : item));
-    toast.success('Payroll period locked');
-  };
 
   const addPayLine = async () => {
     if (!newLine.employee_id || !newLine.pay_code_id || !newLine.department || !newLine.task_label) { toast.error('Complete the employee, code, department, and task'); return; }
@@ -286,14 +277,14 @@ const PayrollDashboard = () => {
 
         {activeTab === 'run' && <>
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CalendarRange className="h-5 w-5" />Pay period</CardTitle><CardDescription>Weeks run Monday through Sunday. Create a week, generate its lines, review, then lock it.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CalendarRange className="h-5 w-5" />Pay period</CardTitle><CardDescription>Weeks run Monday through Sunday. Create a week, generate its lines, then review it.</CardDescription></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2"><Label htmlFor="periodStart">Week starting</Label><Input id="periodStart" type="date" value={periodStart} onChange={event => setPeriodStart(asDateInput(mondayOf(new Date(`${event.target.value}T00:00:00`))))} /></div>
                 <div className="space-y-2"><Label>Week ending</Label><Input value={periodEnd} readOnly /></div>
                 <div className="space-y-2"><Label htmlFor="checkDate">Check date</Label><Input id="checkDate" type="date" value={period?.check_date || ''} onChange={async event => { if (!period) return; const value = event.target.value || null; await supabase.from('payroll_periods').update({ check_date: value }).eq('id', period.id); setPeriod({ ...period, check_date: value }); }} /></div>
               </div>
-              <div className="flex flex-wrap gap-2"><Button onClick={() => void createPeriod()} disabled={working}><Plus className="mr-2 h-4 w-4" />Create / Select Week</Button><Button variant="outline" onClick={() => void generateRun()} disabled={working || !period}><RefreshCw className="mr-2 h-4 w-4" />Generate Run</Button><Button variant="outline" onClick={() => void lockPeriod()} disabled={working || period?.status !== 'draft'}>Lock Week</Button></div>
+              <div className="flex flex-wrap gap-2"><Button onClick={() => void createPeriod()} disabled={working}><Plus className="mr-2 h-4 w-4" />Create / Select Week</Button><Button variant="outline" onClick={() => void generateRun()} disabled={working || !period}><RefreshCw className="mr-2 h-4 w-4" />Generate Run</Button></div>
               {periods.length > 0 && <div className="overflow-auto"><Table><TableHeader><TableRow><TableHead>Week</TableHead><TableHead>Check Date</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader><TableBody>{periods.map(item => <TableRow key={item.id}><TableCell>{item.period_start} – {item.period_end}</TableCell><TableCell>{item.check_date || '—'}</TableCell><TableCell className="capitalize">{item.status}</TableCell><TableCell className="text-right"><Button size="sm" variant="ghost" onClick={() => selectPeriod(item)}>Open</Button></TableCell></TableRow>)}</TableBody></Table></div>}
             </CardContent>
           </Card>
