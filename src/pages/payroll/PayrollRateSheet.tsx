@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
+import { usePayCodes, type PayCode } from '@/hooks/usePayCodes';
 
 type SheetRow = {
   employee_id: string;
@@ -21,7 +22,6 @@ type SheetRow = {
   last_worked: string | null;
 };
 
-type PayCode = { id: string; code: string; department: string; default_pay_type: string };
 
 type PayLine = {
   id: string;
@@ -70,7 +70,7 @@ const PayrollRateSheet = () => {
   const [startDate, setStartDate] = useState(asDateInput(subDays(new Date(), 90)));
   const [endDate, setEndDate] = useState(today());
   const [sheet, setSheet] = useState<SheetRow[]>([]);
-  const [payCodes, setPayCodes] = useState<PayCode[]>([]);
+  const { payCodeById } = usePayCodes();
   const [maps, setMaps] = useState<Record<string, string>>({});
   const [payLines, setPayLines] = useState<PayLine[]>([]);
   const [loading, setLoading] = useState(false);
@@ -83,21 +83,19 @@ const PayrollRateSheet = () => {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [sheetResult, codesResult, mapResult, linesResult] = await Promise.all([
+    const [sheetResult, mapResult, linesResult] = await Promise.all([
       supabase.rpc('get_payroll_rate_sheet', { p_start_date: startDate, p_end_date: endDate }),
-      supabase.from('payroll_pay_codes').select('id, code, department, default_pay_type').eq('is_active', true).order('code'),
       supabase.from('payroll_work_type_map').select('work_type_id, pay_code_id').is('location_id', null),
       supabase.from('payroll_employee_lines').select('*').order('effective_date', { ascending: false }),
     ]);
 
-    if (sheetResult.error || codesResult.error || mapResult.error || linesResult.error) {
+    if (sheetResult.error || mapResult.error || linesResult.error) {
       toast.error('Could not load pay rates');
       setLoading(false);
       return;
     }
 
     setSheet(((sheetResult.data || []) as SheetRow[]).map(row => ({ ...row, total_quantity: Number(row.total_quantity) || 0 })));
-    setPayCodes((codesResult.data || []) as PayCode[]);
     setMaps(Object.fromEntries(((mapResult.data || []) as Array<{ work_type_id: string; pay_code_id: string }>).map(item => [item.work_type_id, item.pay_code_id])));
     setPayLines(((linesResult.data || []) as PayLine[]).map(line => ({ ...line, rate: Number(line.rate) || 0 })));
     setLoading(false);
@@ -107,7 +105,7 @@ const PayrollRateSheet = () => {
 
   const rows = useMemo<Row[]>(() => {
     const now = today();
-    const codeById = Object.fromEntries(payCodes.map(code => [code.id, code]));
+    const codeById = payCodeById;
     const linesFor = (employeeId: string | null, payCodeId: string | null) =>
       payLines.filter(line => line.employee_id === employeeId && line.pay_code_id === payCodeId);
 
@@ -152,7 +150,7 @@ const PayrollRateSheet = () => {
       .filter(row => showInactive || !row.line || row.line.is_active)
       .filter(row => !term || row.employeeName.toLowerCase().includes(term) || row.workTypeName.toLowerCase().includes(term))
       .sort((a, b) => lastFirst(a.employeeName).localeCompare(lastFirst(b.employeeName)) || a.workTypeName.localeCompare(b.workTypeName));
-  }, [sheet, payLines, maps, payCodes, showInactive, search]);
+  }, [sheet, payLines, maps, payCodeById, showInactive, search]);
 
   const missingCount = rows.filter(row => !row.line && row.payCodeId).length;
   const unmappedCount = rows.filter(row => !row.payCodeId).length;
@@ -324,7 +322,7 @@ const PayrollRateSheet = () => {
                         {row.isManual && <Badge variant="secondary" className="ml-2">Manual</Badge>}
                         {row.line?.is_active === false && <Badge variant="outline" className="ml-2">Inactive</Badge>}
                       </TableCell>
-                      <TableCell>{row.payCode ? row.payCode.code : <span className="text-destructive">No code</span>}</TableCell>
+                      <TableCell>{row.payCode ? <span>{row.payCode.code}{!row.payCode.is_active && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">Retired</span>}</span> : <span className="text-destructive">No code</span>}</TableCell>
                       <TableCell className="text-right">{row.quantity ?? '—'}</TableCell>
                       <TableCell>
                         {row.line ? (

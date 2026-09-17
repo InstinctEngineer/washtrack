@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { buildPayrollWorkbook, downloadPayrollWorkbook, PayrollExportLine } from '@/lib/payrollExport';
+import { usePayCodes } from '@/hooks/usePayCodes';
 
 type ProductionRow = {
   employee_id: string;
@@ -47,6 +48,7 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
   const [locationFilter, setLocationFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const { payCodeById } = usePayCodes();
 
   useEffect(() => { setWeekStart(periodStart); }, [periodStart]);
 
@@ -59,7 +61,7 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
       supabase.from('payroll_work_type_map').select('work_type_id, pay_code_id').is('location_id', null),
       supabase
         .from('payroll_employee_lines')
-        .select('employee_id, pay_code_id, rate, effective_date, end_date, is_active, pay_code:payroll_pay_codes(code, department)')
+        .select('employee_id, pay_code_id, rate, effective_date, end_date, is_active')
         .eq('is_active', true),
     ]);
 
@@ -79,7 +81,6 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
       rate: number;
       effective_date: string;
       end_date: string | null;
-      pay_code?: { code: string; department: string } | null;
     }>).filter(line => line.employee_id && line.effective_date <= weekEnd && (!line.end_date || line.end_date >= weekStart));
 
     const lookup: Record<string, RateInfo> = {};
@@ -88,15 +89,16 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
       const match = payCodeId
         ? activeLines.find(line => line.employee_id === row.employee_id && line.pay_code_id === payCodeId)
         : undefined;
+      const payCode = match ? payCodeById[match.pay_code_id] : undefined;
       lookup[`${row.employee_id}:${row.work_type_id}`] = match
-        ? { rate: Number(match.rate) || 0, code: match.pay_code?.code?.trim() || '', department: match.pay_code?.department || '' }
+        ? { rate: Number(match.rate) || 0, code: payCode?.code?.trim() || '', department: payCode?.department || '' }
         : null;
     });
 
     setRows(((production.data || []) as ProductionRow[]).map(row => ({ ...row, total_quantity: Number(row.total_quantity) || 0 })));
     setRates(lookup);
     setLoading(false);
-  }, [weekStart, weekEnd]);
+  }, [weekStart, weekEnd, payCodeById]);
 
   useEffect(() => { void load(); }, [load]);
 

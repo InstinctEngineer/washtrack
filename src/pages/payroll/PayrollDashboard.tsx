@@ -15,8 +15,8 @@ import { buildPayrollWorkbook, downloadPayrollWorkbook, PayrollExportLine } from
 import PayrollProductionReport from './PayrollProductionReport';
 import PayrollRateSheet from './PayrollRateSheet';
 import PayrollPayCodes from './PayrollPayCodes';
+import { usePayCodes, payCodeLabel } from '@/hooks/usePayCodes';
 
-type PayCode = { id: string; code: string; department: string; default_pay_type: string; description?: string | null };
 type Employee = { id: string; name: string; employee_id: string | null };
 type PayLine = {
   id: string;
@@ -32,7 +32,7 @@ type PayLine = {
   end_date: string | null;
   is_active: boolean;
   sort_order: number;
-  pay_code?: PayCode;
+  pay_code?: { id: string; code: string; department: string; default_pay_type: string } | null;
 };
 type Period = { id: string; period_start: string; period_end: string; check_date: string | null; status: string };
 type WorkType = { id: string; name: string };
@@ -42,7 +42,7 @@ const payTypeOptions = ['Unit', 'Hourly', 'Salary'];
 const asDateInput = (date: Date) => format(date, 'yyyy-MM-dd');
 const mondayOf = (date: Date) => startOfWeek(date, { weekStartsOn: 1 });
 const emptyLine = { employee_id: '', pay_code_id: '', department: '', task_label: '', provider_employee_number: '', rate: '0', pay_type: 'Unit', effective_date: asDateInput(new Date()) };
-const emptyPayCode = { code: '', department: '', default_pay_type: 'Unit', description: '' };
+
 
 const parseHoursFile = async (file: File) => {
   const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
@@ -71,32 +71,28 @@ const PayrollDashboard = () => {
   const [periods, setPeriods] = useState<Period[]>([]);
   const [runLines, setRunLines] = useState<RunLine[]>([]);
   const [payLines, setPayLines] = useState<PayLine[]>([]);
-  const [payCodes, setPayCodes] = useState<PayCode[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [showPayLineForm, setShowPayLineForm] = useState(false);
   const [newLine, setNewLine] = useState(emptyLine);
-  const [newPayCode, setNewPayCode] = useState(emptyPayCode);
-  const [showPayCodeForm, setShowPayCodeForm] = useState(false);
   const [hoursFile, setHoursFile] = useState<File | null>(null);
+  const { payCodes, activePayCodes, payCodeById } = usePayCodes();
 
   const periodEnd = useMemo(() => asDateInput(addDays(new Date(`${periodStart}T00:00:00`), 6)), [periodStart]);
   const totalGross = useMemo(() => runLines.reduce((sum, line) => sum + line.rate * line.quantity + line.ot_hours * line.rate * 1.5, 0), [runLines]);
 
   const loadSetup = useCallback(async () => {
     setLoading(true);
-    const [codesResult, employeesResult, linesResult, periodsResult, workTypesResult, mapsResult] = await Promise.all([
-      supabase.from('payroll_pay_codes').select('id, code, department, default_pay_type, description').eq('is_active', true).order('code'),
+    const [employeesResult, linesResult, periodsResult, workTypesResult, mapsResult] = await Promise.all([
       supabase.from('users_safe_view').select('id, name, employee_id').eq('is_active', true).order('name'),
       supabase.from('payroll_employee_lines').select('*, pay_code:payroll_pay_codes(id, code, department, default_pay_type)').eq('is_active', true).order('display_name').order('sort_order'),
       supabase.from('payroll_periods').select('id, period_start, period_end, check_date, status').order('period_start', { ascending: false }).limit(20),
       supabase.from('work_types').select('id, name').eq('is_active', true).order('name'),
       supabase.from('payroll_work_type_map').select('work_type_id, pay_code_id').is('location_id', null),
     ]);
-    const firstError = [codesResult.error, employeesResult.error, linesResult.error, periodsResult.error, workTypesResult.error, mapsResult.error].find(Boolean);
+    const firstError = [employeesResult.error, linesResult.error, periodsResult.error, workTypesResult.error, mapsResult.error].find(Boolean);
     if (firstError) toast.error('Could not load payroll setup');
-    setPayCodes((codesResult.data || []) as PayCode[]);
     setEmployees((employeesResult.data || []) as Employee[]);
     setPayLines((linesResult.data || []) as PayLine[]);
     setPeriods((periodsResult.data || []) as Period[]);
@@ -229,12 +225,6 @@ const PayrollDashboard = () => {
     }
   };
 
-  const addPayCode = async () => {
-    if (!newPayCode.code.trim() || !newPayCode.department.trim()) { toast.error('Enter a code and department'); return; }
-    const { error } = await supabase.from('payroll_pay_codes').insert({ ...newPayCode, code: newPayCode.code.trim(), department: newPayCode.department.trim() });
-    if (error) { toast.error(error.code === '23505' ? 'That code and department already exist' : 'Could not save pay code'); return; }
-    setNewPayCode(emptyPayCode); setShowPayCodeForm(false); await loadSetup(); toast.success('Pay code added');
-  };
 
   const setWorkTypeCode = async (workTypeId: string, payCodeId: string) => {
     const previous = workTypeCodes[workTypeId] || '';
@@ -302,10 +292,9 @@ const PayrollDashboard = () => {
         {activeTab === 'production' && <PayrollProductionReport periodStart={periodStart} />}
 
         {activeTab === 'lines' && <Card>
-          <CardHeader><CardTitle className="flex items-center justify-between text-lg">Recurring Pay Lines <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setShowPayCodeForm(value => !value)}><Plus className="mr-2 h-4 w-4" />Pay Code</Button><Button size="sm" onClick={() => setShowPayLineForm(value => !value)}><Plus className="mr-2 h-4 w-4" />Add Pay Line</Button></div></CardTitle><CardDescription>Set up the rows that should appear for each employee in the Future Systems worksheet.</CardDescription></CardHeader>
+          <CardHeader><CardTitle className="flex items-center justify-between text-lg">Recurring Pay Lines <div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => setShowPayLineForm(value => !value)}><Plus className="mr-2 h-4 w-4" />Add Pay Line</Button></div></CardTitle><CardDescription>Set up the rows that should appear for each employee in the Future Systems worksheet. Add or change E codes on the E Codes tab.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            {showPayCodeForm && <div className="grid gap-3 rounded-md border p-4 md:grid-cols-4"><div className="space-y-1"><Label>Code</Label><Input value={newPayCode.code} onChange={event => setNewPayCode({ ...newPayCode, code: event.target.value })} /></div><div className="space-y-1"><Label>Department</Label><Input value={newPayCode.department} onChange={event => setNewPayCode({ ...newPayCode, department: event.target.value })} /></div><div className="space-y-1"><Label>Default type</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newPayCode.default_pay_type} onChange={event => setNewPayCode({ ...newPayCode, default_pay_type: event.target.value })}>{payTypeOptions.map(option => <option key={option}>{option}</option>)}</select></div><div className="flex items-end gap-2"><Button onClick={() => void addPayCode()}>Save Code</Button><Button variant="outline" onClick={() => setShowPayCodeForm(false)}>Cancel</Button></div></div>}
-            {showPayLineForm && <div className="grid gap-3 rounded-md border p-4 md:grid-cols-4"><div className="space-y-1"><Label>Employee</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newLine.employee_id} onChange={event => setNewLine({ ...newLine, employee_id: event.target.value })}><option value="">Choose employee</option>{employees.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div><div className="space-y-1"><Label>Pay code</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newLine.pay_code_id} onChange={event => { const code = payCodes.find(item => item.id === event.target.value); setNewLine({ ...newLine, pay_code_id: event.target.value, department: code?.department || newLine.department, pay_type: code?.default_pay_type || newLine.pay_type }); }}><option value="">Choose code</option>{payCodes.map(code => <option key={code.id} value={code.id}>{code.code} · {code.department}</option>)}</select></div><div className="space-y-1"><Label>Department</Label><Input value={newLine.department} onChange={event => setNewLine({ ...newLine, department: event.target.value })} /></div><div className="space-y-1"><Label>Task / location label</Label><Input value={newLine.task_label} onChange={event => setNewLine({ ...newLine, task_label: event.target.value })} /></div><div className="space-y-1"><Label>Future Systems employee #</Label><Input value={newLine.provider_employee_number} onChange={event => setNewLine({ ...newLine, provider_employee_number: event.target.value })} /></div><div className="space-y-1"><Label>Rate</Label><Input type="number" min="0" step="0.01" value={newLine.rate} onChange={event => setNewLine({ ...newLine, rate: event.target.value })} /></div><div className="space-y-1"><Label>Type</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newLine.pay_type} onChange={event => setNewLine({ ...newLine, pay_type: event.target.value })}>{payTypeOptions.map(option => <option key={option}>{option}</option>)}</select></div><div className="space-y-1"><Label>Effective date</Label><Input type="date" value={newLine.effective_date} onChange={event => setNewLine({ ...newLine, effective_date: event.target.value })} /></div><div className="flex items-end gap-2 md:col-span-4"><Button onClick={() => void addPayLine()}>Save Pay Line</Button><Button variant="outline" onClick={() => setShowPayLineForm(false)}>Cancel</Button></div></div>}
+            {showPayLineForm && <div className="grid gap-3 rounded-md border p-4 md:grid-cols-4"><div className="space-y-1"><Label>Employee</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newLine.employee_id} onChange={event => setNewLine({ ...newLine, employee_id: event.target.value })}><option value="">Choose employee</option>{employees.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div><div className="space-y-1"><Label>Pay code</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newLine.pay_code_id} onChange={event => { const code = payCodeById[event.target.value]; setNewLine({ ...newLine, pay_code_id: event.target.value, department: code?.department || newLine.department, pay_type: code?.default_pay_type || newLine.pay_type }); }}><option value="">Choose code</option>{activePayCodes.map(code => <option key={code.id} value={code.id}>{payCodeLabel(code)}</option>)}</select></div><div className="space-y-1"><Label>Department</Label><Input value={newLine.department} onChange={event => setNewLine({ ...newLine, department: event.target.value })} /></div><div className="space-y-1"><Label>Task / location label</Label><Input value={newLine.task_label} onChange={event => setNewLine({ ...newLine, task_label: event.target.value })} /></div><div className="space-y-1"><Label>Future Systems employee #</Label><Input value={newLine.provider_employee_number} onChange={event => setNewLine({ ...newLine, provider_employee_number: event.target.value })} /></div><div className="space-y-1"><Label>Rate</Label><Input type="number" min="0" step="0.01" value={newLine.rate} onChange={event => setNewLine({ ...newLine, rate: event.target.value })} /></div><div className="space-y-1"><Label>Type</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={newLine.pay_type} onChange={event => setNewLine({ ...newLine, pay_type: event.target.value })}>{payTypeOptions.map(option => <option key={option}>{option}</option>)}</select></div><div className="space-y-1"><Label>Effective date</Label><Input type="date" value={newLine.effective_date} onChange={event => setNewLine({ ...newLine, effective_date: event.target.value })} /></div><div className="flex items-end gap-2 md:col-span-4"><Button onClick={() => void addPayLine()}>Save Pay Line</Button><Button variant="outline" onClick={() => setShowPayLineForm(false)}>Cancel</Button></div></div>}
             <p className="text-sm text-muted-foreground">Rates for recorded work fill in automatically in the table below. Use "Add Pay Line" only for pay that has no wash records behind it, such as salary or travel.</p>
           </CardContent>
         </Card>}
@@ -328,7 +317,8 @@ const PayrollDashboard = () => {
                       <TableCell>
                         <select className="h-10 w-56 rounded-md border bg-background px-3 text-sm" value={workTypeCodes[type.id] || ''} onChange={event => void setWorkTypeCode(type.id, event.target.value)}>
                           <option value="">Not assigned</option>
-                          {payCodes.map(code => <option key={code.id} value={code.id}>{code.code} · {code.description || code.department}</option>)}
+                          {activePayCodes.map(code => <option key={code.id} value={code.id}>{payCodeLabel(code)}</option>)}
+                          {(() => { const assigned = workTypeCodes[type.id]; const code = assigned ? payCodeById[assigned] : undefined; return code && !code.is_active ? <option key={code.id} value={code.id}>{payCodeLabel(code)} (retired)</option> : null; })()}
                         </select>
                       </TableCell>
                       <TableCell>{workTypeCodes[type.id] ? <span className="text-sm text-muted-foreground">Mapped</span> : <span className="rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">Needs a code</span>}</TableCell>
