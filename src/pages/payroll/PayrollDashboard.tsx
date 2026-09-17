@@ -191,15 +191,6 @@ const PayrollDashboard = () => {
     else setRunLines(current => current.map(item => item.id === line.id ? { ...item, ...update } : item));
   };
 
-  const lockPeriod = async () => {
-    if (!period || runLines.length === 0) { toast.error('Generate a payroll run before locking'); return; }
-    const { error } = await supabase.from('payroll_periods').update({ status: 'locked', locked_at: new Date().toISOString() }).eq('id', period.id).eq('status', 'draft');
-    if (error) { toast.error('Could not lock payroll period'); return; }
-    const updated = { ...period, status: 'locked' };
-    setPeriod(updated);
-    setPeriods(current => current.map(item => item.id === updated.id ? updated : item));
-    toast.success('Payroll period locked');
-  };
 
   const addPayLine = async () => {
     if (!newLine.employee_id || !newLine.pay_code_id || !newLine.department || !newLine.task_label) { toast.error('Complete the employee, code, department, and task'); return; }
