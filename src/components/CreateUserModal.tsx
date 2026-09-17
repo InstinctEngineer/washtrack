@@ -62,6 +62,7 @@ export const CreateUserModal = ({
   const [resending, setResending] = useState(false);
 
   const getInitialFormData = () => ({
+    employee_id: "",
     name: initialData?.name || "",
     email: initialData?.email ? "" : "", // Don't copy email - must be unique
     password: "",
