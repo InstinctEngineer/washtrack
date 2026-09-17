@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { buildPayrollWorkbook, downloadPayrollWorkbook, PayrollExportLine } from '@/lib/payrollExport';
 import PayrollProductionReport from './PayrollProductionReport';
 import PayrollRateSheet from './PayrollRateSheet';
+import PayrollPayCodes from './PayrollPayCodes';
 
 type PayCode = { id: string; code: string; department: string; default_pay_type: string; description?: string | null };
 type Employee = { id: string; name: string; employee_id: string | null };
