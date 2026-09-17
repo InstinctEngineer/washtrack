@@ -2146,6 +2146,19 @@ export type Database = {
           work_type_rate_type: string
         }[]
       }
+      get_payroll_rate_sheet: {
+        Args: { p_end_date: string; p_start_date: string }
+        Returns: {
+          employee_id: string
+          employee_name: string
+          last_worked: string
+          provider_employee_number: string
+          total_quantity: number
+          work_type_id: string
+          work_type_name: string
+          work_type_rate_type: string
+        }[]
+      }
       get_portal_account_status: {
         Args: never
         Returns: {
