@@ -63,7 +63,7 @@ const parseHoursFile = async (file: File) => {
 };
 
 const PayrollDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'run' | 'production' | 'lines' | 'codes' | 'hours'>('run');
+  const [activeTab, setActiveTab] = useState<'run' | 'production' | 'lines' | 'codes' | 'ecodes' | 'hours'>('run');
   const [workTypes, setWorkTypes] = useState<WorkType[]>([]);
   const [workTypeCodes, setWorkTypeCodes] = useState<Record<string, string>>({});
   const [periodStart, setPeriodStart] = useState(asDateInput(mondayOf(new Date())));
