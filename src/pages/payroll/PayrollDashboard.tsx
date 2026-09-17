@@ -132,7 +132,9 @@ const PayrollDashboard = () => {
 
   const createPeriod = async () => {
     setWorking(true);
-    const { data, error } = await supabase.from('payroll_periods').upsert({ period_start: periodStart, period_end: periodEnd, check_date: defaultCheckDate(periodEnd) }, { onConflict: 'period_start' }).select().single();
+    const existing = periods.find(item => item.period_start === periodStart);
+    const checkDate = existing?.check_date || defaultCheckDate(periodEnd);
+    const { data, error } = await supabase.from('payroll_periods').upsert({ period_start: periodStart, period_end: periodEnd, check_date: checkDate }, { onConflict: 'period_start' }).select().single();
     setWorking(false);
     if (error) { toast.error('Could not create pay period'); return; }
     setPeriod(data as Period);
