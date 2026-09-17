@@ -294,6 +294,7 @@ export const CreateUserModal = ({
 
       // Reset form
       setFormData({
+        employee_id: "",
         name: "",
         email: "",
         password: "",
