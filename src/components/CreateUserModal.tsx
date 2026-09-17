@@ -537,11 +537,6 @@ export const CreateUserModal = ({
               </div>
             )}
 
-            <div className="bg-muted/50 p-3 rounded-lg">
-              <p className="text-sm text-muted-foreground">
-                Employee ID will be automatically generated upon creation
-              </p>
-            </div>
 
             <div className="flex justify-end gap-2 pt-4">
               <Button
