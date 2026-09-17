@@ -84,17 +84,15 @@ const PayrollDashboard = () => {
 
   const loadSetup = useCallback(async () => {
     setLoading(true);
-    const [codesResult, employeesResult, linesResult, periodsResult, workTypesResult, mapsResult] = await Promise.all([
-      supabase.from('payroll_pay_codes').select('id, code, department, default_pay_type, description').eq('is_active', true).order('code'),
+    const [employeesResult, linesResult, periodsResult, workTypesResult, mapsResult] = await Promise.all([
       supabase.from('users_safe_view').select('id, name, employee_id').eq('is_active', true).order('name'),
       supabase.from('payroll_employee_lines').select('*, pay_code:payroll_pay_codes(id, code, department, default_pay_type)').eq('is_active', true).order('display_name').order('sort_order'),
       supabase.from('payroll_periods').select('id, period_start, period_end, check_date, status').order('period_start', { ascending: false }).limit(20),
       supabase.from('work_types').select('id, name').eq('is_active', true).order('name'),
       supabase.from('payroll_work_type_map').select('work_type_id, pay_code_id').is('location_id', null),
     ]);
-    const firstError = [codesResult.error, employeesResult.error, linesResult.error, periodsResult.error, workTypesResult.error, mapsResult.error].find(Boolean);
+    const firstError = [employeesResult.error, linesResult.error, periodsResult.error, workTypesResult.error, mapsResult.error].find(Boolean);
     if (firstError) toast.error('Could not load payroll setup');
-    setPayCodes((codesResult.data || []) as PayCode[]);
     setEmployees((employeesResult.data || []) as Employee[]);
     setPayLines((linesResult.data || []) as PayLine[]);
     setPeriods((periodsResult.data || []) as Period[]);
