@@ -81,7 +81,6 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
       rate: number;
       effective_date: string;
       end_date: string | null;
-      pay_code?: { code: string; department: string } | null;
     }>).filter(line => line.employee_id && line.effective_date <= weekEnd && (!line.end_date || line.end_date >= weekStart));
 
     const lookup: Record<string, RateInfo> = {};
@@ -90,15 +89,16 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
       const match = payCodeId
         ? activeLines.find(line => line.employee_id === row.employee_id && line.pay_code_id === payCodeId)
         : undefined;
+      const payCode = match ? payCodeById[match.pay_code_id] : undefined;
       lookup[`${row.employee_id}:${row.work_type_id}`] = match
-        ? { rate: Number(match.rate) || 0, code: match.pay_code?.code?.trim() || '', department: match.pay_code?.department || '' }
+        ? { rate: Number(match.rate) || 0, code: payCode?.code?.trim() || '', department: payCode?.department || '' }
         : null;
     });
 
     setRows(((production.data || []) as ProductionRow[]).map(row => ({ ...row, total_quantity: Number(row.total_quantity) || 0 })));
     setRates(lookup);
     setLoading(false);
-  }, [weekStart, weekEnd]);
+  }, [weekStart, weekEnd, payCodeById]);
 
   useEffect(() => { void load(); }, [load]);
 
