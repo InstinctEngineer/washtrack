@@ -372,20 +372,21 @@ export const EditUserModal = ({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="employee_id">Employee ID</Label>
+              <Label htmlFor="employee_id">Employee ID {canEditEmployeeId && "*"}</Label>
               <Input
                 id="employee_id"
                 value={formData.employee_id}
                 onChange={(e) =>
                   setFormData({ ...formData, employee_id: e.target.value })
                 }
-                disabled={currentUserRole !== 'super_admin'}
-                className={currentUserRole !== 'super_admin' ? "bg-muted" : ""}
+                maxLength={32}
+                disabled={!canEditEmployeeId}
+                className={!canEditEmployeeId ? "bg-muted" : ""}
               />
               <p className="text-xs text-muted-foreground">
-                {currentUserRole === 'super_admin' 
-                  ? "Only Super Admins can edit Employee ID"
-                  : "Employee ID cannot be changed (Super Admin only)"}
+                {canEditEmployeeId
+                  ? "Must be unique. Every change is recorded in the activity log."
+                  : "Employee ID can only be changed by Finance and above"}
               </p>
             </div>
 
