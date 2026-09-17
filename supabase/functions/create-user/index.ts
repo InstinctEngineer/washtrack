@@ -144,10 +144,21 @@ serve(async (req) => {
       );
     }
 
-    // Generate employee ID
-    const employee_id = await generateEmployeeId(supabaseAdmin);
-
     console.log('Creating user with email:', email, 'and employee_id:', employee_id);
+
+    // Employee ID must be unique
+    const { data: idClash } = await supabaseAdmin
+      .from('users')
+      .select('id, name')
+      .eq('employee_id', employee_id)
+      .maybeSingle();
+
+    if (idClash) {
+      return new Response(
+        JSON.stringify({ error: `Employee ID ${employee_id} is already used by ${idClash.name}.` }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Check for existing auth user with this email and handle orphaned users
     const { data: { users: existingAuthUsers }, error: listError } = await supabaseAdmin.auth.admin.listUsers({
