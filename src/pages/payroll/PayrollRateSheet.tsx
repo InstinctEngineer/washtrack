@@ -150,7 +150,7 @@ const PayrollRateSheet = () => {
       .filter(row => showInactive || !row.line || row.line.is_active)
       .filter(row => !term || row.employeeName.toLowerCase().includes(term) || row.workTypeName.toLowerCase().includes(term))
       .sort((a, b) => lastFirst(a.employeeName).localeCompare(lastFirst(b.employeeName)) || a.workTypeName.localeCompare(b.workTypeName));
-  }, [sheet, payLines, maps, payCodes, showInactive, search]);
+  }, [sheet, payLines, maps, payCodeById, showInactive, search]);
 
   const missingCount = rows.filter(row => !row.line && row.payCodeId).length;
   const unmappedCount = rows.filter(row => !row.payCodeId).length;
