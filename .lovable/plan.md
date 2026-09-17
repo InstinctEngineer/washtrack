@@ -19,10 +19,10 @@ Alex Richards     Republic        Cars Washed                 11    1.75    19.2
 - Subtotal per washer and a grand total for the week.
 
 ## Output file format
-The downloaded file is the ES&D Payroll Worksheet, identical to the Payroll xlsx example — same title block, Pay Period and Check Date lines, header row, columns (Notes, Code, Department, task, Name, Employee Number, Rate, Hrs or Units, E02 OT Hours, Type, Total Gross Pay), fonts, currency/accounting formats and total row. It is produced by the existing workbook builder, not a new format:
+The downloaded file matches the uploaded Payroll worksheet exactly: "ES&D Services, Inc." / "Payroll Worksheet" title block, Pay Period and Check Date lines in C4/E4 and C5/E5, header row 7 (Notes, Code, Department, task in D, Name, Employee Number, Rate, Hrs or Units, E02 OT Hours, Type, Total Gross Pay), data starting row 8, same fonts, column widths and number formats, and live Total Gross Pay formulas (`=(G*H)`, plus the OT term on hourly rows).
 
-- Each screen line becomes one worksheet row: Code = the E code the vehicle type maps to, Department and task label from that pay code, Name = washer, Rate = the washer's per-unit rate, Hrs or Units = the count washed, Type = per-unit.
-- Rows are ordered by washer, then by code, matching the example file's grouping.
+- Each screen line becomes one worksheet row: Code = the E code the vehicle type maps to, Department from that pay code, task label in column D (facility + work, e.g. "ATW PUD"), Name as "Last, First", Employee Number, Rate = the washer's per-unit rate, Hrs or Units = the count washed, Type = "Unit".
+- Rows are sorted by washer last name then code, as in the example file.
 - No CSV variant — the xlsx is the deliverable.
 
 ## Keeping it identical to invoicing
