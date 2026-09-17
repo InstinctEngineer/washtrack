@@ -17,7 +17,6 @@ import PayrollRateSheet from './PayrollRateSheet';
 import PayrollPayCodes from './PayrollPayCodes';
 import { usePayCodes, payCodeLabel, type PayCode } from '@/hooks/usePayCodes';
 
-type PayCode = { id: string; code: string; department: string; default_pay_type: string; description?: string | null };
 type Employee = { id: string; name: string; employee_id: string | null };
 type PayLine = {
   id: string;
