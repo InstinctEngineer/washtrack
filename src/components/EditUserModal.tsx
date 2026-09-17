@@ -66,6 +66,7 @@ export const EditUserModal = ({
   });
 
   const isEditingSelf = currentUser?.id === user.id;
+  const canEditEmployeeId = ["finance", "admin", "super_admin"].includes(currentUserRole || "");
   const isEditingSuperAdmin = userRole === 'super_admin';
   const canEditSuperAdmin = currentUserRole === 'super_admin';
   // Check if the current user can manage the target user based on role hierarchy
