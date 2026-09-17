@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays, format, startOfWeek, subWeeks } from 'date-fns';
 import { Download, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -216,7 +216,7 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
                   const showName = currentEmployee !== row.employee_id;
                   currentEmployee = row.employee_id;
                   return (
-                    <>
+                    <Fragment key={`${row.employee_id}-${row.location_id}-${row.work_type_id}`}>
                       <TableRow key={`${row.employee_id}-${row.location_id}-${row.work_type_id}`}>
                         <TableCell className="font-medium">{showName ? lastFirst(row.employee_name) : ''}</TableCell>
                         <TableCell>{row.location_name}</TableCell>
@@ -231,7 +231,7 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
                           <TableCell className="text-right font-medium">{money(subtotals[row.employee_id] || 0)}</TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
                 <TableRow>
