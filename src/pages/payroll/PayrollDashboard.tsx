@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { buildPayrollWorkbook, downloadPayrollWorkbook, PayrollExportLine } from '@/lib/payrollExport';
 import PayrollProductionReport from './PayrollProductionReport';
 import PayrollRateSheet from './PayrollRateSheet';
+import PayrollPayCodes from './PayrollPayCodes';
 
 type PayCode = { id: string; code: string; department: string; default_pay_type: string; description?: string | null };
 type Employee = { id: string; name: string; employee_id: string | null };
@@ -62,7 +63,7 @@ const parseHoursFile = async (file: File) => {
 };
 
 const PayrollDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'run' | 'production' | 'lines' | 'codes' | 'hours'>('run');
+  const [activeTab, setActiveTab] = useState<'run' | 'production' | 'lines' | 'codes' | 'ecodes' | 'hours'>('run');
   const [workTypes, setWorkTypes] = useState<WorkType[]>([]);
   const [workTypeCodes, setWorkTypeCodes] = useState<Record<string, string>>({});
   const [periodStart, setPeriodStart] = useState(asDateInput(mondayOf(new Date())));
@@ -272,7 +273,7 @@ const PayrollDashboard = () => {
         </div>
 
         <div className="flex flex-wrap gap-2 border-b pb-2">
-          {([['run', 'Weekly Run'], ['production', 'Washer Production'], ['lines', 'Pay Rates'], ['codes', 'Work Type Codes'], ['hours', 'Import Hours']] as const).map(([value, label]) => (
+          {([['run', 'Weekly Run'], ['production', 'Washer Production'], ['lines', 'Pay Rates'], ['codes', 'Work Type Codes'], ['ecodes', 'E Codes'], ['hours', 'Import Hours']] as const).map(([value, label]) => (
             <Button key={value} variant={activeTab === value ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab(value)}>{label}</Button>
           ))}
         </div>
@@ -338,6 +339,8 @@ const PayrollDashboard = () => {
             </div>
           </CardContent>
         </Card>}
+
+        {activeTab === 'ecodes' && <PayrollPayCodes />}
 
         {activeTab === 'hours' && <Card>
           <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Upload className="h-5 w-5" />Import Hours</CardTitle><CardDescription>Upload the weekly CSV or Excel file from the outside timekeeping system. The final step will map its columns into hours and overtime.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="rounded-md border border-dashed p-8 text-center"><Input type="file" accept=".csv,.xlsx,.xls" onChange={event => setHoursFile(event.target.files?.[0] || null)} /><p className="mt-2 text-sm text-muted-foreground">{hoursFile ? hoursFile.name : 'Choose a CSV or Excel file'}</p></div><Button onClick={() => void importHours()} disabled={!hoursFile || !period}><Upload className="mr-2 h-4 w-4" />Upload Hours for {period ? `${period.period_start} – ${period.period_end}` : 'selected week'}</Button><p className="text-sm text-muted-foreground">Required mapping: employee name or employee number, regular hours, and optional E02 overtime hours.</p></CardContent></Card>}
