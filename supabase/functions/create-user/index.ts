@@ -125,8 +125,14 @@ serve(async (req) => {
       manager_id: z.string().uuid().optional().nullable(),
     });
 
-    const validatedData = createUserSchema.parse(requestBody);
-    const { name, email, location_id, role, manager_id, password } = validatedData;
+    const parsed = createUserSchema.safeParse(requestBody);
+    if (!parsed.success) {
+      return new Response(
+        JSON.stringify({ error: parsed.error.errors[0]?.message || 'Invalid input' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { name, email, location_id, role, manager_id, password, employee_id } = parsed.data;
 
     // Validate that the requested role is not higher than caller's role
     const requestedRoleLevel = roleHierarchy[role] || 0;
