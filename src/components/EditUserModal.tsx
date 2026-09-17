@@ -325,9 +325,12 @@ export const EditUserModal = ({
       onSuccess();
     } catch (error: any) {
       console.error("Error updating user:", error);
+      const duplicateId = error?.code === "23505" && String(error?.message || "").includes("employee_id");
       toast({
-        title: "Error",
-        description: error.message || "Failed to update user",
+        title: duplicateId ? "Employee ID already in use" : "Error",
+        description: duplicateId
+          ? "Another user already has that Employee ID. Please enter a different one."
+          : error.message || "Failed to update user",
         variant: "destructive",
       });
     } finally {
