@@ -71,15 +71,13 @@ const PayrollDashboard = () => {
   const [periods, setPeriods] = useState<Period[]>([]);
   const [runLines, setRunLines] = useState<RunLine[]>([]);
   const [payLines, setPayLines] = useState<PayLine[]>([]);
-  const [payCodes, setPayCodes] = useState<PayCode[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [showPayLineForm, setShowPayLineForm] = useState(false);
   const [newLine, setNewLine] = useState(emptyLine);
-  const [newPayCode, setNewPayCode] = useState(emptyPayCode);
-  const [showPayCodeForm, setShowPayCodeForm] = useState(false);
   const [hoursFile, setHoursFile] = useState<File | null>(null);
+  const { payCodes, activePayCodes, payCodeById } = usePayCodes();
 
   const periodEnd = useMemo(() => asDateInput(addDays(new Date(`${periodStart}T00:00:00`), 6)), [periodStart]);
   const totalGross = useMemo(() => runLines.reduce((sum, line) => sum + line.rate * line.quantity + line.ot_hours * line.rate * 1.5, 0), [runLines]);
