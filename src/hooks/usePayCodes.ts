@@ -20,19 +20,19 @@ const notify = () => subscribers.forEach(listener => listener(cache));
 /** Reload the shared E code list from the database and update every subscriber. */
 export const refreshPayCodes = async (): Promise<PayCode[]> => {
   if (inFlight) return inFlight;
-  inFlight = supabase
-    .from('payroll_pay_codes')
-    .select('id, code, department, default_pay_type, description, is_active')
-    .order('code')
-    .then(({ data, error }) => {
-      if (!error) {
-        cache = (data || []) as PayCode[];
-        loaded = true;
-        notify();
-      }
-      inFlight = null;
-      return cache;
-    });
+  inFlight = (async () => {
+    const { data, error } = await supabase
+      .from('payroll_pay_codes')
+      .select('id, code, department, default_pay_type, description, is_active')
+      .order('code');
+    if (!error) {
+      cache = (data || []) as PayCode[];
+      loaded = true;
+      notify();
+    }
+    inFlight = null;
+    return cache;
+  })();
   return inFlight;
 };
 
