@@ -61,7 +61,7 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
       supabase.from('payroll_work_type_map').select('work_type_id, pay_code_id').is('location_id', null),
       supabase
         .from('payroll_employee_lines')
-        .select('employee_id, pay_code_id, rate, effective_date, end_date, is_active, pay_code:payroll_pay_codes(code, department)')
+        .select('employee_id, pay_code_id, rate, effective_date, end_date, is_active')
         .eq('is_active', true),
     ]);
 
