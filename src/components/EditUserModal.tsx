@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { logAction } from "@/lib/activityLogger";
 
 interface EditUserModalProps {
   user: User;
