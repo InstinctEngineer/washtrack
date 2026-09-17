@@ -225,12 +225,6 @@ const PayrollDashboard = () => {
     }
   };
 
-  const addPayCode = async () => {
-    if (!newPayCode.code.trim() || !newPayCode.department.trim()) { toast.error('Enter a code and department'); return; }
-    const { error } = await supabase.from('payroll_pay_codes').insert({ ...newPayCode, code: newPayCode.code.trim(), department: newPayCode.department.trim() });
-    if (error) { toast.error(error.code === '23505' ? 'That code and department already exist' : 'Could not save pay code'); return; }
-    setNewPayCode(emptyPayCode); setShowPayCodeForm(false); await loadSetup(); toast.success('Pay code added');
-  };
 
   const setWorkTypeCode = async (workTypeId: string, payCodeId: string) => {
     const previous = workTypeCodes[workTypeId] || '';
