@@ -148,15 +148,45 @@ export const CreateUserModal = ({
       // Always auto-generate a password; the user sets their own via the email link
       const generatedPassword = generatePassword();
 
+      const employeeId = formData.employee_id.trim();
+
       // Validate
       if (
+        !employeeId ||
         !formData.name ||
         !formData.email ||
         formData.locations.length === 0
       ) {
         toast({
           title: "Validation Error",
-          description: "Name, email, and at least one location are required.",
+          description: "Employee ID, name, email, and at least one location are required.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!/^[A-Za-z0-9_-]+$/.test(employeeId) || employeeId.length > 32) {
+        toast({
+          title: "Invalid Employee ID",
+          description: "Use up to 32 letters, numbers, dashes or underscores.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check for duplicate employee ID
+      const { data: existingEmployeeId } = await supabase
+        .from("users")
+        .select("id, name")
+        .eq("employee_id", employeeId)
+        .maybeSingle();
+
+      if (existingEmployeeId) {
+        toast({
+          title: "Employee ID Already In Use",
+          description: `${existingEmployeeId.name} already has Employee ID ${employeeId}.`,
           variant: "destructive",
         });
         setIsSubmitting(false);
