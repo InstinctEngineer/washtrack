@@ -240,6 +240,18 @@ const PayrollDashboard = () => {
 
   const unmappedCount = useMemo(() => workTypes.filter(type => !workTypeCodes[type.id]).length, [workTypes, workTypeCodes]);
 
+  const visibleWorkTypes = useMemo(() => {
+    const term = codeSearch.trim().toLowerCase();
+    return workTypes.filter(type => {
+      const assigned = workTypeCodes[type.id];
+      if (codeFilter === 'mapped' && !assigned) return false;
+      if (codeFilter === 'unmapped' && assigned) return false;
+      if (!term) return true;
+      const code = assigned ? payCodeById[assigned] : undefined;
+      return `${type.name} ${code ? `${code.code} ${code.department} ${code.description || ''}` : ''}`.toLowerCase().includes(term);
+    });
+  }, [workTypes, workTypeCodes, codeSearch, codeFilter, payCodeById]);
+
   const exportWorkbook = async () => {
     if (!period || runLines.length === 0) { toast.error('Generate a payroll run before exporting'); return; }
     setWorking(true);
