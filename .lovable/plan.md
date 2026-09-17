@@ -45,3 +45,13 @@ Alex's Sep 14-16 washes are not in the system in any form; they only exist on hi
 - Add `online`/`offline` listeners and a `navigator.onLine` banner in the employee layout.
 - Add `visibilitychange`/`focus` refetch to `FinanceThisWeek` and `FinanceDashboard` fetch effects, plus an interval refresh and a "last updated" timestamp.
 - Surface the vite-plugin-pwa update flow with `useRegisterSW` (`needRefresh` -> reload prompt) instead of the current silent autoUpdate.
+
+## What could go wrong with this fix
+
+- **Duplicate entries.** A retried save could land twice if the first one actually went through late. Guard: each queued batch gets its own ID and the existing one-log-per-item-per-day rule blocks doubles; retries that hit a duplicate are treated as "already saved", not an error.
+- **Old work resurfacing.** A batch sitting in the queue for days could save later against the wrong week. Guard: queued batches carry their original work date, and anything older than a few days prompts the washer to confirm before saving.
+- **More warnings than before.** Washers will start seeing offline and "not saved" messages they never saw before. That is the point, but expect some "the app is broken now" calls in the first week — it was silently failing before.
+- **Auto-refresh on reports.** Refreshing while someone is mid-scroll or mid-export can be jarring, and adds background database reads. Guard: refresh only on tab focus and on a slow timer, never while an export is running.
+- **Reload prompts.** The update prompt asks people to reload; anyone who ignores it stays on the old version, so it needs to be a visible bar, not a small toast.
+- **Device storage.** The offline queue keeps data on the phone. It stays small (counts and item numbers), is cleared once saved, and holds no personal information.
+- **Rollout risk.** These touch the screen every washer uses daily. Best done in two steps: warnings and refresh first, the offline queue second, once the first step is confirmed working in the field.
