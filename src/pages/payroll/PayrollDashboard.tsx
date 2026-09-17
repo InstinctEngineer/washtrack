@@ -115,14 +115,26 @@ const PayrollDashboard = () => {
   useEffect(() => { void loadSetup(); }, [loadSetup]);
   useEffect(() => { void loadRun(period); }, [period, loadRun]);
 
-  const selectPeriod = (selected: Period) => {
+  const defaultCheckDate = (endDate: string) => asDateInput(addDays(new Date(`${endDate}T00:00:00`), 5));
+
+  const selectPeriod = async (selected: Period) => {
     setPeriod(selected);
     setPeriodStart(selected.period_start);
+    if (!selected.check_date) {
+      const value = defaultCheckDate(selected.period_end);
+      const { error } = await supabase.from('payroll_periods').update({ check_date: value }).eq('id', selected.id);
+      if (!error) {
+        setPeriod({ ...selected, check_date: value });
+        setPeriods(current => current.map(item => (item.id === selected.id ? { ...item, check_date: value } : item)));
+      }
+    }
   };
 
   const createPeriod = async () => {
     setWorking(true);
-    const { data, error } = await supabase.from('payroll_periods').upsert({ period_start: periodStart, period_end: periodEnd }, { onConflict: 'period_start' }).select().single();
+    const existing = periods.find(item => item.period_start === periodStart);
+    const checkDate = existing?.check_date || defaultCheckDate(periodEnd);
+    const { data, error } = await supabase.from('payroll_periods').upsert({ period_start: periodStart, period_end: periodEnd, check_date: checkDate }, { onConflict: 'period_start' }).select().single();
     setWorking(false);
     if (error) { toast.error('Could not create pay period'); return; }
     setPeriod(data as Period);
