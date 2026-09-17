@@ -1,33 +1,38 @@
-# Editing pay rates in Payroll
+# Pay Lines that build themselves, with editable rates
 
-Today office staff can only add a pay line. Nothing in the list can be changed, ended, or turned off, so a raise leaves two active lines for the same person and code — and the new production report may pick the wrong one.
+Today Pay Lines is an empty list that office staff have to fill in by hand, one row per employee and work type. That is backwards — the app already knows who worked and what they washed.
 
-## What office staff will be able to do
+## What changes
 
-In Payroll > Pay Lines, each row gets an Edit button and a Deactivate button.
+The Pay Lines tab becomes a rate sheet that fills itself in.
 
-**Edit** opens the row's details: code, department, task/location label, employee number, type, and rate.
+**It lists every employee and work type combination that actually has work recorded**, pulled from the same wash records used for invoicing. Pick a time range (defaults to the last 90 days, with "This year" and "All time" options) and every washer shows up with each vehicle/work type they have done.
 
-- Changing anything other than the rate updates the line in place.
-- Changing the rate asks for an "effective from" date (defaults to the Monday of the current week). The old line is ended the day before, and a new line starts on that date with the new rate. Past weeks keep calculating with the rate that was in force then.
-- A short history under each employee shows previous rates with their date ranges.
+Each row shows:
 
-**Deactivate** stops the line appearing in future weeks and in the production report, without removing past pay. A deactivated line can be reactivated.
+- Washer name and employee number
+- The work type, and the Future Systems code it maps to
+- The current pay rate, or "Not set" in red
+- When that rate took effect
 
-Anyone who can open Payroll today (finance and above) can do this. Every change is recorded so it is clear who changed a rate and when.
+**Finance and above can edit the rate right on the row.** Type a new rate, pick the date it starts from (defaults to the Monday of the current week), save. The old rate is ended the day before and the new one starts on that date, so past weeks still calculate with the rate that was in force then. A small history under each rate shows previous rates and their date ranges.
 
-## Keeping the reports honest
+**Other details can still be edited** — department, task/location label, employee number, type — through an Edit button on the row.
 
-The Washer Production report and weekly run already pick the pay line that was active for the week being viewed. Once ending dates are set properly, an old week will show the old rate and the current week the new one, instead of whichever duplicate line happened to be found first.
+**Deactivate** hides a combination that is no longer worked, without touching past pay. A "Show inactive" toggle brings them back.
+
+Rows with no rate set are counted in a banner at the top ("12 pay rates still need setting") so nothing gets missed before a payroll run.
+
+Manually added pay lines (salary, travel, anything with no wash records behind it) stay supported — the "Add Pay Line" button remains, and those rows appear in the same list marked as manual.
 
 ## Technical details
 
-- No schema change needed: `payroll_employee_lines` already has `rate`, `effective_date`, `end_date`, `is_active`.
-- Rate change = `UPDATE` old row `end_date = effective_from - 1 day`, then `INSERT` a new row copying all fields with the new rate and `effective_date = effective_from`. Guard against `effective_from <= old.effective_date` (in that case overwrite the existing row instead of splitting it).
-- Non-rate edits = plain `UPDATE` on the row.
-- Deactivate = `UPDATE is_active = false` plus `end_date` = the Sunday of the current week if not already set. Reactivate clears `end_date` and sets `is_active = true`.
-- RLS: add `UPDATE` and `INSERT` policies on `payroll_employee_lines` for `has_role_or_higher(auth.uid(), 'finance')`, matching the existing read policy, with the matching `GRANT`s.
-- Load in `PayrollDashboard.tsx` currently filters `.eq('is_active', true)`; add an "Show inactive" toggle so deactivated lines can be found and reactivated.
-- Add an `EditPayLineDialog` component under `src/pages/payroll/`, `max-h-[90vh] overflow-y-auto`.
-- Audit: insert into `activity_logs` on rate change (action `payroll_rate_change`, metadata with old/new rate and effective date).
-- `PayrollProductionReport.tsx` rate lookup stays as-is — it already filters by `effective_date <= weekEnd` and `end_date >= weekStart`.
+- New security-definer RPC `get_payroll_rate_sheet(p_start_date date, p_end_date date)`: distinct `employee_id, employee_name, provider_employee_number (users.employee_id), work_type_id, work_type_name` from `work_logs -> work_items -> rate_configs -> work_types -> locations -> clients`, excluding test data — same joins as `get_payroll_production_data`. Grant execute to `authenticated`.
+- Client-side join in a new `PayrollRateSheet` component (replacing the Pay Lines tab body): rate-sheet rows left-joined to `payroll_work_type_map` (global, `location_id is null`) for the pay code, then to `payroll_employee_lines` for the active rate (`is_active`, `effective_date <= today`, `end_date` null or `>= today`), matched on `employee_id + pay_code_id`.
+- Saving a rate where no pay line exists: `INSERT` into `payroll_employee_lines` with `employee_id`, `pay_code_id` from the mapping, `department` from the pay code, `task_label` = work type name, `display_name` = "Last, First", `provider_employee_number` from `users.employee_id`, `pay_type` from `payroll_pay_codes.default_pay_type`, `effective_date` = chosen date, `sort_order` 0.
+- Saving a rate where one exists: `UPDATE` old row `end_date = effective_from - 1 day`, then `INSERT` the new row with the new rate. If `effective_from <= old.effective_date`, overwrite the existing row instead of splitting.
+- Deactivate: `UPDATE is_active = false`, set `end_date` to the Sunday of the current week if null. Reactivate reverses it.
+- Work types with no entry in `payroll_work_type_map` show "No code mapped" and link to the Work Type Codes tab — a rate cannot be saved until a code exists.
+- RLS: add `INSERT` and `UPDATE` policies on `payroll_employee_lines` for `has_role_or_higher(auth.uid(), 'finance')`, plus the matching `GRANT`s.
+- Log rate changes to `activity_logs` (action `payroll_rate_change`, metadata with old/new rate, work type, effective date).
+- `PayrollProductionReport.tsx` needs no change — its lookup already filters on `effective_date`/`end_date`, and it becomes accurate once end dates are set properly.
