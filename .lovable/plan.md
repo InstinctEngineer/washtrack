@@ -1,18 +1,17 @@
-# Invoice number on every line item in report downloads
+# Unique invoice number on every line item
 
 ## Goal
-When a report is downloaded for QuickBooks, every line item row shows its invoice number in the `*InvoiceNo` column, not just the first row of each invoice.
+In the QuickBooks report download, every line item gets its own invoice number, counting up from the starting number (e.g. 1001, 1002, 1003...). No number is repeated.
 
-## Changes
-1. **Default export settings** — the Invoice Number column is set to repeat on every row by default.
-2. **QuickBooks Template button** — applying the template sets Invoice Number to every row.
-3. **Field default** — adding the Invoice Number field manually no longer defaults to "First row only".
-4. **Saved templates** — existing saved templates (e.g. Default Template, ZDBQ, Mobile Wash) are updated so Invoice Number repeats on every row, without anyone reconfiguring them.
-5. **Safety net** — the download always fills the invoice number on every row, even if an older template still has "First row only" ticked for it.
+## What changes
+1. **Numbering** — the invoice number goes up by one on every line, not once per customer/location/week.
+2. **Every row filled in** — since each line is now its own invoice in QuickBooks, Customer, Invoice Date, Due Date, Terms, Class and Email are filled on every row too. Otherwise QuickBooks would reject lines with no customer or date.
+3. **Defaults and QuickBooks Template** — the "First row only" boxes start unticked for these fields.
+4. **Saved templates** — existing saved templates (Default Template, ZDBQ, Mobile Wash, etc.) are updated so they behave the same way without reconfiguring.
 
-Customer, Invoice Date, Due Date, Terms, Class and Email stay first-row-only as they are today.
+Invoice date stays the Friday of the work week for each line. The "Next invoice number" starting value works as today.
 
 ## Technical details
-- `ExportColumnConfigurator.tsx`: `invoice_number` → `suggestFirstRowOnly: false`; QB template `qb-1` → `firstRowOnly: false`.
-- `FinanceDashboard.tsx`: default columns `invoice_number` → `firstRowOnly: false`; in the row builder, ignore `firstRowOnly` when `fieldKey === 'invoice_number'` (applies to CSV preview and xlsx export).
-- Data update on `report_templates`: set `firstRowOnly` to false for the `invoice_number` entry in each template's stored column config (data update, not schema change).
+- `FinanceDashboard.tsx` `generateCSVData`: keep grouping for ordering, but assign `invoiceNumber = currentInvoiceNumber++` per row; treat every row as a first row (ignore `firstRowOnly`). Default columns: `firstRowOnly: false`.
+- `ExportColumnConfigurator.tsx`: `suggestFirstRowOnly` removed from fields; QB template all `firstRowOnly: false`.
+- Data update on `report_templates`: set `firstRowOnly` false in every stored column config.
