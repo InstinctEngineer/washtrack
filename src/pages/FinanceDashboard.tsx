@@ -20,18 +20,18 @@ import { CSVPreviewModal } from '@/components/reports/CSVPreviewModal';
 
 // Default QuickBooks columns
 const DEFAULT_COLUMNS: ExportColumn[] = [
-  { id: 'qb-1', fieldKey: 'invoice_number', headerName: '*InvoiceNo', firstRowOnly: true },
-  { id: 'qb-2', fieldKey: 'client_name', headerName: '*Customer', firstRowOnly: true },
-  { id: 'qb-3', fieldKey: 'invoice_date', headerName: '*InvoiceDate', firstRowOnly: true },
-  { id: 'qb-4', fieldKey: 'due_date', headerName: '*DueDate', firstRowOnly: true },
-  { id: 'qb-5', fieldKey: 'terms', headerName: 'Terms', firstRowOnly: true },
+  { id: 'qb-1', fieldKey: 'invoice_number', headerName: '*InvoiceNo', firstRowOnly: false },
+  { id: 'qb-2', fieldKey: 'client_name', headerName: '*Customer', firstRowOnly: false },
+  { id: 'qb-3', fieldKey: 'invoice_date', headerName: '*InvoiceDate', firstRowOnly: false },
+  { id: 'qb-4', fieldKey: 'due_date', headerName: '*DueDate', firstRowOnly: false },
+  { id: 'qb-5', fieldKey: 'terms', headerName: 'Terms', firstRowOnly: false },
   { id: 'qb-6', fieldKey: 'qb_item_name', headerName: 'Item(Product/Service)', firstRowOnly: false },
   { id: 'qb-7', fieldKey: 'item_description', headerName: 'ItemDescription', firstRowOnly: false },
   { id: 'qb-8', fieldKey: 'quantity', headerName: 'ItemQuantity', firstRowOnly: false },
   { id: 'qb-9', fieldKey: 'rate', headerName: 'ItemRate', firstRowOnly: false },
   { id: 'qb-10', fieldKey: 'line_total', headerName: '*ItemAmount', firstRowOnly: false },
-  { id: 'qb-11', fieldKey: 'class', headerName: 'Class', firstRowOnly: true },
-  { id: 'qb-12', fieldKey: 'contact_email', headerName: 'Email', firstRowOnly: true },
+  { id: 'qb-11', fieldKey: 'class', headerName: 'Class', firstRowOnly: false },
+  { id: 'qb-12', fieldKey: 'contact_email', headerName: 'Email', firstRowOnly: false },
   { id: 'qb-13', fieldKey: 'taxable', headerName: 'Taxable', firstRowOnly: false },
   { id: 'qb-14', fieldKey: 'tax_jurisdiction', headerName: 'TaxRate', firstRowOnly: false },
 ];
@@ -331,20 +331,12 @@ export default function FinanceDashboard() {
       // Extract the Friday from the key for this invoice's date
       const fridayStr = key.split('|')[2];
       const invoiceDate = parseLocalDate(fridayStr);
-      const invoiceNumber = String(currentInvoiceNumber);
-      currentInvoiceNumber++;
-
-      const mergedRows = groupRows;
-
-      mergedRows.forEach((row, rowIndex) => {
-        const isFirstRow = rowIndex === 0;
-        const csvRow = columns.map((col) => {
-          // If field is marked "first row only" and this isn't the first row, return empty
-          if (col.firstRowOnly && !isFirstRow) {
-            return '';
-          }
-          return getFieldValue(col.fieldKey, row, invoiceNumber, invoiceDate, isFirstRow);
-        });
+      groupRows.forEach((row) => {
+        // Every line item is its own invoice with a unique number
+        const invoiceNumber = String(currentInvoiceNumber++);
+        const csvRow = columns.map((col) =>
+          getFieldValue(col.fieldKey, row, invoiceNumber, invoiceDate, true)
+        );
         rows.push(csvRow);
       });
     }
