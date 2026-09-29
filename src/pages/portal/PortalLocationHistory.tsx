@@ -108,6 +108,21 @@ export default function PortalLocationHistory() {
 
   const totalLabel = businessType === 'dealership' ? 'Vehicles Washed' : 'Total Washes';
 
+  const categoryTotals = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of filteredRows) {
+      map.set(r.work_type_name, (map.get(r.work_type_name) || 0) + Number(r.quantity || 0));
+    }
+    return [...map.entries()]
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }, [filteredRows]);
+
+  const dealershipDays = useMemo(
+    () => dealershipRows.filter((r) => Number(r.vehicle_count || 0) > 0).length,
+    [dealershipRows]
+  );
+
   const exportCsv = () => {
     if (businessType === 'dealership') {
       const header = 'date,vehicle_count\n';
