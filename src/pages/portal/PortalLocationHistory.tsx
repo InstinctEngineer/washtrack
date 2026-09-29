@@ -201,6 +201,28 @@ export default function PortalLocationHistory() {
             </div>
           </div>
 
+          {businessType === 'dealership' ? (
+            dealershipRows.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                Days washed: <span className="font-medium text-foreground tabular-nums">{dealershipDays}</span>
+              </div>
+            )
+          ) : (
+            categoryTotals.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {categoryTotals.map((c) => (
+                  <div
+                    key={c.name}
+                    className="rounded-md border bg-muted/40 px-3 py-2 flex items-baseline gap-2"
+                  >
+                    <span className="text-sm text-muted-foreground">{c.name}</span>
+                    <span className="text-lg font-semibold tabular-nums">{c.total.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
           {businessType !== 'dealership' && (
             <Input
               placeholder="Filter by vehicle, work type, or notes..."
