@@ -108,6 +108,21 @@ export default function PortalLocationHistory() {
 
   const totalLabel = businessType === 'dealership' ? 'Vehicles Washed' : 'Total Washes';
 
+  const categoryTotals = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of filteredRows) {
+      map.set(r.work_type_name, (map.get(r.work_type_name) || 0) + Number(r.quantity || 0));
+    }
+    return [...map.entries()]
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }, [filteredRows]);
+
+  const dealershipDays = useMemo(
+    () => dealershipRows.filter((r) => Number(r.vehicle_count || 0) > 0).length,
+    [dealershipRows]
+  );
+
   const exportCsv = () => {
     if (businessType === 'dealership') {
       const header = 'date,vehicle_count\n';
@@ -118,7 +133,10 @@ export default function PortalLocationHistory() {
       const body = filteredRows.map((r) =>
         `${r.work_date},"${r.work_type_name}","${r.identifier ?? ''}",${r.quantity},"${(r.notes ?? '').replace(/"/g, '""')}"`
       ).join('\n');
-      downloadCsv(header + body);
+      const summary = '\n\nsummary\nwork_type,total\n' + categoryTotals
+        .map((c) => `"${c.name.replace(/"/g, '""')}",${c.total}`)
+        .join('\n');
+      downloadCsv(header + body + summary);
     }
   };
 
@@ -182,6 +200,28 @@ export default function PortalLocationHistory() {
               {totalCount.toLocaleString()}
             </div>
           </div>
+
+          {businessType === 'dealership' ? (
+            dealershipRows.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                Days washed: <span className="font-medium text-foreground tabular-nums">{dealershipDays}</span>
+              </div>
+            )
+          ) : (
+            categoryTotals.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {categoryTotals.map((c) => (
+                  <div
+                    key={c.name}
+                    className="rounded-md border bg-muted/40 px-3 py-2 flex items-baseline gap-2"
+                  >
+                    <span className="text-sm text-muted-foreground">{c.name}</span>
+                    <span className="text-lg font-semibold tabular-nums">{c.total.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
 
           {businessType !== 'dealership' && (
             <Input
