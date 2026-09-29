@@ -133,7 +133,10 @@ export default function PortalLocationHistory() {
       const body = filteredRows.map((r) =>
         `${r.work_date},"${r.work_type_name}","${r.identifier ?? ''}",${r.quantity},"${(r.notes ?? '').replace(/"/g, '""')}"`
       ).join('\n');
-      downloadCsv(header + body);
+      const summary = '\n\nsummary\nwork_type,total\n' + categoryTotals
+        .map((c) => `"${c.name.replace(/"/g, '""')}",${c.total}`)
+        .join('\n');
+      downloadCsv(header + body + summary);
     }
   };
 
