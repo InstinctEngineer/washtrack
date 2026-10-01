@@ -480,7 +480,18 @@ export const EditUserModal = ({
                   
                   {/* Location list */}
                   <div className="p-4 space-y-2 max-h-52 overflow-y-auto">
-                    {locations.map((location) => {
+                    {(() => {
+                      const filtered = locations.filter((location) =>
+                        location.name.toLowerCase().includes(locationSearch.trim().toLowerCase())
+                      );
+                      if (filtered.length === 0) {
+                        return (
+                          <p className="text-sm text-muted-foreground py-2">
+                            No locations match "{locationSearch.trim()}"
+                          </p>
+                        );
+                      }
+                      return filtered.map((location) => {
                       const isSelected = formData.locations.some(
                         (l) => l.location_id === location.id
                       );
