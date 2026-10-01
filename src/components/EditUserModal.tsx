@@ -551,7 +551,8 @@ export const EditUserModal = ({
                           )}
                         </div>
                       );
-                    })}
+                      });
+                    })()}
                   </div>
                 </div>
               )}
