@@ -214,7 +214,6 @@ export default function FinanceDashboard() {
         return row.client_terms || 'Net 30';
       case 'qb_item_name':
         return buildQBItemName(
-          row.client_name,
           row.work_type_name,
           row.work_type_rate_type || 'per_unit',
           row.frequency
