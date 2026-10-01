@@ -74,14 +74,12 @@ const shouldPluralize = (workTypeName: string): boolean => {
 
 // Helper: Build QuickBooks Item name with correct syntax
 const buildQBItemName = (
-  parentCompany: string | null | undefined,
   clientName: string,
   workTypeName: string,
   rateType: 'per_unit' | 'hourly' | string,
   frequency: string | null
 ): string => {
-  // Fallback: use client_name if parent_company is null
-  const prefix = parentCompany || clientName || '';
+  const prefix = clientName || '';
   
   // Special case: EPA Charges stands alone (no prefix)
   if (workTypeName === 'EPA Charges') {
@@ -222,7 +220,6 @@ export default function FinanceDashboard() {
         return row.client_terms || 'Net 30';
       case 'qb_item_name':
         return buildQBItemName(
-          row.client_parent_company,
           row.client_name,
           row.work_type_name,
           row.work_type_rate_type || 'per_unit',
