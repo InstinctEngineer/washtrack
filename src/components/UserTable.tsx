@@ -383,20 +383,9 @@ export const UserTable = ({
                     <TableCell className="font-medium">{user.employee_id}</TableCell>
                     <TableCell>{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-[220px]">
                       {user.locations && user.locations.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {user.locations.map((loc, idx) => (
-                            <Badge
-                              key={idx}
-                              variant={loc.is_primary ? "default" : "secondary"}
-                              className="text-xs"
-                            >
-                              {loc.name}
-                              {loc.is_primary && " (Primary)"}
-                            </Badge>
-                          ))}
-                        </div>
+                        <LocationCell locations={user.locations} />
                       ) : (
                         <span className="text-muted-foreground">Not Assigned</span>
                       )}
