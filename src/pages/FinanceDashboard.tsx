@@ -331,12 +331,19 @@ export default function FinanceDashboard() {
       // Extract the Friday from the key for this invoice's date
       const fridayStr = key.split('|')[2];
       const invoiceDate = parseLocalDate(fridayStr);
-      groupRows.forEach((row) => {
-        // Every line item is its own invoice with a unique number
-        const invoiceNumber = String(currentInvoiceNumber++);
-        const csvRow = columns.map((col) =>
-          getFieldValue(col.fieldKey, row, invoiceNumber, invoiceDate, true)
-        );
+      // One invoice number per invoice (client + location + week)
+      const invoiceNumber = String(currentInvoiceNumber++);
+      const firstRow = groupRows[0];
+      const ALWAYS_FILLED = new Set(['invoice_number', 'terms', 'class']);
+      groupRows.forEach((row, index) => {
+        const isFirstRow = index === 0;
+        const csvRow = columns.map((col) => {
+          if (ALWAYS_FILLED.has(col.fieldKey)) {
+            return getFieldValue(col.fieldKey, firstRow, invoiceNumber, invoiceDate, true);
+          }
+          if (col.firstRowOnly && !isFirstRow) return '';
+          return getFieldValue(col.fieldKey, row, invoiceNumber, invoiceDate, isFirstRow);
+        });
         rows.push(csvRow);
       });
     }
