@@ -55,6 +55,7 @@ export const EditUserModal = ({
   const [showRoleConfirm, setShowRoleConfirm] = useState(false);
   const [showLocationConfirm, setShowLocationConfirm] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<any>(null);
+  const [locationSearch, setLocationSearch] = useState("");
 
   const [formData, setFormData] = useState({
     name: user.name,
@@ -424,6 +425,17 @@ export const EditUserModal = ({
                 </p>
               ) : (
                 <div className="border rounded-lg overflow-hidden">
+                  {/* Search box */}
+                  <div className="p-3 bg-muted/50 border-b">
+                    <Input
+                      id="edit-location-search"
+                      type="text"
+                      placeholder="Search locations..."
+                      value={locationSearch}
+                      onChange={(e) => setLocationSearch(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
                   {/* Select All checkbox */}
                   <div className="flex items-center gap-3 p-3 bg-muted/50 border-b">
                     <input
