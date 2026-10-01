@@ -73,38 +73,32 @@ const shouldPluralize = (workTypeName: string): boolean => {
 };
 
 // Helper: Build QuickBooks Item name with correct syntax
+// Item names are just the work type plus frequency — no client name prefix.
 const buildQBItemName = (
-  clientName: string,
   workTypeName: string,
   rateType: 'per_unit' | 'hourly' | string,
   frequency: string | null
 ): string => {
-  const prefix = clientName || '';
-  
-  // Special case: EPA Charges stands alone (no prefix)
+  // Special case: EPA Charges stands alone
   if (workTypeName === 'EPA Charges') {
     return 'EPA Charges';
   }
-  
-  // Hourly work types get special suffixes
+
+  // Hourly work types: work type name alone
   if (rateType === 'hourly') {
-    if (workTypeName.toLowerCase() === 'janitorial') {
-      return `${prefix}-Jani`;
-    }
-    // All other hourly types (Skid Loader, etc.)
-    return `${prefix}-Addi`;
+    return workTypeName;
   }
-  
-  // Per-unit work types: "Parent WorkType Frequency"
+
+  // Per-unit work types: "WorkType Frequency"
   let workType = workTypeName;
   const freqSuffix = convertFrequencyToQBFormat(frequency, workTypeName);
-  
+
   // Add 's' for 2x frequencies, but only for alphabetic names
   if (frequency?.toLowerCase().includes('2x') && shouldPluralize(workTypeName)) {
     workType = workTypeName + 's';
   }
-  
-  return `${prefix} ${workType} ${freqSuffix}`.trim();
+
+  return `${workType} ${freqSuffix}`.trim();
 };
 
 /**
@@ -220,7 +214,6 @@ export default function FinanceDashboard() {
         return row.client_terms || 'Net 30';
       case 'qb_item_name':
         return buildQBItemName(
-          row.client_name,
           row.work_type_name,
           row.work_type_rate_type || 'per_unit',
           row.frequency

@@ -61,34 +61,28 @@ const shouldPluralize = (workTypeName: string): boolean => {
   return /[a-zA-Z]$/.test(workTypeName);
 };
 
+// Item names are just the work type plus frequency — no client name prefix.
 const buildQBItemName = (
-  parentCompany: string | null | undefined,
-  clientName: string,
   workTypeName: string,
   rateType: 'per_unit' | 'hourly' | string,
   frequency: string | null
 ): string => {
-  const prefix = parentCompany || clientName || '';
-  
   if (workTypeName === 'EPA Charges') {
     return 'EPA Charges';
   }
-  
+
   if (rateType === 'hourly') {
-    if (workTypeName.toLowerCase() === 'janitorial') {
-      return `${prefix}-Jani`;
-    }
-    return `${prefix}-Addi`;
+    return workTypeName;
   }
-  
+
   let workType = workTypeName;
   const freqSuffix = convertFrequencyToQBFormat(frequency, workTypeName);
-  
+
   if (frequency?.toLowerCase().includes('2x') && shouldPluralize(workTypeName)) {
     workType = workTypeName + 's';
   }
-  
-  return `${prefix} ${workType} ${freqSuffix}`.trim();
+
+  return `${workType} ${freqSuffix}`.trim();
 };
 
 const getFieldValue = (fieldKey: string, row: ReportDataRow): React.ReactNode => {
@@ -99,8 +93,6 @@ const getFieldValue = (fieldKey: string, row: ReportDataRow): React.ReactNode =>
       return row.location_name || '—';
     case 'qb_item_name':
       return buildQBItemName(
-        row.client_parent_company,
-        row.client_name,
         row.work_type_name,
         row.work_type_rate_type || 'per_unit',
         row.frequency
