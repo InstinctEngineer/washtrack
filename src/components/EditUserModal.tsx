@@ -55,6 +55,7 @@ export const EditUserModal = ({
   const [showRoleConfirm, setShowRoleConfirm] = useState(false);
   const [showLocationConfirm, setShowLocationConfirm] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<any>(null);
+  const [locationSearch, setLocationSearch] = useState("");
 
   const [formData, setFormData] = useState({
     name: user.name,
@@ -424,6 +425,17 @@ export const EditUserModal = ({
                 </p>
               ) : (
                 <div className="border rounded-lg overflow-hidden">
+                  {/* Search box */}
+                  <div className="p-3 bg-muted/50 border-b">
+                    <Input
+                      id="edit-location-search"
+                      type="text"
+                      placeholder="Search locations..."
+                      value={locationSearch}
+                      onChange={(e) => setLocationSearch(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
                   {/* Select All checkbox */}
                   <div className="flex items-center gap-3 p-3 bg-muted/50 border-b">
                     <input
@@ -468,7 +480,18 @@ export const EditUserModal = ({
                   
                   {/* Location list */}
                   <div className="p-4 space-y-2 max-h-52 overflow-y-auto">
-                    {locations.map((location) => {
+                    {(() => {
+                      const filtered = locations.filter((location) =>
+                        location.name.toLowerCase().includes(locationSearch.trim().toLowerCase())
+                      );
+                      if (filtered.length === 0) {
+                        return (
+                          <p className="text-sm text-muted-foreground py-2">
+                            No locations match "{locationSearch.trim()}"
+                          </p>
+                        );
+                      }
+                      return filtered.map((location) => {
                       const isSelected = formData.locations.some(
                         (l) => l.location_id === location.id
                       );
@@ -528,7 +551,8 @@ export const EditUserModal = ({
                           )}
                         </div>
                       );
-                    })}
+                      });
+                    })()}
                   </div>
                 </div>
               )}

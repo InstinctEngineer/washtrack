@@ -60,6 +60,7 @@ export const CreateUserModal = ({
   const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [emailError, setEmailError] = useState<string | undefined>(undefined);
   const [resending, setResending] = useState(false);
+  const [locationSearch, setLocationSearch] = useState("");
 
   const getInitialFormData = () => ({
     employee_id: "",
@@ -408,77 +409,101 @@ export const CreateUserModal = ({
                   Please create locations first
                 </p>
               ) : (
-                <div className="border rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
-                  {locations.map((location) => {
-                    const isSelected = formData.locations.some(
-                      (l) => l.location_id === location.id
+                <>
+                  <Input
+                    id="location-search"
+                    type="text"
+                    placeholder="Search locations..."
+                    value={locationSearch}
+                    onChange={(e) => setLocationSearch(e.target.value)}
+                    className="h-9"
+                  />
+                  {(() => {
+                    const filtered = locations.filter((location) =>
+                      location.name.toLowerCase().includes(locationSearch.trim().toLowerCase())
                     );
-                    const isPrimary = formData.locations.find(
-                      (l) => l.location_id === location.id
-                    )?.is_primary;
-
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-sm text-muted-foreground px-1 py-2">
+                          No locations match "{locationSearch.trim()}"
+                        </p>
+                      );
+                    }
                     return (
-                      <div key={location.id} className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          id={`location-${location.id}`}
-                          checked={isSelected}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              // If this is the first/only location, make it primary
-                              const newLocations = [
-                                ...formData.locations,
-                                { location_id: location.id, is_primary: formData.locations.length === 0 },
-                              ];
-                              setFormData({
-                                ...formData,
-                                locations: newLocations,
-                              });
-                            } else {
-                              const newLocations = formData.locations.filter(
-                                (l) => l.location_id !== location.id
-                              );
-                              // If removing the primary and there's still one left, make that one primary
-                              const wasPrimary = formData.locations.find(l => l.location_id === location.id)?.is_primary;
-                              if (wasPrimary && newLocations.length === 1) {
-                                newLocations[0].is_primary = true;
-                              }
-                              setFormData({
-                                ...formData,
-                                locations: newLocations,
-                              });
-                            }
-                          }}
-                          className="h-4 w-4"
-                        />
-                        <Label
-                          htmlFor={`location-${location.id}`}
-                          className="flex-1 cursor-pointer"
-                        >
-                          {location.name}
-                        </Label>
-                        {isSelected && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={isPrimary ? "default" : "outline"}
-                            onClick={() => {
-                              setFormData({
-                                ...formData,
-                                locations: formData.locations.map((l) => ({
-                                  ...l,
-                                  is_primary: l.location_id === location.id,
-                                })),
-                              });
-                            }}
-                          >
-                            {isPrimary ? "Primary" : "Set as Primary"}
-                          </Button>
-                        )}
+                      <div className="border rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
+                        {filtered.map((location) => {
+                          const isSelected = formData.locations.some(
+                            (l) => l.location_id === location.id
+                          );
+                          const isPrimary = formData.locations.find(
+                            (l) => l.location_id === location.id
+                          )?.is_primary;
+
+                          return (
+                            <div key={location.id} className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                id={`location-${location.id}`}
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    // If this is the first/only location, make it primary
+                                    const newLocations = [
+                                      ...formData.locations,
+                                      { location_id: location.id, is_primary: formData.locations.length === 0 },
+                                    ];
+                                    setFormData({
+                                      ...formData,
+                                      locations: newLocations,
+                                    });
+                                  } else {
+                                    const newLocations = formData.locations.filter(
+                                      (l) => l.location_id !== location.id
+                                    );
+                                    // If removing the primary and there's still one left, make that one primary
+                                    const wasPrimary = formData.locations.find(l => l.location_id === location.id)?.is_primary;
+                                    if (wasPrimary && newLocations.length === 1) {
+                                      newLocations[0].is_primary = true;
+                                    }
+                                    setFormData({
+                                      ...formData,
+                                      locations: newLocations,
+                                    });
+                                  }
+                                }}
+                                className="h-4 w-4"
+                              />
+                              <Label
+                                htmlFor={`location-${location.id}`}
+                                className="flex-1 cursor-pointer"
+                              >
+                                {location.name}
+                              </Label>
+                              {isSelected && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={isPrimary ? "default" : "outline"}
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      locations: formData.locations.map((l) => ({
+                                        ...l,
+                                        is_primary: l.location_id === location.id,
+                                      })),
+                                    });
+                                  }}
+                                >
+                                  {isPrimary ? "Primary" : "Set as Primary"}
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     );
-                  })}
-                </div>
+                  })()}
+                </>
               )}
             </div>
 
