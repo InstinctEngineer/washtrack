@@ -77,6 +77,53 @@ const roleColors: Record<UserRole, string> = {
   super_admin: "bg-purple-500",
 };
 
+const LocationCell = ({ locations }: { locations: Array<{ name: string; is_primary: boolean }> }) => {
+  const [expanded, setExpanded] = useState(false);
+  const primaryIdx = locations.findIndex((l) => l.is_primary);
+  const firstIdx = primaryIdx >= 0 ? primaryIdx : 0;
+  const hiddenCount = locations.length - 1;
+
+  const renderBadge = (loc: { name: string; is_primary: boolean }, idx: number) => (
+    <Badge key={idx} variant={loc.is_primary ? "default" : "secondary"} className="text-xs">
+      {loc.name}
+      {loc.is_primary && " (Primary)"}
+    </Badge>
+  );
+
+  if (!expanded) {
+    return (
+      <div className="flex flex-wrap items-center gap-1">
+        {renderBadge(locations[firstIdx], firstIdx)}
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="text-xs text-primary hover:underline whitespace-nowrap"
+            title="Show all locations"
+          >
+            +{hiddenCount} more
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {locations.map((loc, idx) => renderBadge(loc, idx))}
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="text-xs text-muted-foreground hover:underline whitespace-nowrap"
+        >
+          Show less
+        </button>
+      )}
+    </div>
+  );
+};
+
 export const UserTable = ({
   users,
   roleMap,
@@ -383,20 +430,9 @@ export const UserTable = ({
                     <TableCell className="font-medium">{user.employee_id}</TableCell>
                     <TableCell>{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-[220px]">
                       {user.locations && user.locations.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {user.locations.map((loc, idx) => (
-                            <Badge
-                              key={idx}
-                              variant={loc.is_primary ? "default" : "secondary"}
-                              className="text-xs"
-                            >
-                              {loc.name}
-                              {loc.is_primary && " (Primary)"}
-                            </Badge>
-                          ))}
-                        </div>
+                        <LocationCell locations={user.locations} />
                       ) : (
                         <span className="text-muted-foreground">Not Assigned</span>
                       )}
