@@ -28,7 +28,7 @@ import {
   Package,
   Calendar,
   Smartphone,
-  Share,
+  Apple,
   Activity,
   Car,
   ChevronDown,
@@ -42,6 +42,7 @@ import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount';
 import { useUnreadTicketCount } from '@/hooks/useUnreadTicketCount';
 import { usePendingPortalRequestCount } from '@/hooks/usePendingPortalRequestCount';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { APP_STORE_URL, PLAY_STORE_URL, openStore } from '@/lib/appStores';
 import { ErrorReportButton } from '@/components/ErrorReportButton';
 import { usePayrollMode } from '@/hooks/usePayrollMode';
 import { ModeSwitcher } from '@/components/ModeSwitcher';
@@ -63,13 +64,11 @@ export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const isPayrollMode = usePayrollMode();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [showIOSDialog, setShowIOSDialog] = useState(false);
-  const [showAndroidDialog, setShowAndroidDialog] = useState(false);
+  const [showStoreDialog, setShowStoreDialog] = useState(false);
   const { unreadCount } = useUnreadMessageCount();
   const { unreadTicketCount } = useUnreadTicketCount();
   const { pendingCount } = usePendingPortalRequestCount();
-  const { canInstall, isIOS, isAndroid, isMobile, isInstalled, promptInstall, androidBrowser } = usePWAInstall();
-  const [showUnsupportedDialog, setShowUnsupportedDialog] = useState(false);
+  const { canInstall, isIOS, isAndroid, isInstalled, promptInstall } = usePWAInstall();
   useActivityLogger();
 
   const handleSignOut = async () => {
@@ -373,14 +372,13 @@ export const Layout = ({ children }: LayoutProps) => {
                   <Button
                     variant="outline"
                     className="w-full justify-start gap-3"
-                    onClick={async () => {
-                      const result = await promptInstall();
-                      if (result === 'ios') {
-                        setShowIOSDialog(true);
-                      } else if (result === 'android') {
-                        setShowAndroidDialog(true);
-                      } else if (result === 'unsupported') {
-                        setShowUnsupportedDialog(true);
+                    onClick={() => {
+                      if (isIOS) {
+                        openStore(APP_STORE_URL);
+                      } else if (isAndroid) {
+                        openStore(PLAY_STORE_URL);
+                      } else {
+                        setShowStoreDialog(true);
                       }
                     }}
                   >
