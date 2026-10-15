@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Plus, Trash2, DollarSign } from 'lucide-react';
 import { useTableSort } from '@/hooks/useTableSort';
 import { SortableTableHead } from '@/components/SortableTableHead';
+import { TableToolbar, matchesSearch } from '@/components/TableToolbar';
 
 interface RateRow {
   id: string;
@@ -34,8 +35,20 @@ export default function DealershipRates() {
 
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ client_id: '', location_id: '__all__', rate: '5.25' });
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  const { sortedData: sortedRates, sortColumn, sortDirection, handleSort } = useTableSort(rates, {
+
+
+  const filteredRates = useMemo(() => {
+    return rates.filter((r) => {
+      const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? r.is_active : !r.is_active);
+      const matchesText = matchesSearch(search, [r.client_name, r.location_name]);
+      return matchesStatus && matchesText;
+    });
+  }, [rates, search, statusFilter]);
+
+  const { sortedData: sortedRates, sortColumn, sortDirection, handleSort } = useTableSort(filteredRates, {
     getValue: (r, col) => {
       switch (col) {
         case 'client': return r.client_name || '';
@@ -151,6 +164,28 @@ export default function DealershipRates() {
             </Button>
           </CardHeader>
           <CardContent>
+
+            <div className="mb-4">
+              <TableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="Search overrides..."
+                filters={[
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    value: statusFilter,
+                    onChange: setStatusFilter,
+                    options: [
+                      { value: 'active', label: 'Active' },
+                      { value: 'inactive', label: 'Inactive' },
+                    ],
+                  },
+                ]}
+                shown={sortedRates.length}
+                total={rates.length}
+              />
+            </div>
             {loading ? (
               <div className="text-muted-foreground">Loading…</div>
             ) : rates.length === 0 ? (

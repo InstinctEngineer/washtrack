@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { TableToolbar, matchesSearch } from '@/components/TableToolbar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
@@ -48,6 +49,7 @@ export default function SuperAdminDatabase() {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isTableOpen, setIsTableOpen] = useState(true);
+  const [dbSearch, setDbSearch] = useState('');
 
   // Only super_admin can access
   if (userRole !== 'super_admin') {
@@ -160,10 +162,15 @@ export default function SuperAdminDatabase() {
     }
   };
 
-  const sortedTableData = useMemo(() => {
-    if (!sortColumn) return tableData;
+  const searchedData = useMemo(
+    () => tableData.filter((row) => matchesSearch(dbSearch, Object.values(row ?? {}))),
+    [tableData, dbSearch]
+  );
 
-    return [...tableData].sort((a, b) => {
+  const sortedTableData = useMemo(() => {
+    if (!sortColumn) return searchedData;
+
+    return [...searchedData].sort((a, b) => {
       const aValue = a[sortColumn];
       const bValue = b[sortColumn];
 
@@ -216,6 +223,9 @@ export default function SuperAdminDatabase() {
             </CardHeader>
             <CollapsibleContent>
               <CardContent>
+            <div className="mb-4">
+              <TableToolbar search={dbSearch} onSearchChange={setDbSearch} placeholder="Search this table..." shown={searchedData.length} total={tableData.length} />
+            </div>
             <Tabs value={selectedTable} onValueChange={setSelectedTable}>
               <ScrollArea className="w-full">
                 <TabsList className="inline-flex w-max">

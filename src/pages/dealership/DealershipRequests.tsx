@@ -15,6 +15,7 @@ import { findSimilarMatches } from '@/lib/fuzzyMatch';
 import { format } from 'date-fns';
 import { useTableSort } from '@/hooks/useTableSort';
 import { SortableTableHead } from '@/components/SortableTableHead';
+import { TableToolbar, matchesSearch } from '@/components/TableToolbar';
 
 interface Req {
   id: string;
@@ -39,6 +40,9 @@ export default function DealershipRequests() {
   const [decision, setDecision] = useState<'approve_new' | 'merge' | 'reject'>('approve_new');
   const [mergeClientId, setMergeClientId] = useState<string>('');
   const [reviewNotes, setReviewNotes] = useState('');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
 
   const load = async () => {
     setLoading(true);
@@ -150,9 +154,23 @@ export default function DealershipRequests() {
   };
 
   const pending = requests.filter((r) => r.status === 'pending');
-  const processed = requests.filter((r) => r.status !== 'pending');
+  const filteredPending = useMemo(() => {
+    return pending.filter((r) => {
+      return matchesSearch(search, [r.requester_name, r.proposed_client_name, r.proposed_location_name, r.address, r.city, r.state]);
+    });
+  }, [pending, search]);
 
-  const pendingSort = useTableSort(pending, {
+  const processed = requests.filter((r) => r.status !== 'pending');
+  const filteredProcessed = useMemo(() => {
+    return processed.filter((r) => {
+      const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+      const matchesText = matchesSearch(search, [r.proposed_client_name, r.proposed_location_name]);
+      return matchesStatus && matchesText;
+    });
+  }, [processed, search, statusFilter]);
+
+
+  const pendingSort = useTableSort(filteredPending, {
     getValue: (r, col) => {
       switch (col) {
         case 'created_at': return new Date(r.created_at);
@@ -164,7 +182,7 @@ export default function DealershipRequests() {
       }
     },
   });
-  const processedSort = useTableSort(processed.slice(0, 30), {
+  const processedSort = useTableSort(filteredProcessed, {
     getValue: (r, col) => {
       switch (col) {
         case 'created_at': return new Date(r.created_at);
@@ -187,6 +205,15 @@ export default function DealershipRequests() {
         <Card>
           <CardHeader><CardTitle>Pending ({pending.length})</CardTitle></CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <TableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="Search requests..."
+                shown={pendingSort.sortedData.length}
+                total={pending.length}
+              />
+            </div>
             {loading ? (
               <div className="text-muted-foreground">Loading…</div>
             ) : pending.length === 0 ? (
@@ -230,6 +257,28 @@ export default function DealershipRequests() {
           <Card>
             <CardHeader><CardTitle>History</CardTitle></CardHeader>
             <CardContent>
+            <div className="mb-4">
+              <TableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="Search history..."
+                filters={[
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    value: statusFilter,
+                    onChange: setStatusFilter,
+                    options: [
+                      { value: 'approved', label: 'Approved' },
+                      { value: 'merged', label: 'Merged' },
+                      { value: 'rejected', label: 'Rejected' },
+                    ],
+                  },
+                ]}
+                shown={processedSort.sortedData.length}
+                total={processed.length}
+              />
+            </div>
               <Table>
                 <TableHeader>
                   <TableRow>

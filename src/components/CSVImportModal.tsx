@@ -1,9 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { TableToolbar, matchesSearch } from "@/components/TableToolbar";
 import { Upload, Download, FileText, X, CheckCircle2, AlertCircle, XCircle, Check, Plus } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -75,6 +76,7 @@ export function CSVImportModal({ open, onOpenChange }: CSVImportModalProps) {
   const [importResults, setImportResults] = useState<{ success: number; failed: number } | null>(null);
   const [pendingCreation, setPendingCreation] = useState<PendingCreation | null>(null);
   const { toast } = useToast();
+  const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
 
   const resetState = useCallback(() => {
@@ -480,6 +482,17 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
     setPendingCreation(null);
     queryClient.invalidateQueries({ queryKey: ["locations"] });
   };
+
+  const visibleParsedRows = useMemo(() => {
+    if (!search) return parsedRows;
+    return parsedRows.filter(row => 
+      matchesSearch(search, [
+        row.client_name, row.location_name, row.identifier, row.work_type, 
+        row.frequency, row.rate_type, row.rate, 
+        row.resolvedClientName, row.resolvedLocationName
+      ])
+    );
+  }, [parsedRows, search]);
 
   const handleImport = async () => {
     const validRows = parsedRows.filter((row) => row.isValid && !row.isSkipped);
@@ -933,6 +946,15 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                 </div>
               )}
 
+            <div className="mb-4">
+              <TableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="Search import data..."
+                shown={visibleParsedRows.length}
+                total={parsedRows.length}
+              />
+            </div>
               <ScrollArea className="h-[400px] border rounded-lg">
                 <Table>
                   <TableHeader>

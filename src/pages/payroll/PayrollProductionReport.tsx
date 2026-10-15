@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays, format, startOfWeek, subWeeks } from 'date-fns';
 import { Download, Loader2, RefreshCw } from 'lucide-react';
+import { TableToolbar, matchesSearch } from "@/components/TableToolbar";
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,8 +45,8 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
   const [weekStart, setWeekStart] = useState(periodStart);
   const [rows, setRows] = useState<ProductionRow[]>([]);
   const [rates, setRates] = useState<Record<string, RateInfo>>({});
-  const [employeeFilter, setEmployeeFilter] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [locationFilter, setLocationFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { payCodeById } = usePayCodes();
@@ -103,16 +104,18 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
   useEffect(() => { void load(); }, [load]);
 
   const visibleRows = useMemo(() => {
-    const employee = employeeFilter.trim().toLowerCase();
-    const location = locationFilter.trim().toLowerCase();
     return rows
-      .filter(row => (!employee || row.employee_name.toLowerCase().includes(employee)) && (!location || row.location_name.toLowerCase().includes(location)))
+      .filter(row => {
+        const matchesQuery = matchesSearch(search, [row.employee_name, row.provider_employee_number]);
+        const matchesLoc = locationFilter === "all" || row.location_name === locationFilter;
+        return matchesQuery && matchesLoc;
+      })
       .sort((a, b) =>
         lastFirst(a.employee_name).localeCompare(lastFirst(b.employee_name)) ||
-        (rates[`${a.employee_id}:${a.work_type_id}`]?.code || '').localeCompare(rates[`${b.employee_id}:${b.work_type_id}`]?.code || '') ||
+        (rates[`${a.employee_id}:${a.work_type_id}`]?.code || "").localeCompare(rates[`${b.employee_id}:${b.work_type_id}`]?.code || "") ||
         a.location_name.localeCompare(b.location_name)
       );
-  }, [rows, employeeFilter, locationFilter, rates]);
+  }, [rows, search, locationFilter, rates]);
 
   const payFor = (row: ProductionRow) => {
     const info = rates[`${row.employee_id}:${row.work_type_id}`];
@@ -124,6 +127,11 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
     () => Array.from(new Set(visibleRows.filter(row => !rates[`${row.employee_id}:${row.work_type_id}`]).map(row => `${row.employee_name} — ${row.work_type_name}`))),
     [visibleRows, rates]
   );
+
+  const locationOptions = useMemo(() => {
+    const locs = Array.from(new Set(rows.map(r => r.location_name))).sort();
+    return locs.map(l => ({ value: l, label: l }));
+  }, [rows]);
 
   const subtotals = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -172,8 +180,24 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
             <Input id="productionWeek" type="date" value={weekStart} onChange={event => setWeekStart(asDateInput(mondayOf(new Date(`${event.target.value}T00:00:00`))))} />
           </div>
           <div className="space-y-2"><Label>Week ending</Label><Input value={weekEnd} readOnly /></div>
-          <div className="space-y-2"><Label htmlFor="productionEmployee">Washer</Label><Input id="productionEmployee" placeholder="All washers" value={employeeFilter} onChange={event => setEmployeeFilter(event.target.value)} /></div>
-          <div className="space-y-2"><Label htmlFor="productionLocation">Location</Label><Input id="productionLocation" placeholder="All locations" value={locationFilter} onChange={event => setLocationFilter(event.target.value)} /></div>
+          <div className="sm:col-span-2 flex items-end">
+            <TableToolbar
+              search={search}
+              onSearchChange={setSearch}
+              placeholder="Search name or code..."
+              shown={visibleRows.length}
+              total={rows.length}
+              filters={[
+                {
+                  key: "location",
+                  label: "Location",
+                  value: locationFilter,
+                  onChange: setLocationFilter,
+                  options: locationOptions
+                }
+              ]}
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">

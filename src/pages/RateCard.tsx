@@ -51,6 +51,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
+import { matchesSearch } from '@/components/TableToolbar';
 import { Loader2, Plus, ChevronDown, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface RateConfig {
@@ -95,6 +96,7 @@ const RateCard = () => {
   const [filterLocation, setFilterLocation] = useState<string>('all');
   const [filterWorkType, setFilterWorkType] = useState<string>('all');
   const [showNeedsReview, setShowNeedsReview] = useState(false);
+  const [rateSearch, setRateSearch] = useState('');
 
   // Sorting
   type SortColumn = 'client' | 'location' | 'work_type' | 'frequency' | 'rate' | 'status' | null;
@@ -199,6 +201,7 @@ const RateCard = () => {
     if (filterLocation !== 'all' && rc.location_id !== filterLocation) return false;
     if (filterWorkType !== 'all' && rc.work_type_id !== filterWorkType) return false;
     if (showNeedsReview && !rc.needs_rate_review) return false;
+    if (!matchesSearch(rateSearch, [rc.client?.name, rc.location?.name, rc.work_type?.name, rc.frequency])) return false;
     return true;
   });
 
@@ -442,6 +445,7 @@ const RateCard = () => {
                 </CollapsibleTrigger>
               </div>
               <div className="flex flex-wrap items-center gap-4 pt-2" onClick={(e) => e.stopPropagation()}>
+                <Input className="w-56" placeholder="Search rates..." value={rateSearch} onChange={(e) => setRateSearch(e.target.value)} />
                 <Select value={filterClient} onValueChange={(v) => { setFilterClient(v); setFilterLocation('all'); }}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Clients" />
