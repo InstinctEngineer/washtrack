@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { Edit, Power, Trash2, KeyRound } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { TableToolbar, matchesSearch } from '@/components/TableToolbar';
 
 interface PortalUserRow {
   id: string;
@@ -57,6 +58,9 @@ export default function PortalUsers() {
   const [confirmToggle, setConfirmToggle] = useState<PortalUserRow | null>(null);
   const [confirmReset, setConfirmReset] = useState<PortalUserRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
 
   const load = async () => {
     setLoading(true);
@@ -103,6 +107,21 @@ export default function PortalUsers() {
   };
 
   useEffect(() => { load(); loadLocations(); }, []);
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      const matchesStatus = statusFilter === 'all' || u.approval_status === statusFilter;
+      const matchesText = matchesSearch(search, [
+        u.first_name,
+        u.last_name,
+        u.display_name,
+        u.email,
+        u.work_location,
+        ...u.locations
+      ]);
+      return matchesStatus && matchesText;
+    });
+  }, [users, search, statusFilter]);
+
 
   const openEdit = (u: PortalUserRow) => {
     setEditing(u);
@@ -211,6 +230,29 @@ export default function PortalUsers() {
           </p>
         </CardHeader>
         <CardContent>
+
+          <div className="mb-4">
+            <TableToolbar
+              search={search}
+              onSearchChange={setSearch}
+              placeholder="Search users..."
+              filters={[
+                {
+                  key: 'approval',
+                  label: 'Approval Status',
+                  value: statusFilter,
+                  onChange: setStatusFilter,
+                  options: [
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'approved', label: 'Approved' },
+                    { value: 'denied', label: 'Denied' },
+                  ],
+                },
+              ]}
+              shown={filteredUsers.length}
+              total={users.length}
+            />
+          </div>
           <div className="overflow-auto border rounded-md">
             <Table>
               <TableHeader>
@@ -230,7 +272,7 @@ export default function PortalUsers() {
                 {!loading && users.length === 0 && (
                   <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">No portal users.</TableCell></TableRow>
                 )}
-                {users.map((u) => (
+                {filteredUsers.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">
                       {[u.first_name, u.last_name].filter(Boolean).join(' ') || u.display_name || '-'}

@@ -26,6 +26,7 @@ import { getCurrentCutoff } from '@/lib/cutoff';
 import { cn } from '@/lib/utils';
 import { useTableSort } from '@/hooks/useTableSort';
 import { SortableTableHead } from '@/components/SortableTableHead';
+import { TableToolbar, matchesSearch } from '@/components/TableToolbar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -118,6 +119,7 @@ export default function EmployeeDashboard() {
   
   // Work type filter for recent entries
   const [filterWorkType, setFilterWorkType] = useState<string>('all');
+  const [search, setSearch] = useState('');
 
   // Cars Washed scroll-wheel state
   const [carsWashedQty, setCarsWashedQty] = useState(0);
@@ -674,13 +676,18 @@ export default function EmployeeDashboard() {
 
   // Filter recent logs by work type
   const filteredLogs = useMemo(() => {
-    if (filterWorkType === 'all') return recentLogs;
     return recentLogs.filter(log => {
       const typeName = log.work_item?.rate_config?.work_type?.name 
                     || log.direct_rate_config?.work_type?.name;
-      return typeName === filterWorkType;
+      const matchesType = filterWorkType === 'all' || typeName === filterWorkType;
+      const matchesText = matchesSearch(search, [
+        log.work_item?.identifier,
+        typeName,
+        log.notes
+      ]);
+      return matchesType && matchesText;
     });
-  }, [recentLogs, filterWorkType]);
+  }, [recentLogs, filterWorkType, search]);
 
   const logsSort = useTableSort(filteredLogs, {
     initialColumn: 'date',
@@ -930,6 +937,25 @@ export default function EmployeeDashboard() {
             )}
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <TableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="Search entries..."
+                filters={uniqueWorkTypes.length > 1 ? [
+                  {
+                    key: 'workType',
+                    label: 'Work Type',
+                    value: filterWorkType,
+                    onChange: setFilterWorkType,
+                    options: uniqueWorkTypes.map(t => ({ value: t, label: t })),
+                  }
+                ] : []}
+                shown={filteredLogs.length}
+                total={recentLogs.length}
+              />
+            </div>
+
             {selectedLocationId && (
               <WorkItemGrid
                 locationId={selectedLocationId}
@@ -1076,22 +1102,28 @@ export default function EmployeeDashboard() {
           <CardHeader>
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <CardTitle>Recent Entries (Current Week)</CardTitle>
-              {uniqueWorkTypes.length > 1 && (
-                <Select value={filterWorkType} onValueChange={setFilterWorkType}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    {uniqueWorkTypes.map(wt => (
-                      <SelectItem key={wt} value={wt}>{wt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
             </div>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <TableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="Search entries..."
+                filters={uniqueWorkTypes.length > 1 ? [
+                  {
+                    key: 'workType',
+                    label: 'Work Type',
+                    value: filterWorkType,
+                    onChange: setFilterWorkType,
+                    options: uniqueWorkTypes.map(t => ({ value: t, label: t })),
+                  }
+                ] : []}
+                shown={filteredLogs.length}
+                total={recentLogs.length}
+              />
+            </div>
+
             {loadingLogs ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (

@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useTableSort } from '@/hooks/useTableSort';
 import { SortableTableHead } from '@/components/SortableTableHead';
+import { TableToolbar } from "@/components/TableToolbar";
 
 interface LocationTableProps {
   locations: Location[];
@@ -58,6 +59,7 @@ export const LocationTable = ({
   onDeactivate,
   onViewDetails,
 }: LocationTableProps) => {
+  const [clientFilter, setClientFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [stats, setStats] = useState<LocationStats>({});
@@ -106,18 +108,23 @@ export const LocationTable = ({
 
   const filteredLocations = useMemo(() => {
     return locations.filter((location) => {
-      const matchesSearch =
-        location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        location.address?.toLowerCase().includes(searchTerm.toLowerCase());
+      const clientName = stats[location.id]?.clientName;
+      const matchesQuery = !searchTerm || [
+        location.name, 
+        location.address,
+        clientName
+      ].some(val => val?.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'active' && location.is_active) ||
-        (statusFilter === 'inactive' && !location.is_active);
+      const matchesStatus = 
+        statusFilter === "all" || 
+        (statusFilter === "active" && location.is_active) || 
+        (statusFilter === "inactive" && !location.is_active);
 
-      return matchesSearch && matchesStatus;
+      const matchesClient = clientFilter === "all" || location.client_id === clientFilter;
+
+      return matchesQuery && matchesStatus && matchesClient;
     });
-  }, [locations, searchTerm, statusFilter]);
+  }, [locations, searchTerm, statusFilter, clientFilter, stats]);
 
   const { sortedData: filteredAndSortedLocations, sortColumn, sortDirection, handleSort } = useTableSort(
     filteredLocations,
@@ -159,145 +166,3 @@ export const LocationTable = ({
             <ChevronDown className={cn("h-5 w-5 transition-transform", !isTableOpen && "-rotate-90")} />
             <div>
               <CardTitle>Locations</CardTitle>
-              <CardDescription>{locations.length} location{locations.length !== 1 ? 's' : ''}</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CollapsibleContent>
-          <CardContent className="space-y-4">
-            <div className="flex gap-4 items-center">
-              <Input
-                placeholder="Search by name or address..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-sm"
-              />
-              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
-                  <SelectItem value="active">Active Only</SelectItem>
-                  <SelectItem value="inactive">Inactive Only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <SortableTableHead column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Location Name</SortableTableHead>
-              <SortableTableHead column="client" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Client</SortableTableHead>
-              <SortableTableHead column="address" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Address</SortableTableHead>
-              <SortableTableHead column="employees" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Active Employees</SortableTableHead>
-              <SortableTableHead column="is_active" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>Status</SortableTableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredAndSortedLocations.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No locations found
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredAndSortedLocations.map((location) => (
-                <TableRow key={location.id}>
-                  <TableCell>
-                    <button
-                      onClick={() => onViewDetails(location)}
-                      className="font-medium hover:underline text-primary"
-                    >
-                      {location.name}
-                    </button>
-                  </TableCell>
-                  <TableCell>
-                    {stats[location.id]?.clientName ? (
-                      <Badge variant="outline">{stats[location.id].clientName}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {location.address || '-'}
-                  </TableCell>
-                  <TableCell>{stats[location.id]?.employeeCount || 0}</TableCell>
-                  <TableCell>
-                    <Badge variant={location.is_active ? 'default' : 'secondary'}>
-                      {location.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onViewDetails(location)}
-                        title="View Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onEdit(location)}
-                        title="Edit"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeactivateClick(location)}
-                        title={location.is_active ? 'Deactivate' : 'Activate'}
-                      >
-                        <Power
-                          className={`h-4 w-4 ${location.is_active ? 'text-destructive' : 'text-green-600'}`}
-                        />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <AlertDialog open={deactivateDialog.open} onOpenChange={(open) => setDeactivateDialog({ open, location: null })}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {deactivateDialog.location?.is_active ? 'Deactivate' : 'Activate'} Location
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {deactivateDialog.location?.is_active ? (
-                <>
-                  Are you sure you want to deactivate "{deactivateDialog.location?.name}"?
-                  {stats[deactivateDialog.location?.id || '']?.employeeCount > 0 && (
-                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-                      Warning: {stats[deactivateDialog.location?.id || '']?.employeeCount} active employee(s) are
-                      assigned to this location.
-                    </div>
-                  )}
-                </>
-              ) : (
-                `Are you sure you want to activate "${deactivateDialog.location?.name}"?`
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeactivateConfirm}>Confirm</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-          </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
-  );
-};

@@ -12,6 +12,7 @@ import { exportToExcel } from '@/lib/excelExporter';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { useTableSort } from '@/hooks/useTableSort';
 import { SortableTableHead } from '@/components/SortableTableHead';
+import { TableToolbar, matchesSearch } from '@/components/TableToolbar';
 
 interface ReportRow {
   client_id: string;
@@ -30,6 +31,8 @@ export default function DealershipReport() {
   const [endDate, setEndDate] = useState(format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
   const [rows, setRows] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+
 
   const run = async () => {
     setLoading(true);
@@ -61,7 +64,12 @@ export default function DealershipReport() {
   const grandTotal = rows.reduce((s, r) => s + r.total_amount, 0);
   const grandVehicles = rows.reduce((s, r) => s + r.vehicle_count, 0);
 
-  const { sortedData: sortedRows, sortColumn, sortDirection, handleSort } = useTableSort(rows, {
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => matchesSearch(search, [r.client_name, r.location_name]));
+  }, [rows, search]);
+
+  const { sortedData: sortedRows, sortColumn, sortDirection, handleSort } = useTableSort(filteredRows, {
     getValue: (r, col) => {
       switch (col) {
         case 'client_name': return r.client_name;
@@ -135,6 +143,16 @@ export default function DealershipReport() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+
+            <div className="mb-4">
+              <TableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="Search results..."
+                shown={sortedRows.length}
+                total={rows.length}
+              />
+            </div>
             {rows.length === 0 ? (
               <p className="text-muted-foreground">No entries in this date range.</p>
             ) : (

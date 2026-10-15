@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { TableToolbar, matchesSearch } from '@/components/TableToolbar';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,6 +78,9 @@ export default function PortalRequests() {
   const [denyNote, setDenyNote] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
+  const [accountSearch, setAccountSearch] = useState('');
+  const [requestSearch, setRequestSearch] = useState('');
+
 
   const load = async () => {
     setLoading(true);
@@ -225,8 +229,28 @@ export default function PortalRequests() {
     else { toast({ title: 'Account deleted' }); loadAccounts(); }
   };
 
-  const filtered = requests.filter((r) => r.status === tab);
-  const filteredAccounts = accounts.filter((a) => a.approval_status === accountTab);
+
+  const filtered = useMemo(() => {
+    return requests.filter((r) => {
+      const matchesStatus = r.status === tab;
+      const matchesText = matchesSearch(requestSearch, [
+        r.user_name, r.user_email, r.user_company, r.location_name, r.note
+      ]);
+      return matchesStatus && matchesText;
+    });
+  }, [requests, tab, requestSearch]);
+
+
+  const filteredAccounts = useMemo(() => {
+    return accounts.filter((a) => {
+      const matchesStatus = a.approval_status === accountTab;
+      const matchesText = matchesSearch(accountSearch, [
+        a.first_name, a.last_name, a.display_name, a.email, a.work_location, ...a.locations
+      ]);
+      return matchesStatus && matchesText;
+    });
+  }, [accounts, accountTab, accountSearch]);
+
 
   return (
     <Layout>
@@ -245,6 +269,16 @@ export default function PortalRequests() {
               <TabsTrigger value="denied">Denied</TabsTrigger>
             </TabsList>
             <TabsContent value={accountTab}>
+              <div className="mb-4">
+                <TableToolbar
+                  search={accountSearch}
+                  onSearchChange={setAccountSearch}
+                  placeholder="Search accounts..."
+                  shown={filteredAccounts.length}
+                  total={accounts.filter(a => a.approval_status === accountTab).length}
+                />
+              </div>
+
               <div className="overflow-auto border rounded-md">
                 <Table>
                   <TableHeader>
@@ -348,6 +382,16 @@ export default function PortalRequests() {
               <TabsTrigger value="denied">Denied</TabsTrigger>
             </TabsList>
             <TabsContent value={tab}>
+              <div className="mb-4">
+                <TableToolbar
+                  search={requestSearch}
+                  onSearchChange={setRequestSearch}
+                  placeholder="Search requests..."
+                  shown={filtered.length}
+                  total={requests.filter(r => r.status === tab).length}
+                />
+              </div>
+
               <div className="overflow-auto border rounded-md">
                 <Table>
                   <TableHeader>

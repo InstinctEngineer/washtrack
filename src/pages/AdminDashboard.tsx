@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useTableSort } from '@/hooks/useTableSort';
+import { TableToolbar, matchesSearch } from '@/components/TableToolbar';
 import { SortableTableHead } from '@/components/SortableTableHead';
 
 interface ErrorReport {
@@ -65,6 +66,9 @@ export default function AdminDashboard() {
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
 
   useEffect(() => {
     setReplyText('');
@@ -92,8 +96,17 @@ export default function AdminDashboard() {
     loadReplies();
   }, [selectedReport?.id]);
 
+
+  const filteredReports = useMemo(() => {
+    return errorReports.filter((r) => {
+      const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+      const matchesText = matchesSearch(search, [r.reporter_name, r.description, r.page_url]);
+      return matchesStatus && matchesText;
+    });
+  }, [errorReports, search, statusFilter]);
+
   const { sortedData: displayedReports, sortColumn, sortDirection, handleSort } = useTableSort<ErrorReport>(
-    errorReports,
+    filteredReports,
     {
       initialColumn: 'created_at',
       initialDirection: 'desc',
@@ -341,6 +354,28 @@ export default function AdminDashboard() {
             <CardDescription>User-submitted issue reports with screenshots</CardDescription>
           </CardHeader>
           <CardContent>
+
+            <div className="mb-4">
+              <TableToolbar
+                search={search}
+                onSearchChange={setSearch}
+                placeholder="Search reports..."
+                filters={[
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    value: statusFilter,
+                    onChange: setStatusFilter,
+                    options: [
+                      { value: 'open', label: 'Open' },
+                      { value: 'resolved', label: 'Resolved' },
+                    ],
+                  },
+                ]}
+                shown={displayedReports.length}
+                total={errorReports.length}
+              />
+            </div>
             {loadingReports ? (
               <p className="text-sm text-muted-foreground">Loading reports...</p>
             ) : errorReports.length === 0 ? (

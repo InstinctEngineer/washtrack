@@ -28,6 +28,7 @@ interface DataTableProps<T> {
   data: T[];
   columns: Column<T>[];
   searchKey?: keyof T;
+  searchKeys?: (keyof T)[];
   itemsPerPage?: number;
   actions?: (item: T) => React.ReactNode;
   title?: string;
@@ -40,6 +41,7 @@ export function DataTable<T extends { id: string }>({
   data,
   columns,
   searchKey,
+  searchKeys,
   itemsPerPage = 50,
   actions,
   title,
@@ -68,11 +70,19 @@ export function DataTable<T extends { id: string }>({
     }
   };
 
-  const filteredData = searchKey && searchTerm
-    ? data.filter((item) =>
-        String(item[searchKey]).toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : data;
+  const filteredData = useMemo(() => {
+    if (!searchTerm) return data;
+    const q = searchTerm.toLowerCase();
+    return data.filter((item) => {
+      if (searchKey) {
+        return String(item[searchKey] ?? '').toLowerCase().includes(q);
+      }
+      if (searchKeys && searchKeys.length > 0) {
+        return searchKeys.some(key => String(item[key] ?? '').toLowerCase().includes(q));
+      }
+      return true;
+    });
+  }, [data, searchTerm, searchKey, searchKeys]);
 
   const sortedData = useMemo(() => {
     if (!sortColumn) return filteredData;
@@ -109,9 +119,9 @@ export function DataTable<T extends { id: string }>({
       : <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
-  return (
+  const TableContent = (
     <div className="space-y-4">
-      {searchKey && (
+      {(searchKey || (searchKeys && searchKeys.length > 0)) && (
         <div className="flex items-center gap-2">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -178,7 +188,7 @@ export function DataTable<T extends { id: string }>({
                 <TableRow key={item.id}>
                   {columns.map((column) => (
                     <TableCell key={column.key}>
-                      {column.render ? column.render(item) : String(item[column.key as keyof T])}
+                      {column.render ? column.render(item) : String(item[column.key as keyof T] ?? '')}
                     </TableCell>
                   ))}
                   {actions && (
@@ -218,4 +228,40 @@ export function DataTable<T extends { id: string }>({
       )}
     </div>
   );
+
+  if (title || description || collapsible) {
+    return (
+      <Card>
+        {collapsible ? (
+          <Collapsible open={isTableOpen} onOpenChange={setIsTableOpen}>
+            <CardHeader 
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => setIsTableOpen(!isTableOpen)}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>{title}</CardTitle>
+                  {description && <CardDescription>{description}</CardDescription>}
+                </div>
+                <ChevronDown className={cn("h-5 w-5 transition-transform", !isTableOpen && "-rotate-90")} />
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>{TableContent}</CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <>
+            <CardHeader>
+              <CardTitle>{title}</CardTitle>
+              {description && <CardDescription>{description}</CardDescription>}
+            </CardHeader>
+            <CardContent>{TableContent}</CardContent>
+          </>
+        )}
+      </Card>
+    );
+  }
+
+  return TableContent;
 }

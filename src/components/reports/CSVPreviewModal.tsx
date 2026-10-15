@@ -1,5 +1,7 @@
+import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { TableToolbar, matchesSearch } from "@/components/TableToolbar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Download } from 'lucide-react';
 
@@ -12,7 +14,13 @@ interface CSVPreviewModalProps {
 }
 
 export function CSVPreviewModal({ open, onOpenChange, headers, rows, onExport }: CSVPreviewModalProps) {
-  const previewRows = rows.slice(0, 20);
+  const [search, setSearch] = useState("");
+  const filteredRows = useMemo(() => {
+    if (!search) return rows;
+    return rows.filter(row => row.some(cell => matchesSearch(search, [cell])));
+  }, [rows, search]);
+  const previewRows = filteredRows.slice(0, 20);
+  const hasMoreRows = filteredRows.length > 20;
   const hasMoreRows = rows.length > 20;
 
   return (
@@ -20,6 +28,15 @@ export function CSVPreviewModal({ open, onOpenChange, headers, rows, onExport }:
       <DialogContent className="max-w-5xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>CSV Preview (First 20 Rows)</DialogTitle>
+          <div className="mt-4">
+            <TableToolbar
+              search={search}
+              onSearchChange={setSearch}
+              placeholder="Search preview cells..."
+              shown={previewRows.length}
+              total={filteredRows.length}
+            />
+          </div>
         </DialogHeader>
 
         <div className="h-[60vh] border rounded-lg overflow-auto">
@@ -49,7 +66,7 @@ export function CSVPreviewModal({ open, onOpenChange, headers, rows, onExport }:
 
         {hasMoreRows && (
           <p className="text-sm text-muted-foreground text-center">
-            Showing 20 of {rows.length} rows. Full export will include all rows.
+            Showing {previewRows.length} of {filteredRows.length} rows (filtered from {rows.length} total). Full export will include all rows.
           </p>
         )}
 

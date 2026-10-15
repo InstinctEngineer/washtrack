@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { TableToolbar, matchesSearch } from "@/components/TableToolbar";
 
 const TABLES = [
   'activity_logs',
@@ -46,6 +47,7 @@ export default function SuperAdminDatabase() {
   const [editingRow, setEditingRow] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
   const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isTableOpen, setIsTableOpen] = useState(true);
 
@@ -160,10 +162,17 @@ export default function SuperAdminDatabase() {
     }
   };
 
-  const sortedTableData = useMemo(() => {
-    if (!sortColumn) return tableData;
+  const filteredTableData = useMemo(() => {
+    if (!search) return tableData;
+    return tableData.filter(row => 
+      columns.some(col => matchesSearch(search, [row[col]]))
+    );
+  }, [tableData, columns, search]);
 
-    return [...tableData].sort((a, b) => {
+  const sortedTableData = useMemo(() => {
+    if (!sortColumn) return filteredTableData;
+
+    return [...filteredTableData].sort((a, b) => {
       const aValue = a[sortColumn];
       const bValue = b[sortColumn];
 
@@ -180,7 +189,7 @@ export default function SuperAdminDatabase() {
         return bStr.localeCompare(aStr);
       }
     });
-  }, [tableData, sortColumn, sortDirection]);
+  }, [filteredTableData, sortColumn, sortDirection]);
 
   const getSortIcon = (col: string) => {
     if (sortColumn !== col) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
@@ -229,11 +238,19 @@ export default function SuperAdminDatabase() {
 
               {TABLES.map(table => (
                 <TabsContent key={table} value={table} className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-muted-foreground">
-                      {tableData.length} records (showing max 100)
-                    </p>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <TableToolbar
+                      search={search}
+                      onSearchChange={setSearch}
+                      placeholder="Search all columns..."
+                      shown={filteredTableData.length}
+                      total={tableData.length}
+                    />
                     <Button onClick={handleAddNew} size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New
+                    </Button>
+                  </div>
                       <Plus className="h-4 w-4 mr-2" />
                       Add New
                     </Button>
