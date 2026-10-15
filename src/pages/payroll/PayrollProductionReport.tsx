@@ -199,10 +199,6 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
             />
           </div>
         </div>
-          <div className="space-y-2"><Label>Week ending</Label><Input value={weekEnd} readOnly /></div>
-          <div className="space-y-2"><Label htmlFor="productionEmployee">Washer</Label><Input id="productionEmployee" placeholder="All washers" value={employeeFilter} onChange={event => setEmployeeFilter(event.target.value)} /></div>
-          <div className="space-y-2"><Label htmlFor="productionLocation">Location</Label><Input id="productionLocation" placeholder="All locations" value={locationFilter} onChange={event => setLocationFilter(event.target.value)} /></div>
-        </div>
 
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setWeekStart(asDateInput(mondayOf(new Date())))}>This Week</Button>
