@@ -405,125 +405,44 @@ export const Layout = ({ children }: LayoutProps) => {
         />
       )}
 
-      {/* iOS Install Instructions Dialog */}
-      <Dialog open={showIOSDialog} onOpenChange={setShowIOSDialog}>
+      {/* App Store Dialog */}
+      <Dialog open={showStoreDialog} onOpenChange={setShowStoreDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Install WashTrack</DialogTitle>
+            <DialogTitle>Get WashTrack on your phone</DialogTitle>
             <DialogDescription>
-              To install WashTrack on your device, follow these steps:
+              Download the app from your device's store. Open this page on your phone, or use the
+              store that matches your device.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="flex items-start gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
-              <p className="text-sm">Tap the <Share className="inline h-4 w-4 mx-1" /> <strong>Share</strong> button in your browser's toolbar</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
-              <p className="text-sm">Scroll down and tap <strong>"Add to Home Screen"</strong></p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
-              <p className="text-sm">Tap <strong>"Add"</strong> to confirm</p>
-            </div>
+          <div className="space-y-3 py-2">
+            <Button variant="outline" className="w-full justify-start gap-3" asChild>
+              <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+                <Apple className="h-4 w-4" />
+                App Store
+                <span className="ml-auto text-xs text-muted-foreground">iPhone &amp; iPad</span>
+              </a>
+            </Button>
+            <Button variant="outline" className="w-full justify-start gap-3" asChild>
+              <a href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
+                <Smartphone className="h-4 w-4" />
+                Google Play
+                <span className="ml-auto text-xs text-muted-foreground">Android</span>
+              </a>
+            </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-      {/* Android Install Instructions Dialog */}
-      <Dialog open={showAndroidDialog} onOpenChange={setShowAndroidDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Install WashTrack</DialogTitle>
-            <DialogDescription>
-              If App Doesn't Automatically Download, Follow these Instructions
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {androidBrowser === 'samsung' ? (
-              <>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
-                  <p className="text-sm">Tap the <strong>☰ menu</strong> (three lines) at the bottom right</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
-                  <p className="text-sm">Tap <strong>"Add page to"</strong> → <strong>"Home screen"</strong></p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
-                  <p className="text-sm">Tap <strong>"Add"</strong> to confirm</p>
-                </div>
-              </>
-            ) : androidBrowser === 'firefox' ? (
-              <>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
-                  <p className="text-sm">Tap the <strong>⋮ menu</strong> (three dots) at the top right</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
-                  <p className="text-sm">Tap <strong>"Install"</strong></p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
-                  <p className="text-sm">Tap <strong>"Add"</strong> to confirm</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
-                  <p className="text-sm">Tap the <strong>⋮ menu</strong> (three dots) at the top right of Chrome</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
-                  <p className="text-sm">Tap <strong>"Install app"</strong> or <strong>"Add to Home Screen"</strong></p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
-                  <p className="text-sm">Tap <strong>"Install"</strong> to confirm</p>
-                </div>
-              </>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            className="w-full mt-2"
-            onClick={async () => {
-              const result = await promptInstall();
-              if (result === 'accepted' || result === 'dismissed') {
-                setShowAndroidDialog(false);
-              }
-            }}
-          >
-            Try again
-          </Button>
-        </DialogContent>
-      </Dialog>
-      {/* Generic Install Instructions Dialog */}
-      <Dialog open={showUnsupportedDialog} onOpenChange={setShowUnsupportedDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Install WashTrack</DialogTitle>
-            <DialogDescription>
-              Use your browser's menu to install this app:
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="flex items-start gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">1</div>
-              <p className="text-sm">Open the browser menu (⋮ or ⋯)</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
-              <p className="text-sm">Look for <strong>"Install app"</strong> or <strong>"Add to Home Screen"</strong></p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">3</div>
-              <p className="text-sm">Tap to confirm the installation</p>
-            </div>
-          </div>
+          {canInstall && (
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={async () => {
+                const result = await promptInstall();
+                if (result === 'accepted') setShowStoreDialog(false);
+              }}
+            >
+              Install the web app in this browser instead
+            </Button>
+          )}
         </DialogContent>
       </Dialog>
     </div>
