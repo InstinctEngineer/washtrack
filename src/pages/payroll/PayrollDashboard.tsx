@@ -88,6 +88,8 @@ const PayrollDashboard = () => {
 
   const [endLocked, setEndLocked] = useState(true);
   const [customEnd, setCustomEnd] = useState<string | null>(null);
+  const [weeksListOpen, setWeeksListOpen] = useState(true);
+
   const periodEnd = useMemo(() => resolveWeekEnd(periodStart, endLocked, customEnd), [periodStart, endLocked, customEnd]);
   const totalGross = useMemo(() => runLines.reduce((sum, line) => sum + line.rate * line.quantity + line.ot_hours * line.rate * 1.5, 0), [runLines]);
 
@@ -128,6 +130,8 @@ const PayrollDashboard = () => {
   const selectPeriod = async (selected: Period) => {
     setPeriod(selected);
     setPeriodStart(selected.period_start);
+    setWeeksListOpen(false);
+
     if (!selected.check_date) {
       const value = defaultCheckDate(selected.period_end);
       const { error } = await supabase.from('payroll_periods').update({ check_date: value }).eq('id', selected.id);
@@ -146,7 +150,9 @@ const PayrollDashboard = () => {
     setWorking(false);
     if (error) { toast.error('Could not create pay period'); return; }
     setPeriod(data as Period);
+    setWeeksListOpen(false);
     await loadSetup();
+
     toast.success('Pay period ready');
   };
 
