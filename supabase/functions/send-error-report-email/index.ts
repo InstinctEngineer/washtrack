@@ -149,11 +149,22 @@ serve(async (req) => {
       }
     }
 
-    const { data: reporter } = await supabaseAdmin
+    let { data: reporter } = await supabaseAdmin
       .from("users")
       .select("name, email")
       .eq("id", report.reported_by)
       .maybeSingle();
+    if (!reporter) {
+      const { data: p } = await supabaseAdmin
+        .from("client_portal_users")
+        .select("first_name, last_name, display_name, email")
+        .eq("auth_user_id", report.reported_by)
+        .maybeSingle();
+      if (p) {
+        const full = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+        reporter = { name: `${full || p.display_name || p.email} (Client Portal)`, email: p.email };
+      }
+    }
 
     let screenshotUrl: string | null = null;
     if (report.screenshot_url) {
