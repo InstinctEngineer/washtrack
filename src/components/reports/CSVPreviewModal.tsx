@@ -21,7 +21,6 @@ export function CSVPreviewModal({ open, onOpenChange, headers, rows, onExport }:
   }, [rows, search]);
   const previewRows = filteredRows.slice(0, 20);
   const hasMoreRows = filteredRows.length > 20;
-  const hasMoreRows = rows.length > 20;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

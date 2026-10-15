@@ -45,8 +45,8 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
   const [weekStart, setWeekStart] = useState(periodStart);
   const [rows, setRows] = useState<ProductionRow[]>([]);
   const [rates, setRates] = useState<Record<string, RateInfo>>({});
-  const [employeeFilter, setEmployeeFilter] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [locationFilter, setLocationFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { payCodeById } = usePayCodes();
