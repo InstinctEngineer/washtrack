@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays, format, startOfWeek, subWeeks } from 'date-fns';
-import { Download, Loader2, RefreshCw } from 'lucide-react';
+import { Download, Loader2, Lock, RefreshCw, Unlock } from 'lucide-react';
+import { resolveWeekEnd } from '@/lib/weekEnd';
 import { TableToolbar, matchesSearch } from "@/components/TableToolbar";
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -53,7 +54,9 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
 
   useEffect(() => { setWeekStart(periodStart); }, [periodStart]);
 
-  const weekEnd = useMemo(() => asDateInput(addDays(new Date(`${weekStart}T00:00:00`), 6)), [weekStart]);
+  const [endLocked, setEndLocked] = useState(true);
+  const [customEnd, setCustomEnd] = useState<string | null>(null);
+  const weekEnd = useMemo(() => resolveWeekEnd(weekStart, endLocked, customEnd), [weekStart, endLocked, customEnd]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -179,7 +182,7 @@ const PayrollProductionReport = ({ periodStart }: Props) => {
             <Label htmlFor="productionWeek">Week starting</Label>
             <Input id="productionWeek" type="date" value={weekStart} onChange={event => setWeekStart(asDateInput(mondayOf(new Date(`${event.target.value}T00:00:00`))))} />
           </div>
-          <div className="space-y-2"><Label>Week ending</Label><Input value={weekEnd} readOnly /></div>
+          <div className="space-y-2"><Label htmlFor="productionWeekEnd">Week ending</Label><div className="flex gap-2"><Input id="productionWeekEnd" type="date" value={weekEnd} min={weekStart} readOnly={endLocked} onChange={event => setCustomEnd(event.target.value || null)} /><Button type="button" variant="outline" size="icon" title={endLocked ? 'Unlock to pick a custom end date' : 'Lock back to the full week'} aria-label={endLocked ? 'Unlock week ending' : 'Lock week ending'} onClick={() => { if (endLocked) setCustomEnd(weekEnd); else setCustomEnd(null); setEndLocked(value => !value); }}>{endLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}</Button></div>{!endLocked && <p className="text-xs text-muted-foreground">Custom range — resets to the full week when you leave or refresh.</p>}</div>
           <div className="sm:col-span-2 flex items-end">
             <TableToolbar
               search={search}

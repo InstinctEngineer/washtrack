@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays, format, startOfWeek } from 'date-fns';
-import { CalendarRange, Download, Loader2, Plus, RefreshCw, Search, Upload, Wallet } from 'lucide-react';
+import { CalendarRange, Download, Loader2, Lock, Plus, RefreshCw, Search, Unlock, Upload, Wallet } from 'lucide-react';
+import { resolveWeekEnd } from '@/lib/weekEnd';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { Layout } from '@/components/Layout';
@@ -81,7 +82,9 @@ const PayrollDashboard = () => {
   const [codeSearch, setCodeSearch] = useState('');
   const [codeFilter, setCodeFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
 
-  const periodEnd = useMemo(() => asDateInput(addDays(new Date(`${periodStart}T00:00:00`), 6)), [periodStart]);
+  const [endLocked, setEndLocked] = useState(true);
+  const [customEnd, setCustomEnd] = useState<string | null>(null);
+  const periodEnd = useMemo(() => resolveWeekEnd(periodStart, endLocked, customEnd), [periodStart, endLocked, customEnd]);
   const totalGross = useMemo(() => runLines.reduce((sum, line) => sum + line.rate * line.quantity + line.ot_hours * line.rate * 1.5, 0), [runLines]);
 
   const loadSetup = useCallback(async () => {
@@ -288,8 +291,8 @@ const PayrollDashboard = () => {
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2"><Label htmlFor="periodStart">Week starting</Label><Input id="periodStart" type="date" value={periodStart} onChange={event => setPeriodStart(asDateInput(mondayOf(new Date(`${event.target.value}T00:00:00`))))} /></div>
-                <div className="space-y-2"><Label>Week ending</Label><Input value={periodEnd} readOnly /></div>
-                <div className="space-y-2"><Label htmlFor="checkDate">Check date</Label><Input id="checkDate" type="date" value={period?.check_date || ''} onChange={async event => { if (!period) return; const value = event.target.value || null; await supabase.from('payroll_periods').update({ check_date: value }).eq('id', period.id); setPeriod({ ...period, check_date: value }); }} /></div>
+                <div className="space-y-2"><Label htmlFor="periodEnd">Week ending</Label><div className="flex gap-2"><Input id="periodEnd" type="date" value={periodEnd} min={periodStart} readOnly={endLocked} onChange={event => setCustomEnd(event.target.value || null)} /><Button type="button" variant="outline" size="icon" title={endLocked ? 'Unlock to pick a custom end date' : 'Lock back to the full week'} aria-label={endLocked ? 'Unlock week ending' : 'Lock week ending'} onClick={() => { if (endLocked) setCustomEnd(periodEnd); else setCustomEnd(null); setEndLocked(value => !value); }}>{endLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}</Button></div>{!endLocked && <p className="text-xs text-muted-foreground">Custom range — resets to the full week when you leave or refresh.</p>}</div>
+                <div className="space-y-2"><Label htmlFor="checkDate">Check date</Label><Input id="checkDate" type="date" disabled={!period} value={period?.check_date || ''} onChange={async event => { if (!period) return; const value = event.target.value || null; const { error } = await supabase.from('payroll_periods').update({ check_date: value }).eq('id', period.id); if (error) { toast.error('Could not save the check date'); return; } setPeriod({ ...period, check_date: value }); setPeriods(current => current.map(item => item.id === period.id ? { ...item, check_date: value } : item)); toast.success('Check date saved'); }} />{!period && <p className="text-xs text-muted-foreground">Create or open a week first.</p>}</div>
               </div>
               <div className="flex flex-wrap gap-2"><Button onClick={() => void createPeriod()} disabled={working}><Plus className="mr-2 h-4 w-4" />Create / Select Week</Button><Button variant="outline" onClick={() => void generateRun()} disabled={working || !period}><RefreshCw className="mr-2 h-4 w-4" />Generate Run</Button></div>
               {periods.length > 0 && <div className="overflow-auto"><Table><TableHeader><TableRow><TableHead>Week</TableHead><TableHead>Check Date</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader><TableBody>{periods.map(item => <TableRow key={item.id}><TableCell>{item.period_start} – {item.period_end}</TableCell><TableCell>{item.check_date || '—'}</TableCell><TableCell className="capitalize">{item.status}</TableCell><TableCell className="text-right"><Button size="sm" variant="ghost" onClick={() => selectPeriod(item)}>Open</Button></TableCell></TableRow>)}</TableBody></Table></div>}
