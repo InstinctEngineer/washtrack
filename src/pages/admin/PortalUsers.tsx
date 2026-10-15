@@ -20,6 +20,35 @@ import { Edit, Power, Trash2, KeyRound } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TableToolbar, matchesSearch } from '@/components/TableToolbar';
 
+const ApprovedLocationsCell = ({ locations }: { locations: string[] }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (locations.length === 0) return <span className="text-muted-foreground">None</span>;
+  const hidden = locations.length - 1;
+  if (!expanded) {
+    return (
+      <div className="flex flex-wrap items-center gap-1">
+        <Badge variant="secondary" className="text-xs">{locations[0]}</Badge>
+        {hidden > 0 && (
+          <button type="button" onClick={() => setExpanded(true)} className="text-xs text-primary hover:underline whitespace-nowrap">
+            +{hidden} more
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {locations.map((l, i) => <Badge key={i} variant="secondary" className="text-xs">{l}</Badge>)}
+      {hidden > 0 && (
+        <button type="button" onClick={() => setExpanded(false)} className="text-xs text-muted-foreground hover:underline whitespace-nowrap">
+          Show less
+        </button>
+      )}
+    </div>
+  );
+};
+
+
 interface PortalUserRow {
   id: string;
   email: string;
@@ -279,8 +308,8 @@ export default function PortalUsers() {
                     </TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell className="text-xs">{u.work_location || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="text-xs">
-                      {u.locations.length === 0 ? <span className="text-muted-foreground">None</span> : u.locations.join(', ')}
+                    <TableCell className="text-xs max-w-[260px]">
+                      <ApprovedLocationsCell locations={u.locations} />
                     </TableCell>
                     <TableCell className="text-xs">
                       {u.last_login_at ? new Date(u.last_login_at).toLocaleString() : 'Never'}
