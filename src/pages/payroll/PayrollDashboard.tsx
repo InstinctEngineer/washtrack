@@ -67,6 +67,7 @@ const parseHoursFile = async (file: File) => {
 };
 
 const PayrollDashboard = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'run' | 'production' | 'lines' | 'codes' | 'ecodes' | 'hours'>('run');
   const [workTypes, setWorkTypes] = useState<WorkType[]>([]);
   const [workTypeCodes, setWorkTypeCodes] = useState<Record<string, string>>({});
