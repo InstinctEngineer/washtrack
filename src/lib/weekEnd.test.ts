@@ -1,3 +1,4 @@
+// @ts-ignore -- bun's built-in test runner; types not installed for the app typecheck
 import { describe, expect, it } from 'bun:test';
 import { resolveWeekEnd } from './weekEnd';
 
