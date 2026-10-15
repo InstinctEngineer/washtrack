@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays, format, startOfWeek } from 'date-fns';
-import { CalendarRange, Download, Loader2, Lock, Plus, RefreshCw, Search, Unlock, Upload, Wallet } from 'lucide-react';
+import { CalendarRange, CheckCircle2, Download, Loader2, Lock, Plus, RefreshCw, Search, Unlock, Upload, Wallet } from 'lucide-react';
 import { resolveWeekEnd } from '@/lib/weekEnd';
+import { logAction } from '@/lib/activityLogger';
+import { useAuth } from '@/contexts/AuthContext';
+import { isPeriodEditable } from '@/lib/payrollPeriod';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { Layout } from '@/components/Layout';
@@ -146,8 +149,21 @@ const PayrollDashboard = () => {
     toast.success('Pay period ready');
   };
 
+  const setPeriodStatus = async (next: 'completed' | 'draft') => {
+    if (!period) return;
+    if (next === 'completed' && !window.confirm('Mark this week completed? No further edits to hours, notes or regeneration. You can reopen it later.')) return;
+    const patch = next === 'completed' ? { status: 'completed', locked_at: new Date().toISOString(), locked_by: user?.id ?? null } : { status: 'draft', locked_at: null, locked_by: null };
+    const { error } = await supabase.from('payroll_periods').update(patch).eq('id', period.id);
+    if (error) { toast.error('Could not update the week'); return; }
+    setPeriod({ ...period, status: next });
+    setPeriods(current => current.map(item => item.id === period.id ? { ...item, status: next } : item));
+    logAction(next === 'completed' ? 'payroll_week_completed' : 'payroll_week_reopened', period.id, { period_start: period.period_start, period_end: period.period_end });
+    toast.success(next === 'completed' ? 'Week marked completed' : 'Week reopened');
+  };
+
   const generateRun = async () => {
     if (!period) { toast.error('Create or select a pay period first'); return; }
+    if (!isPeriodEditable(period.status)) { toast.error('This week is completed. Reopen it to regenerate.'); return; }
     setWorking(true);
     const activeLines = payLines.filter(line => line.is_active && line.effective_date <= period.period_end && (!line.end_date || line.end_date >= period.period_start));
     const [workLogsResult, mapsResult, hoursResult] = await Promise.all([
@@ -187,7 +203,7 @@ const PayrollDashboard = () => {
   };
 
   const updateRunLine = async (line: RunLine, field: 'quantity' | 'ot_hours' | 'notes', value: string) => {
-    if (period?.status !== 'draft') return;
+    if (!isPeriodEditable(period?.status)) return;
     const numeric = field === 'notes' ? undefined : Math.max(0, Number(value) || 0);
     const update = field === 'notes' ? { notes: value } : { [field]: numeric };
     const { error } = await supabase.from('payroll_run_lines').update(update).eq('id', line.id);
@@ -212,6 +228,7 @@ const PayrollDashboard = () => {
 
   const importHours = async () => {
     if (!hoursFile || !period) { toast.error('Choose a file and pay period first'); return; }
+    if (!isPeriodEditable(period.status)) { toast.error('This week is completed. Reopen it to import hours.'); return; }
     setWorking(true);
     try {
       const parsedRows = await parseHoursFile(hoursFile);
@@ -294,14 +311,14 @@ const PayrollDashboard = () => {
                 <div className="space-y-2"><Label htmlFor="periodEnd">Week ending</Label><div className="flex gap-2"><Input id="periodEnd" type="date" value={periodEnd} min={periodStart} readOnly={endLocked} onChange={event => setCustomEnd(event.target.value || null)} /><Button type="button" variant="outline" size="icon" title={endLocked ? 'Unlock to pick a custom end date' : 'Lock back to the full week'} aria-label={endLocked ? 'Unlock week ending' : 'Lock week ending'} onClick={() => { if (endLocked) setCustomEnd(periodEnd); else setCustomEnd(null); setEndLocked(value => !value); }}>{endLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}</Button></div>{!endLocked && <p className="text-xs text-muted-foreground">Custom range — resets to the full week when you leave or refresh.</p>}</div>
                 <div className="space-y-2"><Label htmlFor="checkDate">Check date</Label><Input id="checkDate" type="date" disabled={!period} value={period?.check_date || ''} onChange={async event => { if (!period) return; const value = event.target.value || null; const { error } = await supabase.from('payroll_periods').update({ check_date: value }).eq('id', period.id); if (error) { toast.error('Could not save the check date'); return; } setPeriod({ ...period, check_date: value }); setPeriods(current => current.map(item => item.id === period.id ? { ...item, check_date: value } : item)); toast.success('Check date saved'); }} />{!period && <p className="text-xs text-muted-foreground">Create or open a week first.</p>}</div>
               </div>
-              <div className="flex flex-wrap gap-2"><Button onClick={() => void createPeriod()} disabled={working}><Plus className="mr-2 h-4 w-4" />Create / Select Week</Button><Button variant="outline" onClick={() => void generateRun()} disabled={working || !period}><RefreshCw className="mr-2 h-4 w-4" />Generate Run</Button></div>
-              {periods.length > 0 && <div className="overflow-auto"><Table><TableHeader><TableRow><TableHead>Week</TableHead><TableHead>Check Date</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader><TableBody>{periods.map(item => <TableRow key={item.id}><TableCell>{item.period_start} – {item.period_end}</TableCell><TableCell>{item.check_date || '—'}</TableCell><TableCell className="capitalize">{item.status}</TableCell><TableCell className="text-right"><Button size="sm" variant="ghost" onClick={() => selectPeriod(item)}>Open</Button></TableCell></TableRow>)}</TableBody></Table></div>}
+              <div className="flex flex-wrap gap-2"><Button onClick={() => void createPeriod()} disabled={working}><Plus className="mr-2 h-4 w-4" />Create / Select Week</Button><Button variant="outline" onClick={() => void generateRun()} disabled={working || !period || !isPeriodEditable(period.status)}><RefreshCw className="mr-2 h-4 w-4" />Generate Run</Button>{period && (isPeriodEditable(period.status) ? <Button variant="secondary" onClick={() => void setPeriodStatus('completed')}><CheckCircle2 className="mr-2 h-4 w-4" />Mark completed</Button> : <Button variant="outline" onClick={() => void setPeriodStatus('draft')}>Reopen week</Button>)}{period && !isPeriodEditable(period.status) && <p className="self-center text-sm text-muted-foreground">This week is completed.</p>}</div>
+              {periods.length > 0 && <div className="overflow-auto"><Table><TableHeader><TableRow><TableHead>Week</TableHead><TableHead>Check Date</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader><TableBody>{periods.map(item => <TableRow key={item.id}><TableCell>{item.period_start} – {item.period_end}</TableCell><TableCell>{item.check_date || '—'}</TableCell><TableCell><span className={`rounded-full px-2 py-0.5 text-xs capitalize ${item.status === 'completed' ? 'bg-green-500/15 text-green-600' : 'bg-muted text-muted-foreground'}`}>{item.status}</span></TableCell><TableCell className="text-right"><Button size="sm" variant="ghost" onClick={() => selectPeriod(item)}>Open</Button></TableCell></TableRow>)}</TableBody></Table></div>}
             </CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle className="text-lg">Payroll lines {period && <span className="text-muted-foreground">· {runLines.length}</span>}</CardTitle><CardDescription>Every employee may have multiple rows — one for each code, task, or department.</CardDescription></CardHeader>
             <CardContent>
-              {runLines.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">Create a week and generate a run to see payroll lines.</p> : <div className="overflow-auto"><Table className="min-w-[1050px]"><TableHeader><TableRow><TableHead>Notes</TableHead><TableHead>Code</TableHead><TableHead>Department</TableHead><TableHead>Task</TableHead><TableHead>Name</TableHead><TableHead>Employee #</TableHead><TableHead>Rate</TableHead><TableHead>Hrs / Units</TableHead><TableHead>OT Hours</TableHead><TableHead>Type</TableHead><TableHead>Gross</TableHead></TableRow></TableHeader><TableBody>{runLines.map(line => <TableRow key={line.id}><TableCell><Input className="w-28" value={line.notes || ''} onChange={event => void updateRunLine(line, 'notes', event.target.value)} disabled={period?.status !== 'draft'} /></TableCell><TableCell>{line.code}</TableCell><TableCell>{line.department}</TableCell><TableCell>{line.task_label}</TableCell><TableCell>{line.display_name}</TableCell><TableCell>{line.provider_employee_number || '—'}</TableCell><TableCell>${line.rate.toFixed(2)}</TableCell><TableCell><Input className="w-24" type="number" min="0" step="0.01" value={line.quantity} onChange={event => void updateRunLine(line, 'quantity', event.target.value)} disabled={period?.status !== 'draft'} /></TableCell><TableCell><Input className="w-24" type="number" min="0" step="0.01" value={line.ot_hours} onChange={event => void updateRunLine(line, 'ot_hours', event.target.value)} disabled={period?.status !== 'draft' || line.pay_type.trim().toLowerCase() !== 'hourly'} /></TableCell><TableCell>{line.pay_type}</TableCell><TableCell>${(line.rate * line.quantity + line.ot_hours * line.rate * 1.5).toFixed(2)}</TableCell></TableRow>)}</TableBody></Table><Separator className="my-4" /><div className="flex justify-end text-lg font-semibold">Total Gross: ${totalGross.toFixed(2)}</div></div>}
+              {runLines.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">Create a week and generate a run to see payroll lines.</p> : <div className="overflow-auto"><Table className="min-w-[1050px]"><TableHeader><TableRow><TableHead>Notes</TableHead><TableHead>Code</TableHead><TableHead>Department</TableHead><TableHead>Task</TableHead><TableHead>Name</TableHead><TableHead>Employee #</TableHead><TableHead>Rate</TableHead><TableHead>Hrs / Units</TableHead><TableHead>OT Hours</TableHead><TableHead>Type</TableHead><TableHead>Gross</TableHead></TableRow></TableHeader><TableBody>{runLines.map(line => <TableRow key={line.id}><TableCell><Input className="w-28" value={line.notes || ''} onChange={event => void updateRunLine(line, 'notes', event.target.value)} disabled={!isPeriodEditable(period?.status)} /></TableCell><TableCell>{line.code}</TableCell><TableCell>{line.department}</TableCell><TableCell>{line.task_label}</TableCell><TableCell>{line.display_name}</TableCell><TableCell>{line.provider_employee_number || '—'}</TableCell><TableCell>${line.rate.toFixed(2)}</TableCell><TableCell><Input className="w-24" type="number" min="0" step="0.01" value={line.quantity} onChange={event => void updateRunLine(line, 'quantity', event.target.value)} disabled={!isPeriodEditable(period?.status)} /></TableCell><TableCell><Input className="w-24" type="number" min="0" step="0.01" value={line.ot_hours} onChange={event => void updateRunLine(line, 'ot_hours', event.target.value)} disabled={!isPeriodEditable(period?.status) || line.pay_type.trim().toLowerCase() !== 'hourly'} /></TableCell><TableCell>{line.pay_type}</TableCell><TableCell>${(line.rate * line.quantity + line.ot_hours * line.rate * 1.5).toFixed(2)}</TableCell></TableRow>)}</TableBody></Table><Separator className="my-4" /><div className="flex justify-end text-lg font-semibold">Total Gross: ${totalGross.toFixed(2)}</div></div>}
             </CardContent>
           </Card>
         </>}
@@ -365,7 +382,7 @@ const PayrollDashboard = () => {
         {activeTab === 'ecodes' && <PayrollPayCodes />}
 
         {activeTab === 'hours' && <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Upload className="h-5 w-5" />Import Hours</CardTitle><CardDescription>Upload the weekly CSV or Excel file from the outside timekeeping system. The final step will map its columns into hours and overtime.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="rounded-md border border-dashed p-8 text-center"><Input type="file" accept=".csv,.xlsx,.xls" onChange={event => setHoursFile(event.target.files?.[0] || null)} /><p className="mt-2 text-sm text-muted-foreground">{hoursFile ? hoursFile.name : 'Choose a CSV or Excel file'}</p></div><Button onClick={() => void importHours()} disabled={!hoursFile || !period}><Upload className="mr-2 h-4 w-4" />Upload Hours for {period ? `${period.period_start} – ${period.period_end}` : 'selected week'}</Button><p className="text-sm text-muted-foreground">Required mapping: employee name or employee number, regular hours, and optional E02 overtime hours.</p></CardContent></Card>}
+          <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Upload className="h-5 w-5" />Import Hours</CardTitle><CardDescription>Upload the weekly CSV or Excel file from the outside timekeeping system. The final step will map its columns into hours and overtime.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="rounded-md border border-dashed p-8 text-center"><Input type="file" accept=".csv,.xlsx,.xls" onChange={event => setHoursFile(event.target.files?.[0] || null)} /><p className="mt-2 text-sm text-muted-foreground">{hoursFile ? hoursFile.name : 'Choose a CSV or Excel file'}</p></div><Button onClick={() => void importHours()} disabled={!hoursFile || !period || !isPeriodEditable(period.status)}><Upload className="mr-2 h-4 w-4" />Upload Hours for {period ? `${period.period_start} – ${period.period_end}` : 'selected week'}</Button><p className="text-sm text-muted-foreground">Required mapping: employee name or employee number, regular hours, and optional E02 overtime hours.</p></CardContent></Card>}
       </div>
     </Layout>
   );
