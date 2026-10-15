@@ -86,7 +86,8 @@ export default function AdminDashboard() {
       if (!error && data) {
         const userIds = [...new Set(data.map(r => r.user_id))];
         const { data: users } = await supabase.rpc('get_user_display_info', { user_ids: userIds });
-        const nameMap = new Map((users || []).map((u: any) => [u.id, u.name]));
+        const nameMap = new Map<string, string>((users || []).filter((u: any) => u.name).map((u: any) => [u.id, u.name]));
+        await addPortalNames(userIds, nameMap);
         setReplies(data.map(r => ({ ...r, user_name: nameMap.get(r.user_id) || 'Unknown' })));
       } else {
         setReplies([]);
@@ -132,7 +133,8 @@ export default function AdminDashboard() {
           .select('id, name')
           .in('id', userIds);
 
-        const userMap = new Map(users?.map(u => [u.id, u.name]) || []);
+        const userMap = new Map<string, string>(users?.map(u => [u.id, u.name]) || []);
+        await addPortalNames(userIds, userMap);
         const enriched = reports.map(r => ({
           ...r,
           reporter_name: userMap.get(r.reported_by) || 'Unknown',
