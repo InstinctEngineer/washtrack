@@ -16,11 +16,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Client } from '@/types/database';
-import { TableToolbar } from "@/components/TableToolbar";
 import { ClientSetupWizard } from '@/components/ClientSetupWizard';
 
 export default function Clients() {
-  const [statusFilter, setStatusFilter] = useState("all");
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -159,22 +157,11 @@ export default function Clients() {
     setShowEditDialog(true);
   };
 
-  const filteredClients = useMemo(() => {
-    return clients.filter(client => {
-      const matchesSearch = !searchQuery || [
-        client.name, 
-        client.parent_company, 
-        client.contact_name, 
-        client.contact_email
-      ].some(val => val?.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const matchesStatus = statusFilter === "all" || 
-        (statusFilter === "active" && client.is_active) || 
-        (statusFilter === "inactive" && !client.is_active);
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [clients, searchQuery, statusFilter]);
+  const filteredClients = clients.filter(client =>
+    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (client.parent_company?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (client.contact_name?.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -234,29 +221,21 @@ export default function Clients() {
                   <ChevronDown className={cn("h-5 w-5 transition-transform", !isTableOpen && "-rotate-90")} />
                   <div>
                     <CardTitle>Clients</CardTitle>
+                    <CardDescription>
+                      {filteredClients.length} client{filteredClients.length !== 1 ? 's' : ''}
+                    </CardDescription>
                   </div>
                 </div>
-                <div onClick={(e) => e.stopPropagation()}>
-                  <TableToolbar
-                    search={searchQuery}
-                    onSearchChange={setSearchQuery}
-                    placeholder="Search clients..."
-                    shown={filteredClients.length}
-                    total={clients.length}
-                    filters={[
-                      {
-                        key: "status",
-                        label: "Status",
-                        value: statusFilter,
-                        onChange: setStatusFilter,
-                        options: [
-                          { value: "active", label: "Active" },
-                          { value: "inactive", label: "Inactive" }
-                        ]
-                      }
-                    ]}
-                  />
-                </div>
+                <div className="w-64" onClick={(e) => e.stopPropagation()}>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search clients..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
                 </div>
               </div>
             </CardHeader>

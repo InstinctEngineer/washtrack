@@ -33,9 +33,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { useTableSort } from '@/hooks/useTableSort';
-import { SortableTableHead } from '@/components/SortableTableHead';
-import { TableToolbar } from "@/components/TableToolbar";
 
 interface LocationTableProps {
   locations: Location[];
@@ -59,9 +56,10 @@ export const LocationTable = ({
   onDeactivate,
   onViewDetails,
 }: LocationTableProps) => {
-  const [clientFilter, setClientFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sortField, setSortField] = useState<'name' | 'employees'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [stats, setStats] = useState<LocationStats>({});
   const [clients, setClients] = useState<Client[]>([]);
   const [deactivateDialog, setDeactivateDialog] = useState<{ open: boolean; location: Location | null }>({
@@ -106,42 +104,43 @@ export const LocationTable = ({
     }
   }, [locations]);
 
-  const filteredLocations = useMemo(() => {
-    return locations.filter((location) => {
-      const clientName = stats[location.id]?.clientName;
-      const matchesQuery = !searchTerm || [
-        location.name, 
-        location.address,
-        clientName
-      ].some(val => val?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredAndSortedLocations = useMemo(() => {
+    let filtered = locations.filter((location) => {
+      const matchesSearch =
+        location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        location.address?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesStatus = 
-        statusFilter === "all" || 
-        (statusFilter === "active" && location.is_active) || 
-        (statusFilter === "inactive" && !location.is_active);
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && location.is_active) ||
+        (statusFilter === 'inactive' && !location.is_active);
 
-      const matchesClient = clientFilter === "all" || location.client_id === clientFilter;
-
-      return matchesQuery && matchesStatus && matchesClient;
+      return matchesSearch && matchesStatus;
     });
-  }, [locations, searchTerm, statusFilter, clientFilter, stats]);
 
-  const { sortedData: filteredAndSortedLocations, sortColumn, sortDirection, handleSort } = useTableSort(
-    filteredLocations,
-    {
-      initialColumn: 'name',
-      getValue: (loc, col) => {
-        switch (col) {
-          case 'name': return loc.name;
-          case 'client': return stats[loc.id]?.clientName || '';
-          case 'address': return loc.address || '';
-          case 'employees': return stats[loc.id]?.employeeCount || 0;
-          case 'is_active': return loc.is_active;
-          default: return '';
-        }
-      },
+    filtered.sort((a, b) => {
+      let comparison = 0;
+
+      if (sortField === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (sortField === 'employees') {
+        comparison = (stats[a.id]?.employeeCount || 0) - (stats[b.id]?.employeeCount || 0);
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+  }, [locations, searchTerm, statusFilter, sortField, sortDirection, stats]);
+
+  const handleSort = (field: 'name' | 'employees') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
     }
-  );
+  };
 
   const handleDeactivateClick = (location: Location) => {
     setDeactivateDialog({ open: true, location });
@@ -166,3 +165,155 @@ export const LocationTable = ({
             <ChevronDown className={cn("h-5 w-5 transition-transform", !isTableOpen && "-rotate-90")} />
             <div>
               <CardTitle>Locations</CardTitle>
+              <CardDescription>{locations.length} location{locations.length !== 1 ? 's' : ''}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
+            <div className="flex gap-4 items-center">
+              <Input
+                placeholder="Search by name or address..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-sm"
+              />
+              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  <SelectItem value="active">Active Only</SelectItem>
+                  <SelectItem value="inactive">Inactive Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('name')}
+              >
+                Location Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableHead>
+              <TableHead>Client</TableHead>
+              <TableHead>Address</TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('employees')}
+              >
+                Active Employees {sortField === 'employees' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAndSortedLocations.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  No locations found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredAndSortedLocations.map((location) => (
+                <TableRow key={location.id}>
+                  <TableCell>
+                    <button
+                      onClick={() => onViewDetails(location)}
+                      className="font-medium hover:underline text-primary"
+                    >
+                      {location.name}
+                    </button>
+                  </TableCell>
+                  <TableCell>
+                    {stats[location.id]?.clientName ? (
+                      <Badge variant="outline">{stats[location.id].clientName}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {location.address || '-'}
+                  </TableCell>
+                  <TableCell>{stats[location.id]?.employeeCount || 0}</TableCell>
+                  <TableCell>
+                    <Badge variant={location.is_active ? 'default' : 'secondary'}>
+                      {location.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onViewDetails(location)}
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEdit(location)}
+                        title="Edit"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeactivateClick(location)}
+                        title={location.is_active ? 'Deactivate' : 'Activate'}
+                      >
+                        <Power
+                          className={`h-4 w-4 ${location.is_active ? 'text-destructive' : 'text-green-600'}`}
+                        />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <AlertDialog open={deactivateDialog.open} onOpenChange={(open) => setDeactivateDialog({ open, location: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deactivateDialog.location?.is_active ? 'Deactivate' : 'Activate'} Location
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deactivateDialog.location?.is_active ? (
+                <>
+                  Are you sure you want to deactivate "{deactivateDialog.location?.name}"?
+                  {stats[deactivateDialog.location?.id || '']?.employeeCount > 0 && (
+                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
+                      Warning: {stats[deactivateDialog.location?.id || '']?.employeeCount} active employee(s) are
+                      assigned to this location.
+                    </div>
+                  )}
+                </>
+              ) : (
+                `Are you sure you want to activate "${deactivateDialog.location?.name}"?`
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeactivateConfirm}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+};
