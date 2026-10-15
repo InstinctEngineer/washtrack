@@ -49,6 +49,20 @@ interface ErrorReportReply {
   user_name?: string;
 }
 
+// Fill in names for client portal users, who have no employee record.
+async function addPortalNames(ids: string[], map: Map<string, string>) {
+  const missing = ids.filter((id) => !map.get(id));
+  if (missing.length === 0) return;
+  const { data } = await supabase
+    .from('client_portal_users')
+    .select('auth_user_id, first_name, last_name, display_name, email')
+    .in('auth_user_id', missing);
+  (data || []).forEach((p) => {
+    const full = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
+    map.set(p.auth_user_id, `${full || p.display_name || p.email} (Client Portal)`);
+  });
+}
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState({
@@ -86,7 +100,8 @@ export default function AdminDashboard() {
       if (!error && data) {
         const userIds = [...new Set(data.map(r => r.user_id))];
         const { data: users } = await supabase.rpc('get_user_display_info', { user_ids: userIds });
-        const nameMap = new Map((users || []).map((u: any) => [u.id, u.name]));
+        const nameMap = new Map<string, string>((users || []).filter((u: any) => u.name).map((u: any) => [u.id, u.name]));
+        await addPortalNames(userIds, nameMap);
         setReplies(data.map(r => ({ ...r, user_name: nameMap.get(r.user_id) || 'Unknown' })));
       } else {
         setReplies([]);
@@ -132,7 +147,8 @@ export default function AdminDashboard() {
           .select('id, name')
           .in('id', userIds);
 
-        const userMap = new Map(users?.map(u => [u.id, u.name]) || []);
+        const userMap = new Map<string, string>(users?.map(u => [u.id, u.name]) || []);
+        await addPortalNames(userIds, userMap);
         const enriched = reports.map(r => ({
           ...r,
           reporter_name: userMap.get(r.reported_by) || 'Unknown',
