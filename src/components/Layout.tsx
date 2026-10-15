@@ -30,9 +30,11 @@ import {
   Smartphone,
   Share,
   Activity,
-  Car
+  Car,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { hasRoleOrHigher } from '@/lib/roleUtils';
 import esAndDLogo from '@/assets/es-d-logo.png';
 import { UserRole } from '@/types/database';
@@ -196,6 +198,28 @@ export const Layout = ({ children }: LayoutProps) => {
     return acc;
   }, {} as Record<string, typeof navItems>);
 
+  const activeSection = navItems.find(item => item.path === location.pathname)?.section || 'Other';
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => new Set([activeSection]));
+
+  // Keep the section containing the current page expanded.
+  useEffect(() => {
+    setExpandedSections(prev => {
+      if (prev.has(activeSection)) return prev;
+      const next = new Set(prev);
+      next.add(activeSection);
+      return next;
+    });
+  }, [activeSection]);
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  };
+
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case 'admin': return 'default';
@@ -287,12 +311,24 @@ export const Layout = ({ children }: LayoutProps) => {
         `}>
           <nav className="h-full p-4 overflow-y-auto">
             <div className="flex flex-col gap-4">
-              {Object.entries(groupedNavItems).map(([section, items]) => (
+              {Object.entries(groupedNavItems).map(([section, items]) => {
+                const isExpanded = expandedSections.has(section);
+                return (
                 <div key={section} className="space-y-1">
-                  <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section)}
+                    aria-expanded={isExpanded}
+                    className="mb-2 flex w-full items-center justify-between px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+                  >
                     {section}
-                  </h3>
-                  {items.map((item) => {
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
+                  {isExpanded && items.map((item) => {
                     const isActive = location.pathname === item.path;
                     return (
                       <Link
@@ -329,7 +365,8 @@ export const Layout = ({ children }: LayoutProps) => {
                     );
                   })}
                 </div>
-              ))}
+                );
+              })}
 
               {!isInstalled && (
                 <div className="border-t pt-4 mt-2">
