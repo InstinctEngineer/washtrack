@@ -24,16 +24,24 @@ export default function PortalSignup() {
       const { data, error: fnErr } = await supabase.functions.invoke('create-portal-user', {
         body: { email, password },
       });
-      if (fnErr) throw fnErr;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if (fnErr) {
+        let message = "We couldn't create an account with this email. Please contact our office.";
+        try {
+          const body = await (fnErr as any).context?.json?.();
+          if (body?.error) message = body.error;
+        } catch { /* keep generic */ }
+        setError(message);
+        return;
+      }
+      if ((data as any)?.error) { setError((data as any).error); return; }
 
       // Sign in
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
       if (signInErr) throw signInErr;
 
       navigate('/portal/onboarding', { replace: true });
-    } catch (err: any) {
-      setError(err.message || 'Failed to create account');
+    } catch {
+      setError("We couldn't create an account right now. Please contact our office.");
     } finally {
       setLoading(false);
     }

@@ -15,6 +15,13 @@
       "when": 1789614877603,
       "tag": "0001_payroll_rate_sheet_and_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792104051078,
+      "tag": "0002_portal_dealership_history_from_work_logs",
+      "breakpoints": true
     }
   ]
 }

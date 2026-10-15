@@ -7,95 +7,92 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const GENERIC = "We couldn't create an account with this email. Please contact our office.";
+
 const schema = z.object({
-  email: z.string().email().max(255),
+  email: z.string().trim().email().max(255),
   password: z.string().min(8).max(128),
 });
+
+const json = (body: unknown, status: number) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
+  const admin = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  // Determine whether the caller is internal staff (manager or above).
+  let isStaff = false;
   try {
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    const token = (req.headers.get('Authorization') || '').replace('Bearer ', '');
+    if (token) {
+      const { data } = await admin.auth.getUser(token);
+      if (data?.user) {
+        const { data: ok } = await admin.rpc('has_role_or_higher', { _user_id: data.user.id, _required_role: 'manager' });
+        isStaff = !!ok;
+      }
+    }
+  } catch { /* treat as public */ }
 
-    const body = await req.json();
-    const { email, password } = schema.parse(body);
+  const fail = (status: number, staffMessage: string, publicMessage = GENERIC) =>
+    json({ error: isStaff ? staffMessage : publicMessage }, status);
 
-    // Refuse if email already belongs to an internal employee
+  try {
+    const parsed = schema.safeParse(await req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return fail(400, 'Enter a valid email and a password of at least 8 characters.', 'Enter a valid email and a password of at least 8 characters.');
+    }
+    const { email, password } = parsed.data;
+
     const { data: internalUser } = await admin
       .from('users')
-      .select('id')
-      .eq('email', email)
+      .select('name, employee_id, is_active')
+      .ilike('email', email)
       .maybeSingle();
     if (internalUser) {
-      return new Response(
-        JSON.stringify({ error: 'This email is already in use. Please contact our office.' }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return fail(409,
+        `This email already belongs to an internal employee account (${internalUser.name}, Employee ID ${internalUser.employee_id}, ${internalUser.is_active ? 'active' : 'inactive'}). One email can't be both an employee and a portal user. Change or remove the employee account's email in User Management first, then try again.`);
     }
 
-    // Check existing auth user for this email
     const { data: listed } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const existingAuth = listed?.users?.find((u) => u.email === email);
+    const existingAuth = listed?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
     if (existingAuth) {
       const { data: existingPortal } = await admin
-        .from('client_portal_users')
-        .select('id')
-        .eq('auth_user_id', existingAuth.id)
-        .maybeSingle();
+        .from('client_portal_users').select('id').eq('auth_user_id', existingAuth.id).maybeSingle();
       if (existingPortal) {
-        return new Response(
-          JSON.stringify({ error: 'An account with this email already exists. Please sign in.' }),
-          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return fail(409, 'A client portal account with this email already exists. Find it on the Portal Users page.',
+          'An account with this email already exists. Please sign in.');
       }
-      // Orphaned auth user — clean up
       await admin.auth.admin.deleteUser(existingAuth.id);
     }
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { portal_user: true },
+      email, password, email_confirm: true, user_metadata: { portal_user: true },
     });
     if (createErr || !created.user) {
-      return new Response(
-        JSON.stringify({ error: createErr?.message ?? 'Failed to create account' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.error('createUser failed', createErr);
+      return fail(400, `Account could not be created: ${createErr?.message ?? 'unknown error'}`);
     }
 
     const { error: insertErr } = await admin.from('client_portal_users').insert({
-      auth_user_id: created.user.id,
-      email,
-      display_name: email.split('@')[0],
-      is_active: true,
-      onboarding_completed: false,
-      approval_status: 'pending',
+      auth_user_id: created.user.id, email, display_name: email.split('@')[0],
+      is_active: true, onboarding_completed: false, approval_status: 'pending',
       last_login_at: new Date().toISOString(),
     });
     if (insertErr) {
+      console.error('portal insert failed', insertErr);
       await admin.auth.admin.deleteUser(created.user.id);
-      return new Response(
-        JSON.stringify({ error: insertErr.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return fail(400, `Portal profile could not be saved: ${insertErr.message}`);
     }
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ success: true }, 200);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('create-portal-user error', e);
+    return fail(500, `Unexpected error: ${e instanceof Error ? e.message : 'unknown'}`);
   }
 });
