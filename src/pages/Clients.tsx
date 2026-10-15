@@ -22,6 +22,7 @@ export default function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -158,9 +159,10 @@ export default function Clients() {
   };
 
   const filteredClients = clients.filter(client =>
+    (statusFilter === 'all' || (statusFilter === 'active') === !!client.is_active) && (
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (client.parent_company?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (client.contact_name?.toLowerCase().includes(searchQuery.toLowerCase()))
+    (client.contact_name?.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
   const handleSort = (column: string) => {
@@ -226,7 +228,18 @@ export default function Clients() {
                     </CardDescription>
                   </div>
                 </div>
-                <div className="w-64" onClick={(e) => e.stopPropagation()}>
+                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <select
+                    aria-label="Status"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                  <div className="w-64">
                   <div className="relative">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -235,6 +248,7 @@ export default function Clients() {
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-8"
                     />
+                  </div>
                   </div>
                 </div>
               </div>
