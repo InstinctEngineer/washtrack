@@ -87,9 +87,10 @@ export function CSVImportModal({ open, onOpenChange }: CSVImportModalProps) {
   }, []);
 
   const handleClose = useCallback(() => {
+    if (isProcessing || isImporting) return;
     resetState();
     onOpenChange(false);
-  }, [onOpenChange, resetState]);
+  }, [onOpenChange, resetState, isProcessing, isImporting]);
 
   const downloadExampleCSV = () => {
     const csvContent = `client_name,location_name,identifier,work_type,frequency,rate_type,rate
@@ -112,6 +113,7 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isProcessing || isImporting) return;
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
@@ -257,6 +259,7 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
 
   const parseCSV = async (csvFile: File) => {
     setIsProcessing(true);
+    setParsedRows([]);
 
     try {
       // Fetch clients and locations for validation
@@ -495,6 +498,7 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
   }, [parsedRows, search]);
 
   const handleImport = async () => {
+    if (isProcessing || isImporting) return;
     const validRows = parsedRows.filter((row) => row.isValid && !row.isSkipped);
     if (validRows.length === 0) {
       toast({
@@ -861,7 +865,7 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
                 <FileText className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm font-medium">{file.name}</span>
               </div>
-              <Button variant="ghost" size="sm" onClick={resetState}>
+              <Button variant="ghost" size="sm" onClick={resetState} disabled={isProcessing || isImporting}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -1073,11 +1077,11 @@ Beta Inc,Headquarters,VAN-001,Cargo Van,Weekly,per_unit,35.00`;
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} disabled={isProcessing || isImporting}>
             {importResults ? "Close" : "Cancel"}
           </Button>
           {parsedRows.length > 0 && !importResults && (
-            <Button onClick={handleImport} disabled={validCount === 0 || isImporting}>
+            <Button onClick={handleImport} disabled={validCount === 0 || isProcessing || isImporting}>
               {isImporting ? "Importing..." : `Import ${validCount} Services`}
             </Button>
           )}

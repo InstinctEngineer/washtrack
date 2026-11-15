@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
@@ -389,7 +390,25 @@ const PayrollDashboard = () => {
         {activeTab === 'ecodes' && <PayrollPayCodes />}
 
         {activeTab === 'hours' && <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Upload className="h-5 w-5" />Import Hours</CardTitle><CardDescription>Upload the weekly CSV or Excel file from the outside timekeeping system. The final step will map its columns into hours and overtime.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="rounded-md border border-dashed p-8 text-center"><Input type="file" accept=".csv,.xlsx,.xls" onChange={event => setHoursFile(event.target.files?.[0] || null)} /><p className="mt-2 text-sm text-muted-foreground">{hoursFile ? hoursFile.name : 'Choose a CSV or Excel file'}</p></div><Button onClick={() => void importHours()} disabled={!hoursFile || !period || !isPeriodEditable(period.status)}><Upload className="mr-2 h-4 w-4" />Upload Hours for {period ? `${period.period_start} – ${period.period_end}` : 'selected week'}</Button><p className="text-sm text-muted-foreground">Required mapping: employee name or employee number, regular hours, and optional E02 overtime hours.</p></CardContent></Card>}
+          <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Upload className="h-5 w-5" />Import Hours</CardTitle><CardDescription>Upload the weekly CSV or Excel file from the outside timekeeping system. The final step will map its columns into hours and overtime.</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="max-w-md space-y-2">
+              <Label htmlFor="hours-week">Payroll week</Label>
+              <Select value={period?.id || ''} disabled={working} onValueChange={id => { const selected = periods.find(item => item.id === id); if (selected) void selectPeriod(selected); }}>
+                <SelectTrigger id="hours-week"><SelectValue placeholder="Select a payroll week" /></SelectTrigger>
+                <SelectContent>{periods.map(item => <SelectItem key={item.id} value={item.id}>{item.period_start} – {item.period_end} · {item.status}</SelectItem>)}</SelectContent>
+              </Select>
+              {!period && <p className="text-sm text-muted-foreground">Select a week before uploading hours.{periods.length === 0 && ' Create one in Weekly Run first.'}</p>}
+              {period && !isPeriodEditable(period.status) && <p className="text-sm text-muted-foreground">This week is completed. Reopen it in Weekly Run before uploading hours.</p>}
+            </div>
+            <div className="rounded-md border border-dashed p-8 text-center">
+              <Input aria-label="Hours file" type="file" accept=".csv,.xlsx,.xls" disabled={working} onInput={event => setHoursFile(event.currentTarget.files?.[0] || null)} onChange={event => setHoursFile(event.currentTarget.files?.[0] || null)} />
+              <p className="mt-2 text-sm text-muted-foreground">{hoursFile ? hoursFile.name : 'Choose a CSV or Excel file'}</p>
+            </div>
+            <Button onClick={() => void importHours()} disabled={working || !hoursFile || !period || !isPeriodEditable(period.status)}>{working ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}{working ? 'Importing hours…' : `Upload Hours for ${period ? `${period.period_start} – ${period.period_end}` : 'selected week'}`}</Button>
+            <p className="text-sm text-muted-foreground">Required mapping: employee name or employee number, regular hours, and optional E02 overtime hours.</p>
+          </CardContent>
+        </Card>}
       </div>
     </Layout>
   );
