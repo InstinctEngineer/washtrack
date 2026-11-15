@@ -5,4 +5,4 @@
 - [x] Connect uploaded timekeeping files to payroll hours imports and generated run lines.
 - [x] Validate payroll workflow against live preview and confirm build diagnostics.
 - [x] Map each work type to one Future Systems E code (global, not per location).
-- [ ] Check all upload actions for immediate readiness and clear prerequisites; preserve existing records and permissions.
+- [x] Check all upload actions for immediate readiness and clear prerequisites; preserve existing records and permissions.
